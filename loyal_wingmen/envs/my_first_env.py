@@ -16,7 +16,7 @@ from utils.enums import DroneModel, Physics, ImageType
 from gym import spaces
 
 
-class my_first_env(gym.Env):
+class MyFirstEnv(gym.Env):
     """Base class for "drone aviary" Gym environments."""
 
     metadata = {'render.modes': ['human']}
