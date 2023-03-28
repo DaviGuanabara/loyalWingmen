@@ -31,6 +31,7 @@ class MyFirstEnv(gym.Env):
                  physics: Physics = Physics.PYB,
                  freq: int = 240,
                  aggregate_phy_steps: int = 1,
+                 GUI: bool = False
                  ):
         """Initialization of a generic aviary environment.
         Parameters
@@ -81,18 +82,24 @@ class MyFirstEnv(gym.Env):
        
         #### With debug GUI ########################################
         # p.connect(p.GUI, options="--opengl2")
-        self.CLIENT = p.connect(p.GUI)
-        for i in [p.COV_ENABLE_RGB_BUFFER_PREVIEW, p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW]:
-            p.configureDebugVisualizer(i, 0, physicsClientId=self.CLIENT)
-        p.resetDebugVisualizerCamera(cameraDistance=3,
-                                        cameraYaw=-30,
-                                        cameraPitch=-30,
-                                        cameraTargetPosition=[0, 0, 0],
-                                        physicsClientId=self.CLIENT
-                                        )
-        ret = p.getDebugVisualizerCamera(physicsClientId=self.CLIENT)
-        print("viewMatrix", ret[2])
-        print("projectionMatrix", ret[3])
+
+        if GUI:
+
+            self.CLIENT = p.connect(p.GUI)
+            for i in [p.COV_ENABLE_RGB_BUFFER_PREVIEW, p.COV_ENABLE_DEPTH_BUFFER_PREVIEW, p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW]:
+                p.configureDebugVisualizer(i, 0, physicsClientId=self.CLIENT)
+            p.resetDebugVisualizerCamera(cameraDistance=3,
+                                            cameraYaw=-30,
+                                            cameraPitch=-30,
+                                            cameraTargetPosition=[0, 0, 0],
+                                            physicsClientId=self.CLIENT
+                                            )
+            ret = p.getDebugVisualizerCamera(physicsClientId=self.CLIENT)
+            print("viewMatrix", ret[2])
+            print("projectionMatrix", ret[3])
+
+        else:
+            self.CLIENT = p.connect(p.DIRECT)
        
         
             #### Without debug GUI #####################################
@@ -207,6 +214,8 @@ class MyFirstEnv(gym.Env):
         info = self._computeInfo()
         #### Advance the step counter ##############################
         #self.step_counter = self.step_counter + (1 * self.AGGR_PHY_STEPS)
+
+        print(obs, reward, done, info)
         return obs, reward, done, info
 
     ################################################################################

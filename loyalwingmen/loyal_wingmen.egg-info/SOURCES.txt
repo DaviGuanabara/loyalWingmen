@@ -1,0 +1,5 @@
+setup.py
+loyal_wingmen.egg-info/PKG-INFO
+loyal_wingmen.egg-info/SOURCES.txt
+loyal_wingmen.egg-info/dependency_links.txt
+loyal_wingmen.egg-info/top_level.txt

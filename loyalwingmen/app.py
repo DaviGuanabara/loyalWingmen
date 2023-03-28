@@ -14,7 +14,7 @@ from stable_baselines3 import PPO
 
 from utils.callback_factory import gen_eval_callback
 from utils.Logger import Logger
-from loyal_wingmen.envs.my_first_env import MyFirstEnv
+from envs.my_first_env import MyFirstEnv
 from utils.utils import sync, str2bool
 import torch
 from stable_baselines3.common.env_util import make_vec_env
@@ -29,7 +29,7 @@ from stable_baselines3.common.env_checker import check_env
 #env = my_first_env()
 #check_env(env)
 
-env = make_vec_env(MyFirstEnv,n_envs=1)
+env = make_vec_env(MyFirstEnv,n_envs=2)
 #tenho que remover o GUI caso queria usar múltimos ambientes.
 #env = gym.make(my_first_env())
 eval_callback = gen_eval_callback(
