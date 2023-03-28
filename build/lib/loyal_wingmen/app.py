@@ -25,12 +25,9 @@ from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.env_checker import check_env
 
-#env = MyFirstEnv() #gym.make('MyFirstEnv-v0')
+env = MyFirstEnv() #gym.make('MyFirstEnv-v0')
 #env = my_first_env()
-#check_env(env)
-
-env = make_vec_env(MyFirstEnv,n_envs=1)
-#tenho que remover o GUI caso queria usar múltimos ambientes.
+check_env(env)
 #env = gym.make(my_first_env())
 eval_callback = gen_eval_callback(
     env, "/log", "/models", eval_freq=1000)
