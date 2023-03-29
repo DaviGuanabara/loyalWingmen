@@ -28,10 +28,10 @@ def gen_checkpoint_callback(save_freq, save_path, n_envs):
 def callbacklist(env, log_path="./logs/", model_path="./models/", n_envs=1, save_freq=10000):
 
     list = []
-    eval_callback = gen_eval_callback(
-        env, log_path, model_path, eval_freq=save_freq)
-    checkpoint_callback = gen_checkpoint_callback(
-        save_freq, model_path, n_envs)
+
+    # trigger its child callback when there is a new best model
+    eval_callback = gen_eval_callback(env, log_path, model_path, eval_freq=save_freq)
+    checkpoint_callback = gen_checkpoint_callback(save_freq, model_path, n_envs)
     progressbar_callback = ProgressBarCallback()
 
     list.append(eval_callback)

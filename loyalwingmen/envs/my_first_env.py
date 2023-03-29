@@ -77,7 +77,7 @@ class MyFirstEnv(gym.Env):
       
   
 
-       
+        self.step_counter = 0
         #### Connect to PyBullet ###################################
        
         #### With debug GUI ########################################
@@ -151,7 +151,7 @@ class MyFirstEnv(gym.Env):
         p.resetSimulation(physicsClientId=self.CLIENT)
         #### Housekeeping ##########################################
         initial_xyzs = np.zeros(3)
-
+        
 
 
         #self._housekeeping()
@@ -208,14 +208,14 @@ class MyFirstEnv(gym.Env):
         #### Update and store the drones kinematic information #####
         #self._updateAndStoreKinematicInformation()
         #### Prepare the return values #############################
+
+        self.step_counter += 1
+
         obs = self._computeObs()
         reward = self._computeReward()
         done = self._computeDone()
         info = self._computeInfo()
-        #### Advance the step counter ##############################
-        #self.step_counter = self.step_counter + (1 * self.AGGR_PHY_STEPS)
 
-        print(obs, reward, done, info)
         return obs, reward, done, info
 
     ################################################################################
@@ -353,20 +353,6 @@ class MyFirstEnv(gym.Env):
                               physicsClientId=self.CLIENT
                               )
 
-    ################################################################################
-
-   
-
-    ################################################################################
-
-    
-
-    ################################################################################
-
- 
-
-
-    ################################################################################
 
 
 
@@ -466,6 +452,9 @@ class MyFirstEnv(gym.Env):
         Must be implemented in a subclass.
         """
         #raise NotImplementedError
+
+        if self.step_counter % 100 == 0:
+            return True
         return False
 
     ################################################################################
