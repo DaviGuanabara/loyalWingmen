@@ -2,16 +2,6 @@
 import time
 import gym
 from stable_baselines3 import PPO
-
-# from stable_baselines3.a2c import MlpPolicy
-
-
-
-# from stable_baselines3.common.callbacks import ProgressBarCallback
-# import ray
-# from ray.tune import register_env
-# from ray.rllib.agents import ppo
-
 from utils.callback_factory import gen_eval_callback, callbacklist
 from utils.Logger import Logger
 from envs.my_first_env import MyFirstEnv
@@ -25,6 +15,9 @@ from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.env_checker import check_env
 
+
+#Fazer um gerenciador de agentes e outro de obstáculo
+#Fazer dentro do ambiente ou fora ?
 train = False
 test = True
 
