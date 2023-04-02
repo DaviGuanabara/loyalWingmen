@@ -1,4 +1,3 @@
-
 import time
 import gym
 from stable_baselines3 import PPO
@@ -16,32 +15,33 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.env_checker import check_env
 
 
-#Fazer um gerenciador de agentes e outro de obstáculo
-#Fazer dentro do ambiente ou fora ?
+# Fazer um gerenciador de agentes e outro de obstáculo
+# Fazer dentro do ambiente ou fora ?
 train = False
 test = True
 
 
 if train:
-
     n_envs = 2
 
     env = make_vec_env(MyFirstEnv, n_envs=n_envs)
-    eval_callback = callbacklist(env, log_path="./logs/", model_path="./models/",
-                                n_envs=n_envs, save_freq=10_000)
+    eval_callback = callbacklist(
+        env, log_path="./logs/", model_path="./models/", n_envs=n_envs, save_freq=10_000
+    )
 
-    model = PPO("MlpPolicy", env, verbose=0, device='auto')  # + "/" str(learning_rate) +
+    model = PPO(
+        "MlpPolicy", env, verbose=0, device="auto"
+    )  # + "/" str(learning_rate) +
     # reset_num_timesteps=False,
     model.learn(total_timesteps=10_000, callback=eval_callback)
 
-if test:     
-
+if test:
     env = MyFirstEnv(GUI=True)
-    for steps in range(5000):
+    for steps in range(50_000):
         # agent policy that uses the observation and info
-        #action = env.action_space.sample()
-        observation, reward, done, info = env.step([])
+        # action = env.action_space.sample()
+        observation, reward, done, info = env.step([0, 0, 1, 0.005])
 
         if done:
-            #print("done")
+            # print("done")
             env.reset()
