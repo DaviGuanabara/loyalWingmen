@@ -19,12 +19,26 @@ from gym import spaces
 from dataclasses import dataclass
 from typing import NamedTuple
 
-from utils.agent_manager import apply_velocity_action, update_kinematics
-from utils.agent_factory import gen_drone
+from utils.agent_manager import (
+    apply_velocity_action,
+    update_kinematics,
+    gen_drone,
+    collect_kinematics,
+)
+
+# from utils.agent_factory import gen_drone
 
 
 # TODO: Fazer uma classe só com as constantes.
 # TODO: Rever o agent_factory e o agent_manager.
+
+
+# Imutável
+class EnvParameters(NamedTuple):
+    G: float
+    NEIGHBOURHOOD_RADIUS: float
+
+
 class MyFirstEnv(gym.Env):
     """Base class for "drone aviary" Gym environments."""
 
@@ -35,7 +49,6 @@ class MyFirstEnv(gym.Env):
     def __init__(
         self,
         drone_model: DroneModel = DroneModel.CF2X,
-        neighbourhood_radius: float = np.inf,
         initial_xyzs=None,
         initial_rpys=None,
         physics: Physics = Physics.PYB,
@@ -76,9 +89,8 @@ class MyFirstEnv(gym.Env):
             Whether to allocate the attributes needed by subclasses accepting thrust and torques inputs.
         """
         #### Constants #############################################
-        self.G = 9.8
+        self.envparameters = EnvParameters(G=9.8, NEIGHBOURHOOD_RADIUS=np.inf)
 
-        self.NEIGHBOURHOOD_RADIUS = neighbourhood_radius
         #### Options ###############################################
         self.DRONE_MODEL = drone_model
         self.PHYSICS = physics
@@ -115,7 +127,8 @@ class MyFirstEnv(gym.Env):
         else:
             self.CLIENT = p.connect(p.DIRECT)
 
-        p.setGravity(0, 0, -self.G, physicsClientId=self.CLIENT)
+        p.setGravity(0, 0, -self.envparameters.G, physicsClientId=self.CLIENT)
+
         p.setRealTimeSimulation(0, physicsClientId=self.CLIENT)
         # p.setTimeStep(1.0 / 240, physicsClientId=self.CLIENT)
         # p.setTimeStep(1.0, physicsClientId=self.CLIENT)
@@ -137,8 +150,8 @@ class MyFirstEnv(gym.Env):
 
         self.drone = gen_drone(
             client_id=self.CLIENT,
-            urdf_file_path="assets/" + drone_model.value + ".urdf"
-            # gravity_acceleration=self.G
+            urdf_file_path="assets/" + drone_model.value + ".urdf",
+            gravity_acceleration=self.envparameters.G,
         )
 
         update_kinematics(self.CLIENT, self.drone)
@@ -152,20 +165,6 @@ class MyFirstEnv(gym.Env):
         # self._updateAndStoreKinematicInformation()
 
         #### Set PyBullet's parameters #############################
-
-    def load_agent(
-        self,
-        urdf_file_path: str,
-        initial_position=np.ones(3),
-        initial_angular_position=np.zeros(3),
-    ):
-        p.loadURDF(
-            urdf_file_path,
-            initial_position,
-            p.getQuaternionFromEuler(initial_angular_position),
-            flags=p.URDF_USE_INERTIA_FROM_FILE,
-            physicsClientId=self.CLIENT,
-        )
 
         ################################################################################
 
@@ -216,30 +215,9 @@ class MyFirstEnv(gym.Env):
             in each subclass for its format.
         """
 
-        #### Read the GUI's input parameters #######################
-
-        # todo corrigir
-        # clipped_action = np.reshape(
-        #    self._preprocessAction(action))
-        #### Repeat for as many as the aggregate physics steps #####
-        # for _ in range(self.AGGR_PHY_STEPS):
-
-        # Physics.PYB:
-        # self._physics(clipped_action[i, :], i)
-
-        #### PyBullet computes the new state, unless Physics.DYN ###
-        # if self.PHYSICS != Physics.DYN:
-        #    p.stepSimulation(physicsClientId=self.CLIENT)
-        #### Save the last applied action (e.g. to compute drag) ###
-        # self.last_clipped_action = clipped_action
-        #### Update and store the drones kinematic information #####
-        # self._updateAndStoreKinematicInformation()
-        #### Prepare the return values #############################
-
         apply_velocity_action(self.CLIENT, self.drone, action)
         update_kinematics(self.CLIENT, self.drone)
         p.stepSimulation()
-        # time.sleep(1./240.)
 
         self.step_counter += 1
 
@@ -291,7 +269,7 @@ class MyFirstEnv(gym.Env):
         #### Initialize the drones kinemaatic information ##########
 
         #### Set PyBullet's parameters #############################
-        p.setGravity(0, 0, -self.G, physicsClientId=self.CLIENT)
+        p.setGravity(0, 0, -self.envparameters.G, physicsClientId=self.CLIENT)
         p.setRealTimeSimulation(0, physicsClientId=self.CLIENT)
         p.setTimeStep(1.0 / 240, physicsClientId=self.CLIENT)
         p.setAdditionalSearchPath(
@@ -301,8 +279,8 @@ class MyFirstEnv(gym.Env):
         self.drone = gen_drone(
             client_id=self.CLIENT,
             urdf_file_path="assets/" + "cf2x.urdf",  # drone_model.value + ".urdf"
-            initial_position=np.ones(3)
-            # gravity_acceleration=self.G
+            initial_position=np.ones(3),
+            gravity_acceleration=self.envparameters.G,
         )
 
         update_kinematics(self.CLIENT, self.drone)
@@ -406,7 +384,11 @@ class MyFirstEnv(gym.Env):
         Must be implemented in a subclass.
         """
         # raise NotImplementedError
-        return np.zeros(16).astype("float32")
+
+        kinematics = collect_kinematics(self.CLIENT, self.drone)
+        # print(kinematics)
+        # time.sleep(0.3)
+        return kinematics  # np.zeros(16).astype("float32")
 
     def _computeReward(self):
         """Computes the current reward value(s).

@@ -7,6 +7,7 @@ from envs.my_first_env import MyFirstEnv
 from utils.utils import sync, str2bool
 import torch
 from stable_baselines3.common.env_util import make_vec_env
+from utils.keyboard_listener import KeyboardListener
 
 
 from typing import Callable
@@ -36,10 +37,13 @@ if train:
     model.learn(total_timesteps=10_000, callback=eval_callback)
 
 if test:
+    keyboard_listener = KeyboardListener()
     env = MyFirstEnv(GUI=True)
     for steps in range(50_000):
         # agent policy that uses the observation and info
         # action = env.action_space.sample()
+        button = keyboard_listener.get_button()
+        print(button)
         observation, reward, done, info = env.step([0, 0, 1, 0.005])
 
         if done:

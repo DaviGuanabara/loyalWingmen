@@ -14,6 +14,20 @@ from utils.agent_factory import Kinematics
 from utils.agent_factory import Drone
 
 from control.DSLPIDControl import DSLPIDControl
+from utils.agent_factory import gen_drone
+
+################################################################################
+## Kinematics
+################################################################################
+
+
+def store_kinematics(client_id, drone, kinematics):
+    drone.kinematics = kinematics
+
+
+def update_kinematics(client_id, drone):
+    kinematics = collect_kinematics(client_id, drone)
+    store_kinematics(client_id, drone, kinematics)
 
 
 def collect_kinematics(client_id, drone):
@@ -34,13 +48,9 @@ def collect_kinematics(client_id, drone):
     return kinematics  # position, angular_position, velocity, angular_velocity
 
 
-def store_kinematics(client_id, drone, kinematics):
-    drone.kinematics = kinematics
-
-
-def update_kinematics(client_id, drone):
-    kinematics = collect_kinematics(client_id, drone)
-    store_kinematics(client_id, drone, kinematics)
+################################################################################
+## Action
+################################################################################
 
 
 def _preprocessAction(action, drone: Drone, timestep: int):
@@ -91,6 +101,12 @@ def _preprocessAction(action, drone: Drone, timestep: int):
     return rpm
 
 
+def apply_velocity_action(client_id, drone: Drone, action, freq: int = 240):
+    timestep = 1.0 / freq
+    rpm = _preprocessAction(action, drone, timestep)
+    _physics(client_id, drone, rpm)
+
+
 def _physics(client_id, drone: Drone, rpm):
     """Base PyBullet physics implementation.
     Parameters
@@ -125,9 +141,3 @@ def _physics(client_id, drone: Drone, rpm):
         flags=p.LINK_FRAME,
         physicsClientId=client_id,
     )
-
-
-def apply_velocity_action(client_id, drone: Drone, action, freq: int = 240):
-    timestep = 1.0 / freq
-    rpm = _preprocessAction(action, drone, timestep)
-    _physics(client_id, drone, rpm)
