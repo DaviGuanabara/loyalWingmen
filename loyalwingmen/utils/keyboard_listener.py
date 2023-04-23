@@ -1,86 +1,67 @@
 from pynput import keyboard
-import time
+
+from pynput.keyboard import KeyCode
 
 
-# documentation: https://pynput.readthedocs.io/en/latest/keyboard.html
 class KeyboardListener:
     def __init__(self):
-        self.listener = None
-        self.reset()
-        # self.thread_off = True
-
-    def reset(self):
-        self.k = "{0}".format("0")
-        self.thread_off = True
-
-        if self.listener is not None:
-            self.listener.stop()
-
-        self.listener = keyboard.Listener(
-            on_press=self.on_press, on_release=self.on_release
-        )
+        self.collect_events()
+        self.key = keyboard.Key.end  # self.k = "{0}".format("0")
+        self.keycode = KeyCode()
 
     def on_press(self, key):
         try:
-            self.k = key.char
-        except:
-            self.k = key.name
-        # self.reset()
-        return False
-
-        # print("key {0} pressed".format(k))
+            # print("alphanumeric key {0} pressed".format(key.char))
+            self.key = key  # self.k = "{0}".format(key.char)
+        except AttributeError:
+            # print("special key {0} pressed".format(key))
+            self.key = key  # self.k = "{0}".format(key)
 
     def on_release(self, key):
-        try:
-            self.k = key.char
-        except:
-            self.k = key.name
+        # print("{0} released".format(key))
+        if key == keyboard.Key.esc:
+            # Stop listener
+            return False
 
-        self.reset()
-        return False
+        self.key = keyboard.Key.end  # key  # = "{0}".format("0")
 
-    # TODO est[a deixando o código muito lento, e ele não para de executar após um tempo. Então o listener fica sempre ligado. Sempre na thread.
-    # o .start que supostamente deveria ser assincrono, nun é praticamente a mesma coisa.
-    # solução: Synchronous event listening for the keyboard listener (https://pynput.readthedocs.io/en/latest/keyboard.html)
-    def get_button(self):
-        if self.thread_off:
-            self.listener.start()
-
-            # try:
-            # self.listener.wait()
-
-            # finally:
-            # self.thread_off = False  # True
-            # listener.stop()
-
-        # Events também não dá certo, Pq ele detecta que clicou, mas não que está segurando.
-        # with keyboard.Events() as events:
-        # Block at most one second
-        #   event = events.get(1.0 / 240)
-        #  if event is None:
-        # print("You did not press a key within one second")
-        #     True
-        # else:
-        #   print("Received event {}".format(event))
-
-        # if self.thread_off:
+    def collect_events(self):
+        # Collect events until released
         # with keyboard.Listener(
         #    on_press=self.on_press, on_release=self.on_release
         # ) as listener:
-        #    listener.join()
+        # listener.join()
 
-        # self.listener.start()
-        # self.thread_off = False
-        # try:
-        #    self.listener.wait()
-        # with_statements()
-        # finally:
-        #    True
-        # self.listener.stop()
-        # elf.thread_off = True
+        # ...or, in a non-blocking fashion:
+        listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
+        listener.start()
 
-        # time.sleep(1.0 / 240)
-        # self.listener.stop()
+    def get_action(self):
+        if self.key == keyboard.Key.up:
+            return [0, 1, 0, 0.005]
 
-        # self.listener.stop()
-        return self.k
+        if self.key == keyboard.Key.down:
+            return [0, -1, 0, 0.005]
+
+        if self.key == keyboard.Key.left:
+            return [-1, 0, 0, 0.005]
+
+        if self.key == keyboard.Key.right:
+            return [1, 0, 0, 0.005]
+
+        if self.key == self.keycode.from_char("w"):
+            return [0, 0, 1, 0.005]
+
+        if self.key == self.keycode.from_char("s"):
+            return [0, 0, -1, 0.005]
+
+        else:
+            return [0, 0, 0, 0.005]
+
+        # return self.k
+
+
+# kl = KeyboardListener()
+# while True:
+#    k = kl.get_action()
+#    print(k)

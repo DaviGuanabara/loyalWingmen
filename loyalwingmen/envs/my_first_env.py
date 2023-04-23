@@ -16,7 +16,9 @@ import gym
 from utils.enums import DroneModel, Physics, ImageType
 from gym import spaces
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, asdict
+
+
 from typing import NamedTuple
 
 from utils.agent_manager import (
@@ -378,6 +380,13 @@ class MyFirstEnv(gym.Env):
 
     ################################################################################
 
+    def process_kinematics(self, kinematics):
+        kinematics_dictionary = asdict(kinematics)
+        observation = list(kinematics_dictionary.values())
+
+        state = np.hstack(observation)
+        return state.reshape(16)
+
     # TODO: preparar a observação
     def _computeObs(self):
         """Returns the current observation of the environment.
@@ -388,14 +397,21 @@ class MyFirstEnv(gym.Env):
         kinematics = collect_kinematics(self.CLIENT, self.drone)
         # print(kinematics)
         # time.sleep(0.3)
-        return kinematics  # np.zeros(16).astype("float32")
+        observation = self.process_kinematics(kinematics)
+
+        return observation  # np.zeros(16).astype("float32")
 
     def _computeReward(self):
         """Computes the current reward value(s).
         Must be implemented in a subclass.
         """
+
+        drone_position = self.drone.kinematics.position
+        target = np.array([0.5, 0.5, 0.5])
+
+        distance = np.linalg.norm(target - drone_position)
         # raise NotImplementedError
-        return 0
+        return -distance
 
     def _computeDone(self):
         """Computes the current done value(s).
