@@ -8,6 +8,7 @@ from utils.utils import sync, str2bool
 import torch
 from stable_baselines3.common.env_util import make_vec_env
 
+# TODO está treinando. Mas falta adicionar o cubo e ajeitar o código.
 # from utils.keyboard_listener import KeyboardListener
 
 # TODO Display text deve ser um objeto, para que pare de quebrar o terminal e eu não veja como está progredindo o treinamento.
