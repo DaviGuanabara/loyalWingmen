@@ -27,7 +27,7 @@ test = False
 
 
 if train:
-    n_envs = 2
+    n_envs = 4
 
     env = make_vec_env(MyFirstEnv, n_envs=n_envs)
     eval_callback = callbacklist(
@@ -35,14 +35,14 @@ if train:
         log_path="./logs/",
         model_path="./models/",
         n_envs=n_envs,
-        save_freq=10_000,
+        save_freq=100_000,
     )
 
     model = PPO(
         "MlpPolicy", env, verbose=0, device="auto"
     )  # + "/" str(learning_rate) +
     # reset_num_timesteps=False,
-    model.learn(total_timesteps=10_000_000, callback=eval_callback)
+    model.learn(total_timesteps=3_000_000, callback=eval_callback)
 
 if test:
     # keyboard_listener = KeyboardListener()
