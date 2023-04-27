@@ -21,7 +21,7 @@ from dataclasses import dataclass, fields, asdict
 
 from typing import NamedTuple
 
-from utils.agent_manager import (
+from utils.managers.agent_manager import (
     apply_velocity_action,
     update_kinematics,
     gen_drone,

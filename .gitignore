@@ -1,0 +1,5 @@
+
+*.zip
+loyalwingmen/models/best_model.zip
+loyalwingmen/models/rl_model_1000000_steps.zip
+loyalwingmen/models/rl_model_100000_steps.zip
