@@ -3,3 +3,11 @@
 loyalwingmen/models/best_model.zip
 loyalwingmen/models/rl_model_1000000_steps.zip
 loyalwingmen/models/rl_model_100000_steps.zip
+loyalwingmen/logs/0/first_run_1/events.out.tfevents.1682879691.Davi-PC.29196.0
+loyalwingmen/logs/0/first_run_2/events.out.tfevents.1682890719.Davi-PC.29072.0
+loyalwingmen/logs/evaluations.npz
+loyalwingmen/models/best_model.zip
+loyalwingmen/models/rl_model_100000_steps.zip
+loyalwingmen/models/rl_model_200000_steps.zip
+loyalwingmen/models/rl_model_300000_steps.zip
+loyalwingmen/models/rl_model_400000_steps.zip
