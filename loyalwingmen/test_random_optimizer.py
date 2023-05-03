@@ -33,5 +33,5 @@ def random_optimizer():
 
     return best_x, best_value
 
-
-print(random_optimizer())
+print("Otimizador aleatório para a função -x^2 + x")
+print("Melhores valores encontrados (x, y):", random_optimizer())
