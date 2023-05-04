@@ -1,9 +1,9 @@
 import numpy as np
 import pybullet as p
 
-from gym_pybullet_drones.control.BaseControl import BaseControl
-from gym_pybullet_drones.utils.enums import DroneModel
-from gym_pybullet_drones.utils.utils import nnlsRPM
+from control.BaseControl import BaseControl
+from utils.enums import DroneModel
+from utils.utils import nnlsRPM
 
 class SimplePIDControl(BaseControl):
     """Generic PID control class without yaw control.

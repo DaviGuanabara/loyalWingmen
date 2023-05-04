@@ -20,6 +20,7 @@ from utils.factories.agent_factory import gen_drone
 ## Kinematics
 ################################################################################
 
+#TODO Manager como Decorator ?
 
 def store_kinematics(client_id, drone, kinematics):
     drone.kinematics = kinematics

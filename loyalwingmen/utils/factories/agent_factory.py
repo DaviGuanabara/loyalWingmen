@@ -3,25 +3,29 @@ import pybullet as p
 import pybullet_data
 
 from control.DSLPIDControl import DSLPIDControl
-from gym_pybullet_drones.utils.enums import DroneModel, Physics, ImageType
+from utils.enums import DroneModel, Physics, ImageType
 
 import xml.etree.ElementTree as etxml
 import pkg_resources
 from PIL import Image
 
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import NamedTuple
 
 
 # Mutável
+#https://stackoverflow.com/questions/53632152/why-cant-dataclasses-have-mutable-defaults-in-their-class-attributes-declaratio
+# bar: list = field(default_factory=list)
+# from dataclasses import dataclass, field
+
 @dataclass
 class Kinematics:
-    position: np.array = np.zeros(3)
-    angular_position: np.array = np.zeros(3)
-    quaternions: np.array = np.zeros(4)
-    velocity: np.array = np.zeros(3)
-    angular_velocity: np.array = np.zeros(3)
+    position: np.array = field(default_factory=lambda: np.zeros(3)) 
+    angular_position: np.array = field(default_factory=lambda: np.zeros(3))
+    quaternions: np.array = field(default_factory=lambda: np.zeros(4))
+    velocity: np.array = field(default_factory=lambda: np.zeros(3))
+    angular_velocity: np.array = field(default_factory=lambda: np.zeros(3))
 
 
 # self.SPEED_LIMIT = 0.03 * self.MAX_SPEED_KMH * (1000/3600)
@@ -184,8 +188,12 @@ def gen_drone(
     parameters = _parseURDFParameters(
         urdf_file_path
     )  # TODO mudar o nome, pois ele é específico do drone, e não é genérico, como o nome dá a entender.
+
+    print(initial_position)
+    print(initial_angular_position)
     kinematics = Kinematics(
-        position=initial_position, angular_position=initial_angular_position
+        position=initial_position, 
+        angular_position=initial_angular_position
     )
     id = load_agent(
         client_id, urdf_file_path, initial_position, initial_angular_position
