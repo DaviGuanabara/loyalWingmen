@@ -99,3 +99,6 @@ for i in range(10):
 # Resultado, mostrando que deu tudo certo. O ideal seria eu salvar em algum arquivo txt, ou outra forma. Mas enfim, por enquanto será isso mesmo.
 # TODO ajeitar a forma que é salva
 print("Best reward and topology", best_reward, best_topology)
+
+# melhor encontrado na primeira execu~c"ao que demorou 3 diasÇ Best reward and topology -7260.497177560001 [815 672 665 626 523 603]
+# Best reward and topology -7260.497177560001 [815 672 665 626 523 603]
