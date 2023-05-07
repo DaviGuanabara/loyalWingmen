@@ -66,7 +66,7 @@ class Training:
             )
 
             model.learn(
-                total_timesteps=1_0_000,
+                total_timesteps=2_000_000,
                 callback=callback_list,
                 tb_log_name="first_run",
             )
