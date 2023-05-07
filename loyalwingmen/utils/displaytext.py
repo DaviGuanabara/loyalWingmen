@@ -32,7 +32,7 @@ def format_returns(obs, reward, action):
         ("distance", 1),
     ]
 
-    keywords_action = [("velocity", 4)]
+    keywords_action = [("Action (Velocity Vector):", 4)]
 
     string = "Reward:" + "{:.4f}".format(reward) + " \n"
     string = format_array_to_string(obs, keywords_obs, string)

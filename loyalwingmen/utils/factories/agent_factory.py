@@ -15,13 +15,14 @@ from typing import NamedTuple
 
 
 # Mutável
-#https://stackoverflow.com/questions/53632152/why-cant-dataclasses-have-mutable-defaults-in-their-class-attributes-declaratio
+# https://stackoverflow.com/questions/53632152/why-cant-dataclasses-have-mutable-defaults-in-their-class-attributes-declaratio
 # bar: list = field(default_factory=list)
 # from dataclasses import dataclass, field
 
+
 @dataclass
 class Kinematics:
-    position: np.array = field(default_factory=lambda: np.zeros(3)) 
+    position: np.array = field(default_factory=lambda: np.zeros(3))
     angular_position: np.array = field(default_factory=lambda: np.zeros(3))
     quaternions: np.array = field(default_factory=lambda: np.zeros(4))
     velocity: np.array = field(default_factory=lambda: np.zeros(3))
@@ -189,11 +190,10 @@ def gen_drone(
         urdf_file_path
     )  # TODO mudar o nome, pois ele é específico do drone, e não é genérico, como o nome dá a entender.
 
-    print(initial_position)
-    print(initial_angular_position)
+    # print(initial_position)
+    # print(initial_angular_position)
     kinematics = Kinematics(
-        position=initial_position, 
-        angular_position=initial_angular_position
+        position=initial_position, angular_position=initial_angular_position
     )
     id = load_agent(
         client_id, urdf_file_path, initial_position, initial_angular_position

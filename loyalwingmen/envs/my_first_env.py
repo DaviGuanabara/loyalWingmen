@@ -33,6 +33,11 @@ from utils.managers.agent_manager import (
 
 # TODO: Fazer uma classe só com as constantes.
 # TODO: Rever o agent_factory e o agent_manager.
+# TODO: normalizar a observação
+# TODO: o drone está se aproximando no target, mas algo está quebrado, pois a distancia se aproxima de zero enquanto que a reward diminui absurdamente.
+# Ele tá ficando mais longe, mas a distancia está aumentando.
+# TODO em todo canto está a posição do alvo. Deveria estar em só um local e ser chamado. Tenho que usar o obstacle manager para isso, algo parecido com o drone manager.
+# Talvez unir os dois managers
 
 
 # Imutável
@@ -123,8 +128,8 @@ class MyFirstEnv(gym.Env):
                 physicsClientId=self.CLIENT,
             )
             ret = p.getDebugVisualizerCamera(physicsClientId=self.CLIENT)
-            print("viewMatrix", ret[2])
-            print("projectionMatrix", ret[3])
+            # print("viewMatrix", ret[2])
+            # print("projectionMatrix", ret[3])
 
         else:
             self.CLIENT = p.connect(p.DIRECT)
@@ -359,7 +364,7 @@ class MyFirstEnv(gym.Env):
         """
 
         return spaces.Box(
-            low=np.array([-1, -1, -1, 0.4]),  # Alternative action space, see PR #32
+            low=np.array([-1, -1, -1, 0]),  # Alternative action space, see PR #32
             high=np.array([1, 1, 1, 1]),
             dtype=np.float32,
         )
@@ -380,12 +385,12 @@ class MyFirstEnv(gym.Env):
 
     ################################################################################
 
-    def process_kinematics(self, kinematics):
-        kinematics_dictionary = asdict(kinematics)
-        observation = list(kinematics_dictionary.values())
+    # def process_kinematics_to_state(self, kinematics):
+    #    kinematics_dictionary = asdict(kinematics)
+    #    kinematics_in_list = list(kinematics_dictionary.values())
+    #    state = np.hstack(kinematics_in_list).reshape(16)
 
-        state = np.hstack(observation)
-        return state.reshape(16)
+    #    return state.reshape(16)
 
     # TODO: preparar a observação
     def _computeObs(self):
@@ -394,10 +399,30 @@ class MyFirstEnv(gym.Env):
         """
         # raise NotImplementedError
 
-        kinematics = collect_kinematics(self.CLIENT, self.drone)
+        drone_kinematics = collect_kinematics(self.CLIENT, self.drone)
+        # drone_state = self.process_kinematics_to_state(drone_kinematics)
+        drone_position = drone_kinematics.position
+        drone_velocity = drone_kinematics.velocity
+
+        target_position = np.array([0.5, 0.5, 0.5])
+        target_velocity = np.array([0, 0, 0])
+
         # print(kinematics)
         # time.sleep(0.3)
-        observation = self.process_kinematics(kinematics)
+
+        distance = np.linalg.norm(target_position - drone_position)
+        direction = (target_position - drone_position) / distance
+
+        observation = np.hstack(
+            (
+                self._normalizePosition(drone_position),
+                self._normalizeVelocity(drone_velocity),
+                self._normalizePosition(target_position),
+                self._normalizeVelocity(target_velocity),
+                direction,
+                self._normalizeDistance(distance),
+            )
+        ).reshape(16)
 
         return observation  # np.zeros(16).astype("float32")
 
@@ -411,7 +436,7 @@ class MyFirstEnv(gym.Env):
 
         distance = np.linalg.norm(target - drone_position)
         # raise NotImplementedError
-        return -distance
+        return -1 * distance  # * self.step_counter
 
     def _computeDone(self):
         """Computes the current done value(s).
@@ -419,10 +444,29 @@ class MyFirstEnv(gym.Env):
         """
         # raise NotImplementedError
 
+        drone_kinematics = collect_kinematics(self.CLIENT, self.drone)
+
+        drone_position = drone_kinematics.position
+        drone_velocity = drone_kinematics.velocity
+
+        target_position = np.array([0.5, 0.5, 0.5])
+        target_velocity = np.array([0, 0, 0])
+        distance = np.linalg.norm(target_position - drone_position)
+
+        MAX_DISTANCE = 100
+        ERROR = 0.01
+
         current = time.time()
 
         if current - self.RESET_TIME > 20:
             return True
+
+        if distance > MAX_DISTANCE or distance < ERROR:
+            return True
+
+        # if drone_position[2] < 0:
+        #    return True
+
         return False
 
     def _computeInfo(self):
@@ -434,32 +478,127 @@ class MyFirstEnv(gym.Env):
 
     ################################################################################
 
+    #####################################################################
+    # Física
+    #####################################################################
 
-#####################################################################
-# Física
-#####################################################################
-
-
-def _normalizedActionToRPM(self, action):
-    """De-normalizes the [-1, 1] range to the [0, MAX_RPM] range.
-    Parameters
-    ----------
-    action : ndarray
-        (4)-shaped array of ints containing an input in the [-1, 1] range.
-    Returns
-    -------
-    ndarray
-        (4)-shaped array of ints containing RPMs for the 4 motors in the [0, MAX_RPM] range.
-    """
-    if np.any(np.abs(action) > 1):
-        print(
-            "\n[ERROR] it",
-            self.step_counter,
-            "in BaseAviary._normalizedActionToRPM(), out-of-bound action",
+    def _normalizedActionToRPM(self, action):
+        """De-normalizes the [-1, 1] range to the [0, MAX_RPM] range.
+        Parameters
+        ----------
+        action : ndarray
+            (4)-shaped array of ints containing an input in the [-1, 1] range.
+        Returns
+        -------
+        ndarray
+            (4)-shaped array of ints containing RPMs for the 4 motors in the [0, MAX_RPM] range.
+        """
+        if np.any(np.abs(action) > 1):
+            print(
+                "\n[ERROR] it",
+                self.step_counter,
+                "in BaseAviary._normalizedActionToRPM(), out-of-bound action",
+            )
+        # Non-linear mapping: -1 -> 0, 0 -> HOVER_RPM, 1 -> MAX_RPM`
+        return np.where(
+            action <= 0,
+            (action + 1) * self.HOVER_RPM,
+            self.HOVER_RPM + (self.MAX_RPM - self.HOVER_RPM) * action,
         )
-    # Non-linear mapping: -1 -> 0, 0 -> HOVER_RPM, 1 -> MAX_RPM`
-    return np.where(
-        action <= 0,
-        (action + 1) * self.HOVER_RPM,
-        self.HOVER_RPM + (self.MAX_RPM - self.HOVER_RPM) * action,
-    )
+
+    #####################################################################################################
+    ## Normalization
+    #####################################################################################################
+
+    def _normalizeVelocity(self, velocity: np.array):
+        MAX_Velocity = 5
+        normalized_velocity = (
+            np.clip(velocity, -MAX_Velocity, MAX_Velocity) / MAX_Velocity
+        )
+        return normalized_velocity
+
+    def _normalizePosition(self, position: np.array):
+        MAX_X_Y = 100
+        MAX_Z = 100
+
+        normalized_position_x_y = np.clip(position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
+        normalized_position_z = np.clip([position[2]], 0, MAX_Z) / MAX_Z
+
+        normalized_position = np.concatenate(
+            (normalized_position_x_y, normalized_position_z)
+        )
+
+        return normalized_position
+
+    def _normalizeDistance(self, distance):
+        MAX_DISTANCE = 100
+        normalized_distance = (
+            np.clip(distance, -MAX_DISTANCE, MAX_DISTANCE) / MAX_DISTANCE
+        )
+        return normalized_distance
+
+    def _clipAndNormalizeState(self, observation):
+        """Normalizes a drone's state to the [-1,1] range.
+        Parameters
+        ----------
+        state : ndarray
+            (20,)-shaped array of floats containing the non-normalized state of a single drone.
+        Returns
+        -------
+        ndarray
+            (20,)-shaped array of floats containing the normalized state of a single drone.
+        """
+        MAX_LIN_VEL_XY = 3
+        MAX_LIN_VEL_Z = 1
+
+        MAX_XY = MAX_LIN_VEL_XY * self.EPISODE_LEN_SEC
+        MAX_Z = MAX_LIN_VEL_Z * self.EPISODE_LEN_SEC
+
+        MAX_PITCH_ROLL = np.pi  # Full range
+
+        clipped_pos_xy = np.clip(state[0:2], -MAX_XY, MAX_XY)
+        clipped_pos_z = np.clip(state[2], 0, MAX_Z)
+        clipped_rp = np.clip(state[7:9], -MAX_PITCH_ROLL, MAX_PITCH_ROLL)
+
+        clipped_vel_xy = np.clip(state[10:12], -MAX_LIN_VEL_XY, MAX_LIN_VEL_XY)
+        clipped_vel_z = np.clip(state[12], -MAX_LIN_VEL_Z, MAX_LIN_VEL_Z)
+
+        if self.GUI:
+            self._clipAndNormalizeStateWarning(
+                state,
+                clipped_pos_xy,
+                clipped_pos_z,
+                clipped_rp,
+                clipped_vel_xy,
+                clipped_vel_z,
+            )
+
+        normalized_pos_xy = clipped_pos_xy / MAX_XY
+        normalized_pos_z = clipped_pos_z / MAX_Z
+        normalized_rp = clipped_rp / MAX_PITCH_ROLL
+        normalized_y = state[9] / np.pi  # No reason to clip
+        normalized_vel_xy = clipped_vel_xy / MAX_LIN_VEL_XY
+        normalized_vel_z = clipped_vel_z / MAX_LIN_VEL_XY
+        normalized_ang_vel = (
+            state[13:16] / np.linalg.norm(state[13:16])
+            if np.linalg.norm(state[13:16]) != 0
+            else state[13:16]
+        )
+
+        norm_and_clipped = np.hstack(
+            [
+                normalized_pos_xy,
+                normalized_pos_z,
+                state[3:7],
+                normalized_rp,
+                normalized_y,
+                normalized_vel_xy,
+                normalized_vel_z,
+                normalized_ang_vel,
+                state[16:20],
+            ]
+        ).reshape(
+            20,
+        )
+
+        return norm_and_clipped
