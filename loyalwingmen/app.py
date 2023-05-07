@@ -22,6 +22,7 @@ from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.env_checker import check_env
 
+# TODO criar uma pasta com OUTPUTS, contendo logs, models, por experimento.
 # Fazer um gerenciador de agentes e outro de obstáculo
 # Fazer dentro do ambiente ou fora ?
 train = False
