@@ -33,7 +33,14 @@ class Training:
     def __init__(self):
         False
 
-    def execute(self, topology, log_name, learning_rate=1e-5, n_repetitions=5):
+    def execute(
+        self,
+        topology,
+        log_name,
+        learning_rate=1e-5,
+        n_repetitions=2,
+        total_timesteps=2_000_000,
+    ):
         rewards = np.array([])
         for i in range(n_repetitions):
             n_envs = 4
@@ -66,7 +73,7 @@ class Training:
             )
 
             model.learn(
-                total_timesteps=2_000_000,
+                total_timesteps=total_timesteps,
                 callback=callback_list,
                 tb_log_name="first_run",
             )
@@ -77,7 +84,16 @@ class Training:
         return np.mean(rewards)  # storage_for_callback
 
 
-df = pd.DataFrame({"topology": [], "return": [], "index": [], "learning_rate": []})
+df = pd.DataFrame(
+    {
+        "topology": [],
+        "return": [],
+        "index": [],
+        "learning_rate": [],
+        "total_timesteps": [],
+        "n_repetitions": [],
+    }
+)
 df.to_excel("output.xlsx")
 trainer = Training()
 result_list = np.array([])
@@ -86,16 +102,18 @@ best_reward = -math.inf
 best_topology = np.array([])
 
 # TODO: variar também a taxa de aprendizagem
-for i in range(500):
+for i in range(100):
     # TODO a geração da topologia deveria estar em outra função
     topology = np.array([]).astype("int32")
-    for _ in range(randint(2, 7)):  # número de camadas variáveis
-        topology = np.append(topology, randint(16, 1000))
+    for _ in range(randint(3, 8)):  # número de camadas variáveis
+        topology = np.append(topology, randint(16, 600))
     # TODO achar nomes melhores.
     log_name = str(i)
 
     # TODO melhorar a geração do learning rate learning rate
-    learning_rate = random() * math.pow(10, -randint(3, 10))
+    learning_rate = random() * math.pow(10, -randint(3, 20))
+    total_timesteps = 2_000_000
+    n_repetitions = 2
 
     # treinar o mesmo perfil 10 vezes para retirar uma análise estatística.
     # TODO esse bloco deve ser uma função que roda a execução 10 vezes e faz a média dos resultados.
@@ -108,7 +126,13 @@ for i in range(500):
         learning_rate,
     )
 
-    reward = trainer.execute(topology, log_name, learning_rate)
+    reward = trainer.execute(
+        topology,
+        log_name,
+        learning_rate,
+        n_repetitions=n_repetitions,
+        total_timesteps=total_timesteps,
+    )
 
     print("Reward:", reward)
 
@@ -124,6 +148,8 @@ for i in range(500):
                     "return": [reward],
                     "index": [i],
                     "learning_rate": [learning_rate],
+                    "total_timesteps": [total_timesteps],
+                    "n_repetitions": [n_repetitions],
                 }
             ),
         ],
