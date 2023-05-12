@@ -102,16 +102,17 @@ best_reward = -math.inf
 best_topology = np.array([])
 
 # TODO: variar também a taxa de aprendizagem
-for i in range(100):
+for i in range(20):
     # TODO a geração da topologia deveria estar em outra função
     topology = np.array([]).astype("int32")
-    for _ in range(randint(3, 8)):  # número de camadas variáveis
-        topology = np.append(topology, randint(16, 600))
+    for _ in range(randint(3, 4)):  # número de camadas variáveis
+        #topology = np.append(topology, randint(16, 600)) #256, 512, 1024
+        topology = np.append(topology, random.choice([256, 512, 1024])) #256, 512, 1024
     # TODO achar nomes melhores.
     log_name = str(i)
 
     # TODO melhorar a geração do learning rate learning rate
-    learning_rate = random() * math.pow(10, -randint(3, 20))
+    learning_rate = 1 * math.pow(10, -i)
     total_timesteps = 2_000_000
     n_repetitions = 2
 

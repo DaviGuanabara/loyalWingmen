@@ -222,6 +222,11 @@ class MyFirstEnv(gym.Env):
             in each subclass for its format.
         """
 
+        #TODO usar o agregate physic steps para diminuir a taxa de atualização da rede neural.
+        # Por exemplo, deixar o simulador a 240 hz, mas a rede neural a 15hz, para que 
+        # a ação seja "sentida". É como jogar em um monitor a 30hz. Um humano consegue tomar a decisão mesmo não estando
+        # tomando uma decisão a cada milisegundo.
+        
         apply_velocity_action(self.CLIENT, self.drone, action)
         update_kinematics(self.CLIENT, self.drone)
         p.stepSimulation()
@@ -431,11 +436,14 @@ class MyFirstEnv(gym.Env):
         Must be implemented in a subclass.
         """
 
+        #TODO adicionar o Survivor Bonus
+        #TODO adicionar penalidade por morrer.
+        #TODO adicionar bonus por chegar no alvo.
         drone_position = self.drone.kinematics.position
         target = np.array([0.5, 0.5, 0.5])
 
         distance = np.linalg.norm(target - drone_position)
-        # raise NotImplementedError
+        
         return -1 * distance  # * self.step_counter
 
     def _computeDone(self):
