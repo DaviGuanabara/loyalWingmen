@@ -26,7 +26,7 @@ import pandas as pd
 
 # seed the pseudorandom number generator
 from random import seed
-from random import random, randint
+from random import random, randint, choice
 
 
 class Training:
@@ -106,8 +106,8 @@ for i in range(20):
     # TODO a geração da topologia deveria estar em outra função
     topology = np.array([]).astype("int32")
     for _ in range(randint(3, 4)):  # número de camadas variáveis
-        #topology = np.append(topology, randint(16, 600)) #256, 512, 1024
-        topology = np.append(topology, random.choice([256, 512, 1024])) #256, 512, 1024
+        # topology = np.append(topology, randint(16, 600)) #256, 512, 1024
+        topology = np.append(topology, choice([256, 512, 1024]))  # 256, 512, 1024
     # TODO achar nomes melhores.
     log_name = str(i)
 

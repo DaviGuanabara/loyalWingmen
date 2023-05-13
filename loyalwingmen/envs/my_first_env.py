@@ -59,8 +59,9 @@ class MyFirstEnv(gym.Env):
         initial_xyzs=None,
         initial_rpys=None,
         physics: Physics = Physics.PYB,
-        freq: int = 240,
-        aggregate_phy_steps: int = 1,
+        simulation_frequency: int = 240,
+        rl_frequency: int = 15,
+        # aggregate_phy_steps: int = 15,
         GUI: bool = False,
     ):
         """Initialization of a generic aviary environment.
@@ -91,12 +92,24 @@ class MyFirstEnv(gym.Env):
         user_debug_gui : bool, optional
             Whether to draw the drones' axes and the GUI RPMs sliders.
         vision_attributes : bool, optional
-            Whether to allocate the attributes needed by vision-based aviary subclasses.
+            Whether to allocate the attributes needed by vision-based aviary subclasses.self.TIMESTEP
         dynamics_attributes : bool, optional
             Whether to allocate the attributes needed by subclasses accepting thrust and torques inputs.
         """
         #### Constants #############################################
+
         self.envparameters = EnvParameters(G=9.8, NEIGHBOURHOOD_RADIUS=np.inf)
+
+        #### Set PyBullet's parameters #############################
+
+        self.SIMULATION_FREQUENCY = simulation_frequency
+        self.RL_FREQUENCY = rl_frequency
+
+        self.TIMESTEP_PERIOD = 1 / self.SIMULATION_FREQUENCY
+
+        self.AGGREGATE_PHY_STEPS = int(
+            self.SIMULATION_FREQUENCY / self.RL_FREQUENCY
+        )  # Ou seja, quantas vezes o .step do pybullet deve ser chamado para cada ação da rede neural
 
         #### Options ###############################################
         self.DRONE_MODEL = drone_model
@@ -134,44 +147,16 @@ class MyFirstEnv(gym.Env):
         else:
             self.CLIENT = p.connect(p.DIRECT)
 
-        p.setGravity(0, 0, -self.envparameters.G, physicsClientId=self.CLIENT)
-
-        p.setRealTimeSimulation(0, physicsClientId=self.CLIENT)
-        # p.setTimeStep(1.0 / 240, physicsClientId=self.CLIENT)
-        # p.setTimeStep(1.0, physicsClientId=self.CLIENT)
-        p.setAdditionalSearchPath(
-            pybullet_data.getDataPath(), physicsClientId=self.CLIENT
-        )
-
-        #### Without debug GUI #####################################
-        # self.CLIENT = p.connect(p.DIRECT)
-        #### Uncomment the following line to use EGL Render Plugin #
-        # Instead of TinyRender (CPU-based) in PYB's Direct mode
-        # if platform == "linux": p.setAdditionalSearchPath(pybullet_data.getDataPath()); plugin = p.loadPlugin(egl.get_filename(), "_eglRendererPlugin"); print("plugin=", plugin)
-
-        #### Set initial poses #####################################
-
-        # self._parseURDFParameters(drone_model.value + ".urdf")
-        # urdf_file_path = str("assets/" + drone_model.value + ".urdf")
-        # self.load_agent(urdf_file_path)
-
-        self.drone = gen_drone(
-            client_id=self.CLIENT,
-            urdf_file_path="assets/" + drone_model.value + ".urdf",
-            gravity_acceleration=self.envparameters.G,
-        )
-
-        update_kinematics(self.CLIENT, self.drone)
+        #### Housekeeping ##########################################
+        self._housekeeping()
 
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         self.observation_space = self._observationSpace()
-        #### Housekeeping ##########################################
+
         # self._housekeeping()
         #### Update and store the drones kinematic information #####
         # self._updateAndStoreKinematicInformation()
-
-        #### Set PyBullet's parameters #############################
 
         ################################################################################
 
@@ -222,14 +207,17 @@ class MyFirstEnv(gym.Env):
             in each subclass for its format.
         """
 
-        #TODO usar o agregate physic steps para diminuir a taxa de atualização da rede neural.
-        # Por exemplo, deixar o simulador a 240 hz, mas a rede neural a 15hz, para que 
+        # TODO usar o agregate physic steps para diminuir a taxa de atualização da rede neural.
+        # Por exemplo, deixar o simulador a 240 hz, mas a rede neural a 15hz, para que
         # a ação seja "sentida". É como jogar em um monitor a 30hz. Um humano consegue tomar a decisão mesmo não estando
         # tomando uma decisão a cada milisegundo.
-        
-        apply_velocity_action(self.CLIENT, self.drone, action)
-        update_kinematics(self.CLIENT, self.drone)
-        p.stepSimulation()
+
+        for _ in range(
+            self.AGGREGATE_PHY_STEPS
+        ):  # É importante para que uma decisão da rede neural tenha realmente impacto
+            apply_velocity_action(self.CLIENT, self.drone, action)
+            p.stepSimulation()
+            update_kinematics(self.CLIENT, self.drone)
 
         self.step_counter += 1
 
@@ -282,8 +270,12 @@ class MyFirstEnv(gym.Env):
 
         #### Set PyBullet's parameters #############################
         p.setGravity(0, 0, -self.envparameters.G, physicsClientId=self.CLIENT)
-        p.setRealTimeSimulation(0, physicsClientId=self.CLIENT)
-        p.setTimeStep(1.0 / 240, physicsClientId=self.CLIENT)
+        p.setRealTimeSimulation(0, physicsClientId=self.CLIENT)  # No Realtime Sync
+        p.setTimeStep(
+            self.TIMESTEP_PERIOD, physicsClientId=self.CLIENT
+        )  # EachStep takes self.TIMESTEP_PERIOD to execute
+
+        # p.setTimeStep(1.0 / 240, physicsClientId=self.CLIENT)
         p.setAdditionalSearchPath(
             pybullet_data.getDataPath(), physicsClientId=self.CLIENT
         )
@@ -307,26 +299,6 @@ class MyFirstEnv(gym.Env):
         #                                      ) for i in range(self.NUM_DRONES)])
         # if self.OBSTACLES:
         #    self._addObstacles()
-
-    ################################################################################
-
-    ## É necessário guardar a posição e o resto dos dados.
-    ## Todo to do: Armezenar os dados em outra função
-    def _updateKinematicInformation(self, client_id, drone_id):
-        """Updates the drones kinematic information.
-        This method is meant to limit the number of calls to PyBullet in each step
-        and improve performance (at the expense of memory).
-        """
-
-        position, quartenions = p.getBasePositionAndOrientation(
-            drone_id, physicsClientId=client_id
-        )
-        angular_position = p.getEulerFromQuaternion(quartenions)
-        velocity, angular_velocity = p.getBaseVelocity(
-            drone_id, physicsClientId=client_id
-        )
-
-        return position, angular_position, velocity, angular_velocity
 
     ################################################################################
 
@@ -404,7 +376,7 @@ class MyFirstEnv(gym.Env):
         """
         # raise NotImplementedError
 
-        drone_kinematics = collect_kinematics(self.CLIENT, self.drone)
+        drone_kinematics = self.drone.kinematics  # .position
         # drone_state = self.process_kinematics_to_state(drone_kinematics)
         drone_position = drone_kinematics.position
         drone_velocity = drone_kinematics.velocity
@@ -436,14 +408,14 @@ class MyFirstEnv(gym.Env):
         Must be implemented in a subclass.
         """
 
-        #TODO adicionar o Survivor Bonus
-        #TODO adicionar penalidade por morrer.
-        #TODO adicionar bonus por chegar no alvo.
+        # TODO adicionar o Survivor Bonus
+        # TODO adicionar penalidade por morrer.
+        # TODO adicionar bonus por chegar no alvo.
         drone_position = self.drone.kinematics.position
         target = np.array([0.5, 0.5, 0.5])
 
         distance = np.linalg.norm(target - drone_position)
-        
+
         return -1 * distance  # * self.step_counter
 
     def _computeDone(self):
@@ -452,7 +424,7 @@ class MyFirstEnv(gym.Env):
         """
         # raise NotImplementedError
 
-        drone_kinematics = collect_kinematics(self.CLIENT, self.drone)
+        drone_kinematics = self.drone.kinematics
 
         drone_position = drone_kinematics.position
         drone_velocity = drone_kinematics.velocity
