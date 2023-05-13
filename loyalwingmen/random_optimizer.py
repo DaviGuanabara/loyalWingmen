@@ -112,9 +112,9 @@ for i in range(20):
     log_name = str(i)
 
     # TODO melhorar a geração do learning rate learning rate
-    learning_rate = 1 * math.pow(10, -i)
-    total_timesteps = 2_000_000
-    n_repetitions = 2
+    learning_rate = 1 * math.pow(10, -(i + 2))
+    total_timesteps = 1_000_000
+    n_repetitions = 1
 
     # treinar o mesmo perfil 10 vezes para retirar uma análise estatística.
     # TODO esse bloco deve ser uma função que roda a execução 10 vezes e faz a média dos resultados.
