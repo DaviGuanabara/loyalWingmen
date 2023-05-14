@@ -26,7 +26,7 @@ from stable_baselines3.common.env_checker import check_env
 # TODO criar uma pasta com OUTPUTS, contendo logs, models, por experimento.
 # Fazer um gerenciador de agentes e outro de obstáculo
 # Fazer dentro do ambiente ou fora ?
-train = True
+train = False
 test = True
 
 
@@ -69,6 +69,7 @@ if test:
         # observation, reward, done, info = env.step(action)
         observation, reward, terminated, info = env.step(action)
 
+        # TODO: display text e logreturn pode ser incorporado pelo ambiente.
         log_returns(observation, reward, action)
         if terminated:
             observation = env.reset()

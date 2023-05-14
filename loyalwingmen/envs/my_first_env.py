@@ -56,6 +56,8 @@ class EnvironmentParameters(NamedTuple):
     timestep_period: float
     aggregate_physics_steps: int
     client_id: int
+    max_distance: float
+    error: float
 
 
 class MyFirstEnv(gym.Env):
@@ -174,6 +176,8 @@ class MyFirstEnv(gym.Env):
             timestep_period=1 / simulation_frequency,
             aggregate_physics_steps=int(simulation_frequency / rl_frequency),
             client_id=client_id,
+            max_distance=100,
+            error=0.2,
         )
 
         #### Set PyBullet's parameters #############################
@@ -389,6 +393,9 @@ class MyFirstEnv(gym.Env):
         for i in range(self.drones.size):
             update_kinematics(self.environment_parameters.client_id, self.drones[i])
 
+        for i in range(self.targets.size):
+            update_kinematics(self.environment_parameters.client_id, self.targets[i])
+
         # print("load drones position:", self.INIT_XYZS[0,:])
         # self.DRONE_IDS = np.array([p.loadURDF(pkg_resources.resource_filename('gym_pybullet_drones', 'assets/'+self.URDF),
         #                                      self.INIT_XYZS[i, :],
@@ -399,36 +406,6 @@ class MyFirstEnv(gym.Env):
         #                                      ) for i in range(self.NUM_DRONES)])
         # if self.OBSTACLES:
         #    self._addObstacles()
-
-    ################################################################################
-
-    # todo to do: horrível. Ele usa uma série de variáveis globais. Dá pra deixar um doido.
-    def _getDroneStateVector(self, nth_drone):
-        """Returns the state vector of the n-th drone.
-        Parameters
-        ----------
-        nth_drone : int
-            The ordinal number/position of the desired drone in list self.DRONE_IDS.
-        Returns
-        -------
-        ndarray
-            (20,)-shaped array of floats containing the state vector of the n-th drone.
-            Check the only line in this method and `_updateAndStoreKinematicInformation()`
-            to understand its format.
-        """
-        state = np.hstack(
-            [
-                self.pos[nth_drone, :],
-                self.quat[nth_drone, :],
-                self.rpy[nth_drone, :],
-                self.vel[nth_drone, :],
-                self.ang_v[nth_drone, :],
-                self.last_clipped_action[nth_drone, :],
-            ]
-        )
-        return state.reshape(
-            20,
-        )
 
     ################################################################################
 
@@ -451,6 +428,7 @@ class MyFirstEnv(gym.Env):
 
         https://stackoverflow.com/questions/75832713/stable-baselines-3-support-for-farama-gymnasium
         """
+        # a workaround to work with gymnasium
         return old_gym_Box(
             low=np.array([-1, -1, -1, 0]),  # Alternative action space, see PR #32
             high=np.array([1, 1, 1, 1]),
@@ -487,7 +465,6 @@ class MyFirstEnv(gym.Env):
 
     ################################################################################
 
-    # TODO: preparar a observação
     def _computeObs(self):
         """Returns the current observation of the environment.
         Must be implemented in a subclass.
@@ -530,41 +507,37 @@ class MyFirstEnv(gym.Env):
         # TODO adicionar penalidade por morrer.
         # TODO adicionar bonus por chegar no alvo.\
 
+        max_distance = self.environment_parameters.max_distance
+
         drone_position = self.drones[0].kinematics.position
         target_position = self.targets[0].kinematics.position
-
         distance = np.linalg.norm(target_position - drone_position)
 
-        return -1 * distance  # * self.step_counter
+        return (max_distance / 10) - 1 * distance
 
     def _computeDone(self):
         """Computes the current done value(s).
         Must be implemented in a subclass.
         """
-        # raise NotImplementedError
 
-        drone_kinematics = self.drones[0].kinematics
+        drone_position = self.drones[0].kinematics.position
+        drone_velocity = self.drones[0].kinematics.velocity
 
-        drone_position = drone_kinematics.position
-        drone_velocity = drone_kinematics.velocity
+        target_position = self.targets[0].kinematics.position
+        target_velocity = self.targets[0].kinematics.velocity
 
-        target_position = np.array([0.5, 0.5, 0.5])
-        target_velocity = np.array([0, 0, 0])
         distance = np.linalg.norm(target_position - drone_position)
-
-        MAX_DISTANCE = 100
-        ERROR = 0.2
 
         current = time.time()
 
         if current - self.RESET_TIME > 20:
             return True
 
-        if distance > MAX_DISTANCE or distance < ERROR:
+        if (
+            distance > self.environment_parameters.max_distance
+            or distance < self.environment_parameters.error
+        ):
             return True
-
-        # if drone_position[2] < 0:
-        #    return True
 
         return False
 
@@ -574,36 +547,6 @@ class MyFirstEnv(gym.Env):
         """
         # raise NotImplementedError
         return {}
-
-    ################################################################################
-
-    #####################################################################
-    # Física
-    #####################################################################
-
-    def _normalizedActionToRPM(self, action):
-        """De-normalizes the [-1, 1] range to the [0, MAX_RPM] range.
-        Parameters
-        ----------
-        action : ndarray
-            (4)-shaped array of ints containing an input in the [-1, 1] range.
-        Returns
-        -------
-        ndarray
-            (4)-shaped array of ints containing RPMs for the 4 motors in the [0, MAX_RPM] range.
-        """
-        if np.any(np.abs(action) > 1):
-            print(
-                "\n[ERROR] it",
-                self.step_counter,
-                "in BaseAviary._normalizedActionToRPM(), out-of-bound action",
-            )
-        # Non-linear mapping: -1 -> 0, 0 -> HOVER_RPM, 1 -> MAX_RPM`
-        return np.where(
-            action <= 0,
-            (action + 1) * self.HOVER_RPM,
-            self.HOVER_RPM + (self.MAX_RPM - self.HOVER_RPM) * action,
-        )
 
     #####################################################################################################
     ## Normalization
