@@ -12,14 +12,14 @@ from PIL import Image
 
 from dataclasses import dataclass, field
 from typing import NamedTuple
-
+from utils.factories.base_factory import Kinematics
 
 # Mutável
 # https://stackoverflow.com/questions/53632152/why-cant-dataclasses-have-mutable-defaults-in-their-class-attributes-declaratio
 # bar: list = field(default_factory=list)
 # from dataclasses import dataclass, field
 
-
+"""
 @dataclass
 class Kinematics:
     position: np.array = field(default_factory=lambda: np.zeros(3))
@@ -27,6 +27,7 @@ class Kinematics:
     quaternions: np.array = field(default_factory=lambda: np.zeros(4))
     velocity: np.array = field(default_factory=lambda: np.zeros(3))
     angular_velocity: np.array = field(default_factory=lambda: np.zeros(3))
+"""
 
 
 # self.SPEED_LIMIT = 0.03 * self.MAX_SPEED_KMH * (1000/3600)
@@ -51,7 +52,7 @@ class Parameters(NamedTuple):
     DW_COEFF_3: float
 
 
-class Drone_informations:
+class Drone_Informations:
     speed_limit: float = 0
     gravity: float = 0
     max_rpm: float = 0
@@ -70,7 +71,7 @@ class Drone:  # (NamedTuple):
     id: int
     parameters: Parameters
     kinematics: Kinematics
-    informations: Drone_informations
+    informations: Drone_Informations
     control: DSLPIDControl = DSLPIDControl(drone_model=DroneModel.CF2X)
 
 
@@ -99,7 +100,7 @@ def compute_informations(parameters: Parameters, gravity_acceleration: float):
     )
     max_xy_torque = (2 * L * KF * max_rpm**2) / np.sqrt(2)  # Ajustado para Model CF2X
 
-    informations = Drone_informations()
+    informations = Drone_Informations()
     informations.gravity = gravity
     informations.max_rpm = max_rpm
     informations.max_thrust = max_thrust
@@ -190,8 +191,6 @@ def gen_drone(
         urdf_file_path
     )  # TODO mudar o nome, pois ele é específico do drone, e não é genérico, como o nome dá a entender.
 
-    # print(initial_position)
-    # print(initial_angular_position)
     kinematics = Kinematics(
         position=initial_position, angular_position=initial_angular_position
     )

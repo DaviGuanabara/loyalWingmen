@@ -16,37 +16,11 @@ from utils.factories.agent_factory import Drone
 from control.DSLPIDControl import DSLPIDControl
 from utils.factories.agent_factory import gen_drone
 
-################################################################################
-## Kinematics
-################################################################################
-
-#TODO Manager como Decorator ?
-
-def store_kinematics(client_id, drone, kinematics):
-    drone.kinematics = kinematics
-
-
-def update_kinematics(client_id, drone):
-    kinematics = collect_kinematics(client_id, drone)
-    store_kinematics(client_id, drone, kinematics)
-
-
-def collect_kinematics(client_id, drone):
-    position, quaternions = p.getBasePositionAndOrientation(
-        drone.id, physicsClientId=client_id
-    )
-    angular_position = p.getEulerFromQuaternion(quaternions)
-    velocity, angular_velocity = p.getBaseVelocity(drone.id, physicsClientId=client_id)
-
-    kinematics = Kinematics(
-        position=np.array(position),
-        angular_position=np.array(angular_position),
-        quaternions=np.array(quaternions),
-        velocity=np.array(velocity),
-        angular_velocity=np.array(angular_velocity),
-    )
-
-    return kinematics  # position, angular_position, velocity, angular_velocity
+from utils.managers.base_manager import (
+    collect_kinematics,
+    update_kinematics,
+    store_kinematics,
+)
 
 
 ################################################################################
@@ -54,6 +28,7 @@ def collect_kinematics(client_id, drone):
 ################################################################################
 
 
+# TODO fazer um dataclass chamado PYBULLET PARAMETERS, NO QUAL ARMAZENA OS DADOS ASSOCIADOS AO PYBULLET
 def _preprocessAction(action, drone: Drone, timestep: int):
     """Pre-processes the action passed to `.step()` into motors' RPMs.
     Parameter `action` is processed differenly for each of the different
