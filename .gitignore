@@ -11,3 +11,4 @@ loyalwingmen/models/rl_model_100000_steps.zip
 loyalwingmen/models/rl_model_200000_steps.zip
 loyalwingmen/models/rl_model_300000_steps.zip
 loyalwingmen/models/rl_model_400000_steps.zip
+*.xlsx
