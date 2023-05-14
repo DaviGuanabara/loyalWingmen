@@ -1,6 +1,7 @@
 import os
 from sys import platform
 import time
+import curses
 import collections
 from datetime import datetime
 import xml.etree.ElementTree as etxml
@@ -180,16 +181,9 @@ class MyFirstEnv(gym.Env):
             error=0.2,
         )
 
-        #### Set PyBullet's parameters #############################
+    def get_parameteres(self):
+        return self.environment_parameters    
 
-        self.SIMULATION_FREQUENCY = simulation_frequency
-        self.RL_FREQUENCY = rl_frequency
-
-        self.TIMESTEP_PERIOD = 1 / self.SIMULATION_FREQUENCY
-
-        self.AGGREGATE_PHY_STEPS = int(
-            self.SIMULATION_FREQUENCY / self.RL_FREQUENCY
-        )  # Ou seja, quantas vezes o .step do pybullet deve ser chamado para cada ação da rede neural
 
     def setup_targets(
         self,
@@ -263,7 +257,8 @@ class MyFirstEnv(gym.Env):
         #### Start video recording #################################
         # self._startVideoRecording()
         #### Return the initial observation ########################
-        return self._computeObs()  # , self._computeInfo()
+        #apagar computerInfo para versões do SB3 abaixo da 2.0.0
+        return self._computeObs(), self._computeInfo()
 
     ################################################################################
 
@@ -297,7 +292,7 @@ class MyFirstEnv(gym.Env):
         # tomando uma decisão a cada milisegundo.
 
         for _ in range(
-            self.AGGREGATE_PHY_STEPS
+            self.environment_parameters.aggregate_physics_steps
         ):  # É importante para que uma decisão da rede neural tenha realmente impacto
             apply_velocity_action(
                 self.environment_parameters.client_id, self.drones[0], action
@@ -317,7 +312,8 @@ class MyFirstEnv(gym.Env):
         info = self._computeInfo()
 
         # return obs, reward, done, info
-        return observation, reward, terminated, info
+        #apagar False (Truncated) para versões do SB3 abaixo da 2.0.0
+        return observation, reward, terminated, False, info
 
     ################################################################################
 
@@ -429,19 +425,19 @@ class MyFirstEnv(gym.Env):
         https://stackoverflow.com/questions/75832713/stable-baselines-3-support-for-farama-gymnasium
         """
         # a workaround to work with gymnasium
-        return old_gym_Box(
+        #return old_gym_Box(
+        #    low=np.array([-1, -1, -1, 0]),  # Alternative action space, see PR #32
+        #    high=np.array([1, 1, 1, 1]),
+        #    shape=(4,),
+        #    dtype=np.float32,
+        #)
+
+        return spaces.Box(
             low=np.array([-1, -1, -1, 0]),  # Alternative action space, see PR #32
             high=np.array([1, 1, 1, 1]),
             shape=(4,),
             dtype=np.float32,
         )
-
-        # return spaces.Box(
-        #    low=np.array([-1, -1, -1, 0]),  # Alternative action space, see PR #32
-        #    high=np.array([1, 1, 1, 1]),
-        #    shape=(4,),
-        #    dtype=np.float32,
-        # )
 
     def _observationSpace(self):
         """Returns the observation space of the environment.
@@ -452,16 +448,17 @@ class MyFirstEnv(gym.Env):
         """
         # a workaround to work with gymnasium
 
-        return old_gym_Box(
+        
+        #return old_gym_Box(
+        #    low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
+        #    high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
+        #    dtype=np.float32,
+        #)
+        return spaces.Box(
             low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
             dtype=np.float32,
         )
-        # return spaces.Box(
-        #    low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
-        #    high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
-        #    dtype=np.float32,
-        # )
 
     ################################################################################
 
@@ -578,3 +575,100 @@ class MyFirstEnv(gym.Env):
             np.clip(distance, -MAX_DISTANCE, MAX_DISTANCE) / MAX_DISTANCE
         )
         return normalized_distance
+
+    def generate_log(self):
+
+
+        drone_kinematics = self.drones[0].kinematics  # .position
+        # drone_state = self.process_kinematics_to_state(drone_kinematics)
+        drone_position = drone_kinematics.position
+        drone_velocity = drone_kinematics.velocity
+
+        target_kinematics = self.targets[0].kinematics
+        target_position = target_kinematics.position
+        target_velocity = target_kinematics.velocity
+
+        # print(kinematics)
+        # time.sleep(0.3)
+
+        distance = np.linalg.norm(target_position - drone_position)
+        direction = (target_position - drone_position) / distance
+
+        text = ""
+        text += "drone_position: " + str(self._normalizePosition(drone_position)) + "\n"
+        text += "drone_velocity: " + str(self._normalizeVelocity(drone_velocity)) + "\n"
+        text += "target_position: " + str(self._normalizePosition(target_position)) + "\n"
+        text += "target_velocity: " + str(self._normalizeVelocity(target_velocity)) + "\n"
+        text += "direction: " + str(direction) + "\n"
+        text += "distance: " + str(self._normalizeDistance(distance)) + "\n"
+
+        return text
+    
+    def show_log(self):
+        text = self.generate_log()
+
+
+        stdscr = curses.initscr()
+        stdscr.addstr(0, 0, text)
+        stdscr.refresh()
+
+
+
+        """
+        import time
+import curses
+import numpy as np
+
+
+def format_array_to_string(arr, keywords, string=""):
+    foo = ["{:.4f}".format(m) for m in arr]
+
+    index_foo = 0
+
+    for keyword, quantity in keywords:
+        values = ""
+        for i in range(quantity):
+            if i == quantity - 1:
+                values += foo[index_foo + i] + "\n"
+            else:
+                values += foo[index_foo + i] + ", "
+
+        index_foo = index_foo + quantity
+        string += keyword + ": " + values
+
+    return string
+
+
+def format_returns(obs, reward, action):
+    keywords_obs = [
+        ("drone_position", 3),
+        ("drone_velocity", 3),
+        ("cube_position", 3),
+        ("cube_velocity", 3),
+        ("direction", 3),
+        ("distance", 1),
+    ]
+
+    keywords_action = [("Action (Velocity Vector):", 4)]
+
+    string = "Reward:" + "{:.4f}".format(reward) + " \n"
+    string = format_array_to_string(obs, keywords_obs, string)
+    string = format_array_to_string(action, keywords_action, string)
+
+    return string
+
+
+def log(string):
+    stdscr = curses.initscr()
+    stdscr.addstr(0, 0, string)
+    stdscr.refresh()
+
+
+def log_returns(obs, reward=0, action=[0, 0, 0, 0]):
+    log(format_returns(obs, reward, action))
+
+
+# test2()
+
+        
+        """

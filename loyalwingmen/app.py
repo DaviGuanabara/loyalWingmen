@@ -34,6 +34,8 @@ if train:
     n_envs = 4
 
     env = make_vec_env(MyFirstEnv, n_envs=n_envs)
+    
+
     callback, _ = callbacklist(
         env,
         log_path="./logs/",
@@ -55,21 +57,28 @@ if train:
         learning_rate=math.pow(10, -5),
     )
 
-    model.learn(total_timesteps=300_000, callback=callback, tb_log_name="first_run")
+    total_simulation_steps = 1_000_000
+    simulation_to_rl_rate = 1 / env.get_parameteres().aggregate_physics_steps
+    total_rl_steps = int(total_simulation_steps * simulation_to_rl_rate)
+
+    model.learn(total_timesteps=total_rl_steps, callback=callback, tb_log_name="first_run")
 
 if test:
     keyboard_listener = KeyboardListener()
     model = PPO.load("./models/best_model.zip")
     env = MyFirstEnv(GUI=True)
-    observation = env.reset()
+
+    #funciona para sb3 a partir de 2.0.0
+    observation, info = env.reset()
     for steps in range(50_000):
         action = keyboard_listener.get_action()
 
         action, _states = model.predict(observation)
         # observation, reward, done, info = env.step(action)
-        observation, reward, terminated, info = env.step(action)
+        observation, reward, terminated, truncated, info = env.step(action)
 
         # TODO: display text e logreturn pode ser incorporado pelo ambiente.
-        log_returns(observation, reward, action)
+        env.show_log()
+        #log_returns(observation, reward, action)
         if terminated:
-            observation = env.reset()
+            observation, info = env.reset()
