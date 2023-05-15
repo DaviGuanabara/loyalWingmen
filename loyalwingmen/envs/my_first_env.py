@@ -182,8 +182,7 @@ class MyFirstEnv(gym.Env):
         )
 
     def get_parameteres(self):
-        return self.environment_parameters    
-
+        return self.environment_parameters
 
     def setup_targets(
         self,
@@ -257,7 +256,7 @@ class MyFirstEnv(gym.Env):
         #### Start video recording #################################
         # self._startVideoRecording()
         #### Return the initial observation ########################
-        #apagar computerInfo para versões do SB3 abaixo da 2.0.0
+        # apagar computerInfo para versões do SB3 abaixo da 2.0.0
         return self._computeObs(), self._computeInfo()
 
     ################################################################################
@@ -291,6 +290,8 @@ class MyFirstEnv(gym.Env):
         # a ação seja "sentida". É como jogar em um monitor a 30hz. Um humano consegue tomar a decisão mesmo não estando
         # tomando uma decisão a cada milisegundo.
 
+        self.last_action = action
+
         for _ in range(
             self.environment_parameters.aggregate_physics_steps
         ):  # É importante para que uma decisão da rede neural tenha realmente impacto
@@ -298,7 +299,6 @@ class MyFirstEnv(gym.Env):
                 self.environment_parameters.client_id, self.drones[0], action
             )
 
-            # TODO isso está quebrando não sei o motivo.
             self.apply_target_behavior(self.targets[0])
 
             p.stepSimulation()
@@ -312,7 +312,7 @@ class MyFirstEnv(gym.Env):
         info = self._computeInfo()
 
         # return obs, reward, done, info
-        #apagar False (Truncated) para versões do SB3 abaixo da 2.0.0
+        # apagar False (Truncated) para versões do SB3 abaixo da 2.0.0
         return observation, reward, terminated, False, info
 
     ################################################################################
@@ -425,12 +425,12 @@ class MyFirstEnv(gym.Env):
         https://stackoverflow.com/questions/75832713/stable-baselines-3-support-for-farama-gymnasium
         """
         # a workaround to work with gymnasium
-        #return old_gym_Box(
+        # return old_gym_Box(
         #    low=np.array([-1, -1, -1, 0]),  # Alternative action space, see PR #32
         #    high=np.array([1, 1, 1, 1]),
         #    shape=(4,),
         #    dtype=np.float32,
-        #)
+        # )
 
         return spaces.Box(
             low=np.array([-1, -1, -1, 0]),  # Alternative action space, see PR #32
@@ -448,12 +448,11 @@ class MyFirstEnv(gym.Env):
         """
         # a workaround to work with gymnasium
 
-        
-        #return old_gym_Box(
+        # return old_gym_Box(
         #    low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
         #    high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
         #    dtype=np.float32,
-        #)
+        # )
         return spaces.Box(
             low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
@@ -504,13 +503,23 @@ class MyFirstEnv(gym.Env):
         # TODO adicionar penalidade por morrer.
         # TODO adicionar bonus por chegar no alvo.\
 
-        max_distance = self.environment_parameters.max_distance
+        # max_distance = self.environment_parameters.max_distance
+        penalty = 0
+        bonus = 0
 
         drone_position = self.drones[0].kinematics.position
         target_position = self.targets[0].kinematics.position
         distance = np.linalg.norm(target_position - drone_position)
 
-        return (max_distance / 10) - 1 * distance
+        if distance > self.environment_parameters.max_distance:
+            penalty += 100_000
+
+        if distance < self.environment_parameters.error:
+            bonus += 100_000
+
+        self.last_reward = (5) - 1 * distance + bonus - penalty
+
+        return self.last_reward
 
     def _computeDone(self):
         """Computes the current done value(s).
@@ -576,9 +585,10 @@ class MyFirstEnv(gym.Env):
         )
         return normalized_distance
 
+    def format_list(self, list_of_values):
+        return str.join(" ", ["%0.2f".center(5) % i for i in list_of_values])
+
     def generate_log(self):
-
-
         drone_kinematics = self.drones[0].kinematics  # .position
         # drone_state = self.process_kinematics_to_state(drone_kinematics)
         drone_position = drone_kinematics.position
@@ -595,24 +605,23 @@ class MyFirstEnv(gym.Env):
         direction = (target_position - drone_position) / distance
 
         text = ""
-        text += "drone_position: " + str(self._normalizePosition(drone_position)) + "\n"
-        text += "drone_velocity: " + str(self._normalizeVelocity(drone_velocity)) + "\n"
-        text += "target_position: " + str(self._normalizePosition(target_position)) + "\n"
-        text += "target_velocity: " + str(self._normalizeVelocity(target_velocity)) + "\n"
-        text += "direction: " + str(direction) + "\n"
-        text += "distance: " + str(self._normalizeDistance(distance)) + "\n"
+        text += "drone_position: " + self.format_list(drone_position) + "\n"
+        text += "drone_velocity: " + self.format_list(drone_velocity) + "\n"
+        text += "target_position: " + self.format_list(target_position) + "\n"
+        text += "target_velocity: " + self.format_list(target_velocity) + "\n"
+        text += "direction: " + self.format_list(direction) + "\n"
+        text += "distance: " + str(distance) + "\n"
+        text += "reward: " + str(self.last_reward) + "\n"
+        text += "action: " + self.format_list(self.last_action) + "\n"
 
         return text
-    
+
     def show_log(self):
         text = self.generate_log()
-
 
         stdscr = curses.initscr()
         stdscr.addstr(0, 0, text)
         stdscr.refresh()
-
-
 
         """
         import time

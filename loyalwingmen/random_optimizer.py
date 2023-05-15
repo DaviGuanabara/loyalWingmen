@@ -47,6 +47,13 @@ class Training:
             nn_t = topology
 
             env = make_vec_env(MyFirstEnv, n_envs=n_envs)
+
+            total_simulation_steps = total_timesteps
+            simulation_to_rl_rate = (
+                1 / 16
+            )  # env.get_parameteres().aggregate_physics_steps
+            total_rl_steps = int(total_simulation_steps * simulation_to_rl_rate)
+
             callback_list, storage_for_callback = callbacklist(
                 env,
                 log_path="./logs/",
@@ -73,7 +80,7 @@ class Training:
             )
 
             model.learn(
-                total_timesteps=total_timesteps,
+                total_timesteps=total_rl_steps,
                 callback=callback_list,
                 tb_log_name="first_run",
             )
@@ -102,7 +109,7 @@ best_reward = -math.inf
 best_topology = np.array([])
 
 # TODO: variar também a taxa de aprendizagem
-for i in range(20):
+for i in range(100):
     # TODO a geração da topologia deveria estar em outra função
     topology = np.array([]).astype("int32")
     for _ in range(randint(3, 4)):  # número de camadas variáveis
@@ -113,7 +120,7 @@ for i in range(20):
 
     # TODO melhorar a geração do learning rate learning rate
     learning_rate = 1 * math.pow(10, -randint(3, 15))
-    total_timesteps = 2_000_000
+    total_timesteps = 8_000_000
     n_repetitions = 1
 
     # treinar o mesmo perfil 10 vezes para retirar uma análise estatística.
@@ -149,7 +156,7 @@ for i in range(20):
                     "return": [reward],
                     "index": [i],
                     "learning_rate": [learning_rate],
-                    "total_timesteps": [total_timesteps],
+                    "total_timesteps": [total_timesteps / 16],
                     "n_repetitions": [n_repetitions],
                 }
             ),

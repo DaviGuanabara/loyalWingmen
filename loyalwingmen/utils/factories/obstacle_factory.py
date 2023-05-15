@@ -49,7 +49,6 @@ def generate_obstacle(
     urdf_file_path: str,
     initial_position: np.array = np.ones(3),
     initial_angular_position: np.array = np.zeros(3),
-    gravity_acceleration: float = 9.8,
 ):
     kinematics = Kinematics(
         position=initial_position, angular_position=initial_angular_position
