@@ -18,3 +18,4 @@ loyalwingmen/models/rl_model_400000_steps.zip
 *.zip
 *.pyc
 *.xlsx
+*.pyc
