@@ -178,7 +178,7 @@ class MyFirstEnv(gym.Env):
             aggregate_physics_steps=int(simulation_frequency / rl_frequency),
             client_id=client_id,
             max_distance=100,
-            error=0.2,
+            error=0.5,
         )
 
     def get_parameteres(self):

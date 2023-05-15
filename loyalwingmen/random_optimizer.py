@@ -39,23 +39,19 @@ class Training:
         log_name,
         learning_rate=1e-5,
         n_repetitions=2,
-        total_timesteps=2_000_000,
+        total_rl_steps=2_000_000,
     ):
         rewards = np.array([])
         for i in range(n_repetitions):
             n_envs = 4
             nn_t = topology
 
-            env = make_vec_env(MyFirstEnv, n_envs=n_envs)
-
-            total_simulation_steps = total_timesteps
-            simulation_to_rl_rate = (
-                1 / 16
-            )  # env.get_parameteres().aggregate_physics_steps
-            total_rl_steps = int(total_simulation_steps * simulation_to_rl_rate)
+            vectorized_environment = make_vec_env(MyFirstEnv, n_envs=n_envs)
+            #print(vectorized_environment.env_method("get_parameteres")[0])
+            #aggregate_physics_steps = vectorized_environment.env_method("get_parameteres")[0].aggregate_physics_steps
 
             callback_list, storage_for_callback = callbacklist(
-                env,
+                vectorized_environment,
                 log_path="./logs/",
                 model_path="./models/",
                 n_envs=n_envs,
@@ -71,7 +67,7 @@ class Training:
 
             model = PPO(
                 "MlpPolicy",
-                env,
+                vectorized_environment,
                 verbose=0,
                 device="auto",
                 tensorboard_log="./logs/" + log_name + "/",
@@ -90,6 +86,50 @@ class Training:
             # print(storage_for_callback)
         return np.mean(rewards)  # storage_for_callback
 
+def gen_topology(min_layers, max_layers):
+    
+    topology = np.array([]).astype("int32")
+    for _ in range(randint(min_layers, max_layers)):  # número de camadas variáveis
+        topology = np.append(topology, choice([256, 512, 1024]))  # 256, 512, 1024
+    return topology
+    
+def save(df, topology, reward, index, learning_rate, total_rl_steps, n_repetitions):
+    # TODO aqui está a forma que eu vou salvar o treinamento. O mewlhor seria tamb[em salvar os logs e os modelos treinados de uma forma bonita. Enfim.
+
+    df = pd.concat(
+        [
+            df,
+            pd.DataFrame(
+                {
+                    "topology": [np.array2string(topology)],
+                    "return": [reward],
+                    "index": [i],
+                    "learning_rate": [learning_rate],
+                    "total_timesteps": [total_rl_steps],
+                    "n_repetitions": [n_repetitions],
+                }
+            ),
+        ],
+        ignore_index=True,
+    )
+
+    print("Writing in output.xlsx in loyalwingmen folder")
+    df.to_excel("output.xlsx")
+    print("Dataframe wrote")
+
+    return df
+
+
+def print_data(i, topology, learning_rate, reward):
+    print(
+        "Solution #" + str(i + 1) + " - ",
+        "Topology:",
+        np.array2string(topology),
+        "Learning_rate:",
+        learning_rate,
+        "Reward:", reward
+    )
+    
 
 df = pd.DataFrame(
     {
@@ -101,6 +141,10 @@ df = pd.DataFrame(
         "n_repetitions": [],
     }
 )
+
+
+
+
 df.to_excel("output.xlsx")
 trainer = Training()
 result_list = np.array([])
@@ -108,75 +152,33 @@ result_list = np.array([])
 best_reward = -math.inf
 best_topology = np.array([])
 
-# TODO: variar também a taxa de aprendizagem
+total_rl_steps = 500_000
+n_repetitions = 1
+
+
 for i in range(100):
-    # TODO a geração da topologia deveria estar em outra função
-    topology = np.array([]).astype("int32")
-    for _ in range(randint(3, 4)):  # número de camadas variáveis
-        # topology = np.append(topology, randint(16, 600)) #256, 512, 1024
-        topology = np.append(topology, choice([256, 512, 1024]))  # 256, 512, 1024
+    topology = gen_topology(3, 4)
     # TODO achar nomes melhores.
     log_name = str(i)
-
-    # TODO melhorar a geração do learning rate learning rate
     learning_rate = 1 * math.pow(10, -randint(3, 15))
-    total_timesteps = 8_000_000
-    n_repetitions = 1
-
-    # treinar o mesmo perfil 10 vezes para retirar uma análise estatística.
-    # TODO esse bloco deve ser uma função que roda a execução 10 vezes e faz a média dos resultados.
-
-    print(
-        "Solution #" + str(i + 1) + " - ",
-        "Topology:",
-        np.array2string(topology),
-        "Learning_rate:",
-        learning_rate,
-    )
+    
 
     reward = trainer.execute(
         topology,
         log_name,
         learning_rate,
         n_repetitions=n_repetitions,
-        total_timesteps=total_timesteps,
+        total_rl_steps=total_rl_steps,
     )
 
-    print("Reward:", reward)
-
-    # TODO aqui está a forma que eu vou salvar o treinamento. O mewlhor seria tamb[em salvar os logs e os modelos treinados de uma forma bonita. Enfim.
-
-    df = pd.concat(
-        # [df, pd.DataFrame([np.array2string(topology), reward, i, learning_rate])],
-        [
-            df,
-            pd.DataFrame(
-                {
-                    "topology": [np.array2string(topology)],
-                    "return": [reward],
-                    "index": [i],
-                    "learning_rate": [learning_rate],
-                    "total_timesteps": [total_timesteps / 16],
-                    "n_repetitions": [n_repetitions],
-                }
-            ),
-        ],
-        ignore_index=True,
-    )
+    print_data(i, topology, learning_rate, reward)
+    df = save(df, topology, reward, i, learning_rate, total_rl_steps, n_repetitions)
 
     if best_reward < reward:
         best_reward = reward
         best_topology = topology
-        print("Best reward and topology", best_reward, best_topology)
+        print("New Best topology", best_topology, "\nReward:", best_reward)
 
-    print("Writing in output.xlsx in loyalwingmen folder")
-    df.to_excel("output.xlsx")
-    print("Dataframe wrote")
 
-# Resultado, mostrando que deu tudo certo. O ideal seria eu salvar em algum arquivo txt, ou outra forma. Mas enfim, por enquanto será isso mesmo.
-# TODO ajeitar a forma que é salva
-print("Best reward and topology", best_reward, best_topology)
-
+print("Best topology", best_topology, "\nReward:", best_reward)
 df.to_excel("conclusion.xlsx")
-# melhor encontrado na primeira execu~c"ao que demorou 3 diasÇ Best reward and topology -7260.497177560001 [815 672 665 626 523 603]
-# Best reward and topology -7260.497177560001 [815 672 665 626 523 603]
