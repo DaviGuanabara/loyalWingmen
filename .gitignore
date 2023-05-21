@@ -109,3 +109,6 @@ loyalwingmen/logs/evaluations.npz
 *.pyc
 *.npz
 *.pyc
+*.pyc
+*.pyc
+*.npz
