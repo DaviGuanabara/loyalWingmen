@@ -1,8 +1,7 @@
-from gym.envs.registration import register
-
+from gymnasium.envs.registration import register
 
 
 register(
-    id='MyFirstEnv-v0',
-    entry_point='loyal_wingmen.envs:MyFirstEnv',
+    id="MyFirstEnv-v0",
+    entry_point="loyal_wingmen.envs:MyFirstEnv",
 )
