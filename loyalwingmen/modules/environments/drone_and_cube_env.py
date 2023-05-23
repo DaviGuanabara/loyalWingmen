@@ -280,7 +280,7 @@ class DroneAndCube(gym.Env):
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             for drone in self.drones:
                 velocity_action = (
-                    drone.execute_behavior()
+                    drone.get_behavior_tree_action()
                     if not self.rl_action_activated
                     else rl_action
                 )

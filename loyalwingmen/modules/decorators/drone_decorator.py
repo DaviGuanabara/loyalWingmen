@@ -138,7 +138,7 @@ class DroneDecorator(BaseDecorator):
             physicsClientId=self.client_id,
         )
 
-    def execute_behavior(self):
+    def get_behavior_tree_action(self):
         # raise NotImplementedError
         # drone = self.drone
         # drone.behavior.update(drone)
