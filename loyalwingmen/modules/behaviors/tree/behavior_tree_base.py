@@ -7,6 +7,7 @@ class ExecutionStatus(Enum):
     """
     Represents the execution status of a behavior tree node.
     """
+
     SUCCESS = 0
     FAILURE = 1
     RUNNING = 2
@@ -16,6 +17,7 @@ class BehaviorTree(object):
     """
     Represents a behavior tree.
     """
+
     def __init__(self, root=None):
         """
         Creates a behavior tree.
@@ -39,6 +41,7 @@ class TreeNode(object):
     """
     Represents a node of a behavior tree.
     """
+
     def __init__(self, node_name):
         """
         Creates a node of a behavior tree.
@@ -54,7 +57,9 @@ class TreeNode(object):
 
         :param agent: the agent this node is being executed on.
         """
-        raise NotImplementedError("This method is abstract and must be implemented in derived classes")
+        raise NotImplementedError(
+            "This method is abstract and must be implemented in derived classes"
+        )
 
     def execute(self, agent):
         """
@@ -64,27 +69,30 @@ class TreeNode(object):
         :return: node status (success, failure or running)
         :rtype: ExecutionStatus
         """
-        raise NotImplementedError("This method is abstract and must be implemented in derived classes")
+        raise NotImplementedError(
+            "This method is abstract and must be implemented in derived classes"
+        )
 
 
 class LeafNode(TreeNode):
     """
     Represents a leaf node of a behavior tree.
     """
+
     def __init__(self, node_name):
         super().__init__(node_name)
 
         self.t = 0
 
     def update_t(self):
-
-        self.t = self.t + SAMPLE_TIME    
+        self.t = self.t + 1  # SAMPLE_TIME
 
 
 class CompositeNode(TreeNode):
     """
     Represents a composite node of a behavior tree.
     """
+
     def __init__(self, node_name):
         super().__init__(node_name)
         self.children = []
@@ -104,6 +112,7 @@ class SequenceNode(CompositeNode):
     """
     Represents a sequence node of a behavior tree.
     """
+
     def __init__(self, node_name):
         super().__init__(node_name)
         # We need to keep track of the last running child when resuming the tree execution
@@ -145,6 +154,7 @@ class SelectorNode(CompositeNode):
     """
     Represents a selector node of a behavior tree.
     """
+
     def __init__(self, node_name):
         super().__init__(node_name)
         # We need to keep track of the last running child when resuming the tree execution

@@ -19,23 +19,13 @@ from modules.utils.enums import DroneModel, Physics, ImageType
 
 import gymnasium as gym  # import gym
 from gymnasium import spaces
-from gym.spaces import Box as old_gym_Box
 
 from dataclasses import dataclass, fields, asdict
-from modules.managers.obstacle_manager import (
-    generate_obstacle,
-    apply_force,
-    apply_frozen_behavior,
-)
+from modules.factories.obstacle_factory import ObstacleFactory
 
 from typing import NamedTuple
 
-from modules.managers.agent_manager import (
-    apply_velocity_action,
-    update_kinematics,
-    gen_drone,
-    collect_kinematics,
-)
+from modules.factories.drone_factory import DroneFactory
 
 
 # TODO: Fazer uma classe só com as constantes.
@@ -111,11 +101,10 @@ class DroneAndCube(gym.Env):
             Whether to allocate the attributes needed by subclasses accepting thrust and torques inputs.
         """
 
-        # self.ctrl = DSLPIDControl(drone_model=DroneModel.CF2X)
-        #### Connect to PyBullet ###################################
-
-        #### With debug GUI ########################################
-        # p.connect(p.GUI, options="--opengl2")
+        #### Factories #############################################
+        self.rl_action_activated = False
+        self.drone_factory = DroneFactory()
+        self.obstacle_factory = ObstacleFactory()
 
         if GUI:
             client_id = self.setup_pybulley_GUI()
@@ -141,9 +130,6 @@ class DroneAndCube(gym.Env):
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         self.observation_space = self._observationSpace()
-
-        # print(type(self.action_space))
-        # print(type(self.observation_space))
 
     def setup_pybullet_DIRECT(self):
         return p.connect(p.DIRECT)
@@ -197,8 +183,8 @@ class DroneAndCube(gym.Env):
         targets = np.array([])
 
         for i in range(number_of_targets):
-            target = generate_obstacle(
-                client_id=self.environment_parameters.client_id,
+            target = self.obstacle_factory.generate_extended_obstacle(
+                environment_parameters=self.environment_parameters,
                 urdf_file_path=urdf_file_paths[i],
                 initial_position=np.array(initial_positions[i]),
                 initial_angular_position=np.zeros(3),
@@ -209,7 +195,7 @@ class DroneAndCube(gym.Env):
         return targets
 
     def apply_target_behavior(self, obstacle):
-        apply_frozen_behavior(self.environment_parameters, obstacle)
+        obstacle.apply_frozen_behavior()
 
     def setup_drones(
         self,
@@ -227,11 +213,10 @@ class DroneAndCube(gym.Env):
         path = base_path + "\\" + "assets\\" + "cf2x.urdf"
 
         for i in range(number_of_drones):
-            quadcopter = gen_drone(
-                client_id=self.environment_parameters.client_id,
+            quadcopter = self.drone_factory.gen_extended_drone(
+                environment_parameters=self.environment_parameters,
                 urdf_file_path=path,  # "assets/" + "cf2x.urdf",  # drone_model.value + ".urdf"
                 initial_position=initial_positions[i],
-                gravity_acceleration=self.environment_parameters.G,
             )
 
             drones = np.append(drones, quadcopter)
@@ -264,7 +249,7 @@ class DroneAndCube(gym.Env):
     ################################################################################
 
     # TODO preciso fixar a posição do target
-    def step(self, action):
+    def step(self, rl_action):
         """Advances the environment by one simulation step.
         Parameters
         ----------
@@ -292,19 +277,20 @@ class DroneAndCube(gym.Env):
         # a ação seja "sentida". É como jogar em um monitor a 30hz. Um humano consegue tomar a decisão mesmo não estando
         # tomando uma decisão a cada milisegundo.
 
-        self.last_action = action
+        self.last_action = rl_action
 
-        for _ in range(
-            self.environment_parameters.aggregate_physics_steps
-        ):  # É importante para que uma decisão da rede neural tenha realmente impacto
-            apply_velocity_action(
-                self.environment_parameters.client_id, self.drones[0], action
-            )
+        # É importante para que uma decisão da rede neural tenha realmente impacto
 
-            self.apply_target_behavior(self.targets[0])
+        for _ in range(self.environment_parameters.aggregate_physics_steps):
+            for drone in self.drones:
+                drone.execute_behavior()
+                drone.update_kinematics()
+            # p.stepSimulation()
+
+            for target in self.targets:
+                self.apply_target_behavior(target)
 
             p.stepSimulation()
-            update_kinematics(self.environment_parameters.client_id, self.drones[0])
 
         self.step_counter += 1
 
@@ -380,19 +366,21 @@ class DroneAndCube(gym.Env):
             physicsClientId=self.environment_parameters.client_id,
         )
 
+        # TODO: Arrumar um nome melhor. Tipo, extended_drones. Pq esses drones aí são o 'Drone' em si embrulhado com o DroneDecorator.
         self.drones = self.setup_drones(
             number_of_drones=1, initial_positions=np.array([[1, 1, 1]])
         )
 
+        # TODO: Arrumar um nome melhor. Tipo, extended_obstacles. Pq esses targets nem lembrar de obstacle lembra, muito menos do decorator do obstacle (ObstacleDecorator)
         self.targets = self.setup_targets(
             number_of_targets=1, initial_positions=np.array([[0.5, 0.5, 0.5]])
         )
 
         for i in range(self.drones.size):
-            update_kinematics(self.environment_parameters.client_id, self.drones[i])
+            self.drones[i].update_kinematics()
 
         for i in range(self.targets.size):
-            update_kinematics(self.environment_parameters.client_id, self.targets[i])
+            self.targets[i].update_kinematics()
 
         # print("load drones position:", self.INIT_XYZS[0,:])
         # self.DRONE_IDS = np.array([p.loadURDF(pkg_resources.resource_filename('gym_pybullet_drones', 'assets/'+self.URDF),
@@ -468,12 +456,12 @@ class DroneAndCube(gym.Env):
         Must be implemented in a subclass.
         """
 
-        drone_kinematics = self.drones[0].kinematics  # .position
+        drone_kinematics = self.drones[0].gadget.kinematics
         # drone_state = self.process_kinematics_to_state(drone_kinematics)
         drone_position = drone_kinematics.position
         drone_velocity = drone_kinematics.velocity
 
-        target_kinematics = self.targets[0].kinematics
+        target_kinematics = self.targets[0].gadget.kinematics
         target_position = target_kinematics.position
         target_velocity = target_kinematics.velocity
 
@@ -509,8 +497,8 @@ class DroneAndCube(gym.Env):
         penalty = 0
         bonus = 0
 
-        drone_position = self.drones[0].kinematics.position
-        target_position = self.targets[0].kinematics.position
+        drone_position = self.drones[0].gadget.kinematics.position
+        target_position = self.targets[0].gadget.kinematics.position
         distance = np.linalg.norm(target_position - drone_position)
 
         if distance > self.environment_parameters.max_distance:
@@ -528,11 +516,11 @@ class DroneAndCube(gym.Env):
         Must be implemented in a subclass.
         """
 
-        drone_position = self.drones[0].kinematics.position
-        drone_velocity = self.drones[0].kinematics.velocity
+        drone_position = self.drones[0].gadget.kinematics.position
+        drone_velocity = self.drones[0].gadget.kinematics.velocity
 
-        target_position = self.targets[0].kinematics.position
-        target_velocity = self.targets[0].kinematics.velocity
+        target_position = self.targets[0].gadget.kinematics.position
+        target_velocity = self.targets[0].gadget.kinematics.velocity
 
         distance = np.linalg.norm(target_position - drone_position)
 
@@ -591,12 +579,12 @@ class DroneAndCube(gym.Env):
         return str.join(" ", ["%0.2f".center(5) % i for i in list_of_values])
 
     def generate_log(self):
-        drone_kinematics = self.drones[0].kinematics  # .position
+        drone_kinematics = self.drones[0].gadget.kinematics  # .position
         # drone_state = self.process_kinematics_to_state(drone_kinematics)
         drone_position = drone_kinematics.position
         drone_velocity = drone_kinematics.velocity
 
-        target_kinematics = self.targets[0].kinematics
+        target_kinematics = self.targets[0].gadget.kinematics
         target_position = target_kinematics.position
         target_velocity = target_kinematics.velocity
 
@@ -607,6 +595,13 @@ class DroneAndCube(gym.Env):
         direction = (target_position - drone_position) / distance
 
         text = ""
+        text += (
+            "WARNING: RL ACTION IS DISABLED"
+            if not self.rl_action_activated
+            else "WARNING: RL ACTION IS ENABLED"
+        )
+
+        text += "\n"
         text += "drone_position: " + self.format_list(drone_position) + "\n"
         text += "drone_velocity: " + self.format_list(drone_velocity) + "\n"
         text += "target_position: " + self.format_list(target_position) + "\n"
