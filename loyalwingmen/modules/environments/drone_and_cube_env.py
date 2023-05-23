@@ -272,18 +272,20 @@ class DroneAndCube(gym.Env):
             in each subclass for its format.
         """
 
-        # TODO usar o agregate physic steps para diminuir a taxa de atualização da rede neural.
-        # Por exemplo, deixar o simulador a 240 hz, mas a rede neural a 15hz, para que
-        # a ação seja "sentida". É como jogar em um monitor a 30hz. Um humano consegue tomar a decisão mesmo não estando
-        # tomando uma decisão a cada milisegundo.
-
-        self.last_action = rl_action
+        # TODO: o rl_action está desabilitado até que eu consiga alinhar os aspectos da behavior_tree com o do RL. Até lá
+        # self.last_action = rl_action
 
         # É importante para que uma decisão da rede neural tenha realmente impacto
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             for drone in self.drones:
-                drone.execute_behavior()
+                velocity_action = (
+                    drone.execute_behavior()
+                    if not self.rl_action_activated
+                    else rl_action
+                )
+                self.last_action = velocity_action
+                drone.apply_velocity_action(velocity_action)
                 drone.update_kinematics()
             # p.stepSimulation()
 

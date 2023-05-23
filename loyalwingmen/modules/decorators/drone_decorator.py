@@ -142,5 +142,9 @@ class DroneDecorator(BaseDecorator):
         # raise NotImplementedError
         # drone = self.drone
         # drone.behavior.update(drone)
-        self.apply_velocity_action([0.2, 0.1, -0.1, 0.01])
+        # self.drone.
+        action = [0.2, 0.1, -0.1, 0.01]
+        # self.apply_velocity_action([0.2, 0.1, -0.1, 0.01])
         pass
+
+        return action
