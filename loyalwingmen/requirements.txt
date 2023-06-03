@@ -1,0 +1,17 @@
+gymnasium==0.28.1
+pygame==2.3.0
+scipy==1.9.1
+stable-baselines3 @ git+https://github.com/DLR-RM/stable-baselines3@fd0cd82339511b54cd3907df228a656f2a32f0b8
+swig==4.1.1
+tensorboard==2.12.2
+tensorboard-data-server==0.7.0
+tensorboard-plugin-wit==1.8.1
+tensorboardX==2.6
+torch==2.0.0
+torchaudio==2.0.1
+torchvision==0.15.1
+tqdm==4.65.0
+typing_extensions==4.5.0
+vcstool==0.3.0
+virtualenv==20.21.0
+windows-curses==2.3.1

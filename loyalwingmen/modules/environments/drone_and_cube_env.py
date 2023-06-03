@@ -223,7 +223,7 @@ class DroneAndCube(gym.Env):
 
         return drones
 
-    def reset(self):
+    def reset(self, seed=1):
         """Resets the environment.
         Returns
         -------
@@ -231,7 +231,8 @@ class DroneAndCube(gym.Env):
             The initial observation, check the specific implementation of `_computeObs()`
             in each subclass for its format.
         """
-        p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
+        p.resetSimulation(
+            physicsClientId=self.environment_parameters.client_id)
         self.RESET_TIME = time.time()
 
         #### Housekeeping ##########################################
@@ -309,10 +310,10 @@ class DroneAndCube(gym.Env):
 
     def close(self):
         """Terminates the environment."""
-        if self.RECORD and self.GUI:
-            p.stopStateLogging(
-                self.VIDEO_ID, physicsClientId=self.environment_parameters.client_id
-            )
+        # if self.RECORD and self.GUI:
+        #    p.stopStateLogging(
+        #        self.VIDEO_ID, physicsClientId=self.environment_parameters.client_id
+        #    )
         p.disconnect(physicsClientId=self.environment_parameters.client_id)
 
     ################################################################################
@@ -425,7 +426,8 @@ class DroneAndCube(gym.Env):
         # )
 
         return spaces.Box(
-            low=np.array([-1, -1, -1, 0]),  # Alternative action space, see PR #32
+            # Alternative action space, see PR #32
+            low=np.array([-1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1]),
             shape=(4,),
             dtype=np.float32,
@@ -446,7 +448,8 @@ class DroneAndCube(gym.Env):
         #    dtype=np.float32,
         # )
         return spaces.Box(
-            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
+            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1,
+                         0, -1, -1, -1, -1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
             dtype=np.float32,
         )
@@ -547,7 +550,7 @@ class DroneAndCube(gym.Env):
         return {}
 
     #####################################################################################################
-    ## Normalization
+    # Normalization
     #####################################################################################################
 
     def _normalizeVelocity(self, velocity: np.array):
@@ -561,7 +564,8 @@ class DroneAndCube(gym.Env):
         MAX_X_Y = 100
         MAX_Z = 100
 
-        normalized_position_x_y = np.clip(position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
+        normalized_position_x_y = np.clip(
+            position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
         normalized_position_z = np.clip([position[2]], 0, MAX_Z) / MAX_Z
 
         normalized_position = np.concatenate(
