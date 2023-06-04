@@ -68,7 +68,7 @@ class Training:
                 log_path="./logs/",
                 model_path="./models/",
                 n_envs=n_envs,
-                save_freq=30_000,
+                save_freq=100_000,
             )
 
             

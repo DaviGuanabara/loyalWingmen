@@ -3,7 +3,6 @@ import gym
 from stable_baselines3 import PPO
 from modules.factories.callback_factory import gen_eval_callback, callbacklist
 from modules.utils.Logger import Logger
-from envs.drone_and_cube_env import MyFirstEnv
 from stable_baselines3.common.callbacks import BaseCallback
 import torch as th
 import numpy as np

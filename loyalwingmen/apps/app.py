@@ -17,10 +17,12 @@ from typing import Callable
 from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.env_checker import check_env
+from pathlib import Path
 
 
 def generate_model(vectorized_enviroment, nn_t=[512, 512, 512]):
-    policy_kwargs = dict(activation_fn=th.nn.LeakyReLU, net_arch=dict(pi=nn_t, vf=nn_t))
+    policy_kwargs = dict(activation_fn=th.nn.LeakyReLU,
+                         net_arch=dict(pi=nn_t, vf=nn_t))
 
     model = PPO(
         "MlpPolicy",
@@ -55,11 +57,15 @@ def train(
 
 
 def test(model, environment_function):
-    assert os.path.isfile(
-        "./outcome/models/best_model"
-    ), "There isn't 'best model' available to test"
+    base_path = str(Path(os.getcwd()).parent.absolute())
 
-    model = PPO.load("./outcome/models/best_model")
+    # assert os.path.isfile(
+    #    base_path + "/models/best_model.zip"
+    # ), "There isn't 'best model' available to test"
+
+    model = PPO.load("./models/best_model")
+
+    # loyalwingmen\apps\models\best_model.zip
 
     keyboard_listener = KeyboardListener()
     env = environment_function(GUI=True)
@@ -98,10 +104,11 @@ if train_flag:
     )
 
 if test_flag:
-    assert os.path.isfile(
-        "./outcome/models/best_model"
-    ), "There isn't 'best model' available to test. Please, train first."
 
-    model = PPO.load("./outcome/models/best_model")
+    assert os.path.isfile(
+        "./models/best_model.zip"
+    ), "There isn't 'best model' available to test"
+
+    model = PPO.load("./models/best_model")
 
     test(model, DroneAndCube)

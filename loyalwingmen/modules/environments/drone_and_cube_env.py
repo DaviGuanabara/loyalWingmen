@@ -275,21 +275,16 @@ class DroneAndCube(gym.Env):
         """
 
         # TODO: o rl_action está desabilitado até que eu consiga alinhar os aspectos da behavior_tree com o do RL. Até lá
-        # self.last_action = rl_action
 
         # É importante para que uma decisão da rede neural tenha realmente impacto
-
         for _ in range(self.environment_parameters.aggregate_physics_steps):
+            # ainda não está pronto múltiplos drones.
             for drone in self.drones:
-                velocity_action = (
-                    drone.get_behavior_tree_action()
-                    if not self.rl_action_activated
-                    else rl_action
-                )
+                velocity_action = rl_action
+
                 self.last_action = velocity_action
                 drone.apply_velocity_action(velocity_action)
                 drone.update_kinematics()
-            # p.stepSimulation()
 
             for target in self.targets:
                 self.apply_target_behavior(target)
