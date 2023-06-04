@@ -6,7 +6,7 @@ from modules.decorators.base_decorator import BaseDecorator
 
 
 ################################################################################
-## Action
+# Action
 ################################################################################
 
 
@@ -24,6 +24,10 @@ class ObstacleDecorator(BaseDecorator):
 
         self.apply_force(np.array([0, 0, obstacle_weigth]))
         self.apply_velocity(velocity=[0, 0, 0], angular_velocity=[0, 0, 0])
+
+    def apply_contant_velocity_behavior(self):
+        self.apply_velocity(
+            velocity=[.1, .1, .1], angular_velocity=[0, 0, 0])
 
     def apply_force(self, force):
         p.applyExternalForce(

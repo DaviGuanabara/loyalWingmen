@@ -195,7 +195,8 @@ class DroneAndCube(gym.Env):
         return targets
 
     def apply_target_behavior(self, obstacle):
-        obstacle.apply_frozen_behavior()
+        # obstacle.apply_frozen_behavior()
+        obstacle.apply_contant_velocity_behavior()
 
     def setup_drones(
         self,
