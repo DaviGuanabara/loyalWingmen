@@ -113,3 +113,9 @@ loyalwingmen/logs/evaluations.npz
 *.pyc
 *.npz
 loyalwingmen/outcome/*
+loyalwingmen/apps/logs/9/first_run_1/events.out.tfevents.1685903742.Davi-PC.9108.9
+loyalwingmen/apps/logs/8/first_run_1/events.out.tfevents.1685903300.Davi-PC.9108.8
+loyalwingmen/apps/logs/7/first_run_1/events.out.tfevents.1685902835.Davi-PC.9108.7
+loyalwingmen/apps/logs/6/first_run_1/events.out.tfevents.1685902373.Davi-PC.9108.6
+loyalwingmen/apps/logs/5/first_run_1/events.out.tfevents.1685901910.Davi-PC.9108.5
+loyalwingmen/apps/logs/3/first_run_1/events.out.tfevents.1685900985.Davi-PC.9108.3

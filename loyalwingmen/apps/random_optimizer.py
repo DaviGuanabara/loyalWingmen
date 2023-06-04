@@ -96,6 +96,7 @@ class Training:
             )
 
             rewards = np.append(rewards, storage_for_callback.best_mean_reward)
+            vectorized_environment.close()
 
         return np.mean(rewards)
 
@@ -166,7 +167,7 @@ def main():
     best_reward = -math.inf
     best_topology = np.array([])
 
-    total_rl_steps = 500_000
+    total_rl_steps = 2_000_000
     n_repetitions = 1
 
 
