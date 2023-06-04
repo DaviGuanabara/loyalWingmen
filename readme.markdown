@@ -1,4 +1,5 @@
 ## Installation
+### Windows
 
 1. Install python (https://www.python.org/downloads/)
 Path python
