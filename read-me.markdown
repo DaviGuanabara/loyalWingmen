@@ -1,0 +1,36 @@
+## Installation
+### Windows
+
+1. Install python (https://www.python.org/downloads/)
+1.1. set python path
+2. install pytorch with cuda (https://pytorch.org/)
+3. install git
+3.1. set git on path
+4. install Visual Studio Community (https://visualstudio.microsoft.com/pt-br/vs/community/)
+4.1. in Visual Studio Community, install pack for c++ desktop development.
+5. update pip
+6. update wheels
+7. install gymnasium
+8. install stable-baselines3[extra] (need for callbacks)
+9. install stable baselines 3 bleeding-edge version, required to use gymnasium (https://stable-baselines3.readthedocs.io/en/master/guide/install.html).
+10. clone loyalwingmen (https://github.com/DaviGuanabara/loyalWingmen)
+11. go to loyalWingmen\loyalwingmen folder
+12. install loyalwingmen module: "$ pip install ."
+13. install requirements: "$ pip install -r requirements.txt"
+
+### Common installation issues
+
+#### Not building Wheels
+wheels is not building due to lack of c/c++ interpreter. On Windows, this can be solved installing a pack for c++ desktop development in Visual Studio Community, as shown in step 4 in Windows Installation
+
+
+#### Callback problem
+Callbacks are installd with stable-baselines3[extra] (step 8)
+
+#### Why using Gymnasium
+Quoting:
+"Gym did a lot of things very well, but OpenAI didn’t devote substantial resources to it beyond its initial release. The maintenance of Gym gradually decreased until Gym became wholly unmaintained in late 2020. In early 2021, OpenAI gave us control over the Gym repository."
+https://farama.org/Announcing-The-Farama-Foundation
+
+To unsure maintanance, Gymnasium was adopted. 
+
