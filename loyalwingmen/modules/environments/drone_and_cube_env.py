@@ -543,8 +543,13 @@ class DroneAndCube(gym.Env):
             return True
 
         if (
-            distance > self.environment_parameters.max_distance
-            or distance < self.environment_parameters.error
+            np.linalg.norm(
+                drone_position) > self.environment_parameters.max_distance
+            or
+            np.linalg.norm(
+                target_position) > self.environment_parameters.max_distance
+            or
+            distance < self.environment_parameters.error
         ):
             return True
 
