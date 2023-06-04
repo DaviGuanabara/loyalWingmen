@@ -8,7 +8,7 @@ import xml.etree.ElementTree as etxml
 import pkg_resources
 from pathlib import Path
 from PIL import Image
-
+import random
 # import pkgutil
 # egl = pkgutil.get_loader('eglRenderer')
 import numpy as np
@@ -197,6 +197,7 @@ class DroneAndCube(gym.Env):
     def apply_target_behavior(self, obstacle):
         # obstacle.apply_frozen_behavior()
         obstacle.apply_contant_velocity_behavior()
+        obstacle.update_kinematics()
 
     def setup_drones(
         self,
@@ -336,6 +337,13 @@ class DroneAndCube(gym.Env):
 
     ################################################################################
 
+    def gen_random_position(self):
+        x = random.choice([-1, 1]) * random.random() * 2
+        y = random.choice([-1, 1]) * random.random() * 2
+        z = random.choice([-1, 1]) * random.random() * 2
+
+        return [x, y, z]
+
     def _housekeeping(self):
         """Housekeeping function.
         Allocation and zero-ing of the variables and PyBullet's parameters/objects
@@ -366,13 +374,16 @@ class DroneAndCube(gym.Env):
         )
 
         # TODO: Arrumar um nome melhor. Tipo, extended_drones. Pq esses drones aí são o 'Drone' em si embrulhado com o DroneDecorator.
+
+        initial_drone_position = self.gen_random_position()
         self.drones = self.setup_drones(
-            number_of_drones=1, initial_positions=np.array([[1, 1, 1]])
+            number_of_drones=1, initial_positions=np.array([initial_drone_position])
         )
 
         # TODO: Arrumar um nome melhor. Tipo, extended_obstacles. Pq esses targets nem lembrar de obstacle lembra, muito menos do decorator do obstacle (ObstacleDecorator)
+        initial_target_position = self.gen_random_position()
         self.targets = self.setup_targets(
-            number_of_targets=1, initial_positions=np.array([[0.5, 0.5, 0.5]])
+            number_of_targets=1, initial_positions=np.array([initial_target_position])
         )
 
         for i in range(self.drones.size):
@@ -506,7 +517,8 @@ class DroneAndCube(gym.Env):
             penalty += 100_000
 
         if distance < self.environment_parameters.error:
-            bonus += 100_000
+            bonus += 10_000 * \
+                (self.environment_parameters.error - 1 * distance)
 
         self.last_reward = (5) - 1 * distance + bonus - penalty
 
@@ -531,8 +543,13 @@ class DroneAndCube(gym.Env):
             return True
 
         if (
-            distance > self.environment_parameters.max_distance
-            or distance < self.environment_parameters.error
+            np.linalg.norm(
+                drone_position) > self.environment_parameters.max_distance
+            or
+            np.linalg.norm(
+                target_position) > self.environment_parameters.max_distance
+            or
+            distance < self.environment_parameters.error
         ):
             return True
 
