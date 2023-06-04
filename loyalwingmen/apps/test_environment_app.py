@@ -23,8 +23,10 @@ env = DroneAndCube(GUI=True)
 
 # funciona para sb3 a partir de 2.0.0
 observation, info = env.reset()
+keyboard_listener = KeyboardListener()
 for steps in range(50_000):
-    observation, reward, terminated, truncated, info = env.step([0, 0, 0, 0])
+    action = keyboard_listener.get_action()
+    observation, reward, terminated, truncated, info = env.step(action)
 
     # TODO: display text e logreturn pode ser incorporado pelo ambiente.
     env.show_log()
