@@ -19,4 +19,5 @@ path git
 9. install stable-baselines3[extra] (necessário para os callbacks)
 10. install stable baselines 3 bleeding-edge version (https://stable-baselines3.readthedocs.io/en/master/guide/install.html).
 
-Install numpy…
+11. install pybullet
+12. Install numpy…
