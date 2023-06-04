@@ -68,7 +68,7 @@ class Training:
                 log_path="./logs/",
                 model_path="./models/",
                 n_envs=n_envs,
-                save_freq=30_000,
+                save_freq=100_000,
             )
 
             
@@ -96,6 +96,7 @@ class Training:
             )
 
             rewards = np.append(rewards, storage_for_callback.best_mean_reward)
+            vectorized_environment.close()
 
         return np.mean(rewards)
 
@@ -166,7 +167,7 @@ def main():
     best_reward = -math.inf
     best_topology = np.array([])
 
-    total_rl_steps = 500_000
+    total_rl_steps = 2_000_000
     n_repetitions = 1
 
 
