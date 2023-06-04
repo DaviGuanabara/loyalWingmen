@@ -196,8 +196,7 @@ class DroneAndCube(gym.Env):
 
     def apply_target_behavior(self, obstacle):
         # obstacle.apply_frozen_behavior()
-        obstacle.apply_contant_velocity_behavior()
-        obstacle.update_kinematics()
+        obstacle.apply_constant_velocity_behavior()
 
     def setup_drones(
         self,
@@ -289,6 +288,7 @@ class DroneAndCube(gym.Env):
 
             for target in self.targets:
                 self.apply_target_behavior(target)
+                target.update_kinematics()
 
             p.stepSimulation()
 
