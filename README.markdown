@@ -1,9 +1,12 @@
+# Loyal Wingmen Simulation
+
+This project is based on pybullet drones (https://github.com/utiasDSL/gym-pybullet-drones)
+docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tree/master/docs
+
+
+
 ## Installation
 ### Windows
-
-
-
-
 
 
 
