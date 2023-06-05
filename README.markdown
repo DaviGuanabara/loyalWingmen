@@ -1,8 +1,16 @@
 # Loyal Wingmen Simulation
 
-This project is based on pybullet drones (https://github.com/utiasDSL/gym-pybullet-drones)
-docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tree/master/docs
+## Introduction
+Authors:
+Davi Guanabara
+Andrey Labanca
 
+Objective:
+Simulate a Cooperative Threat Engagement by Heterogeneous Drone Swarm (CTEDS) environment inspired in https://github.com/tnferreira/cteds-high-level-decision
+Solve the problem with Reinforcement Learning.
+
+This project is based in pybullet drones (https://github.com/utiasDSL/gym-pybullet-drones)
+Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tree/master/docs
 
 
 ## Installation
@@ -14,8 +22,7 @@ docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
    - set python path
 
 2. install latest pytorch with cuda (https://pytorch.org/)
-    - make sure you installed it with cuda. to test it, try:
-(https://stackoverflow.com/questions/48152674/how-do-i-check-if-pytorch-is-using-the-gpu)
+    - make sure you installed it with cuda. to test it, try: (https://stackoverflow.com/questions/48152674/how-do-i-check-if-pytorch-is-using-the-gpu)
 
       $ import torch
 
@@ -34,8 +41,8 @@ docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
       $ torch.cuda.get_device_name(0)
       >>>'GeForce GTX 950M'
 
-      3. install git
-         - set git on path
+3. install git
+   - set git on path
 
 4. download and install Visual Studio Community c/c++ IDE + Compiler (https://visualstudio.microsoft.com/vs/features/cplusplus/)
     - make sure that all tools for c++ compiler is installed. if not done properly, “wheel build” will be a problem in step 8.
