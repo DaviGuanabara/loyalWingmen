@@ -2,8 +2,8 @@
 
 ## Introduction
 Authors:
-Davi Guanabara
-Andrey Labanca
+Davi Guanabara;
+Andrey Labanca.
 
 Objective:
 Simulate a Cooperative Threat Engagement by Heterogeneous Drone Swarm (CTEDS) environment inspired in https://github.com/tnferreira/cteds-high-level-decision
