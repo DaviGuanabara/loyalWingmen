@@ -17,25 +17,25 @@ docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
     - make sure you installed it with cuda. to test it, try:
 (https://stackoverflow.com/questions/48152674/how-do-i-check-if-pytorch-is-using-the-gpu)
 
-$ import torch
+      $ import torch
 
-$ torch.cuda.is_available()
->>>True
+      $ torch.cuda.is_available()
+      >>>True
 
-$ torch.cuda.device_count()
-1
+      $ torch.cuda.device_count()
+      >>>1
 
-$ torch.cuda.current_device()
-0
+      $ torch.cuda.current_device()
+      >>>0
 
-$ torch.cuda.device(0)
->>> <torch.cuda.device at 0x7efce0b03be0>
+      $ torch.cuda.device(0)
+      >>> <torch.cuda.device at 0x7efce0b03be0>
 
-$ torch.cuda.get_device_name(0)
-'GeForce GTX 950M'
+      $ torch.cuda.get_device_name(0)
+      >>>'GeForce GTX 950M'
 
-3. install git
-   - set git on path
+      3. install git
+         - set git on path
 
 4. download and install Visual Studio Community c/c++ IDE + Compiler (https://visualstudio.microsoft.com/vs/features/cplusplus/)
     - make sure that all tools for c++ compiler is installed. if not done properly, “wheel build” will be a problem in step 8.
