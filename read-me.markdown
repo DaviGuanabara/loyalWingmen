@@ -2,17 +2,7 @@
 ### Windows
 
 
-1. First item.
-   - Item 1
-   - Item 2
-   - Item 3
-1. Second item.
-   - Nested item 1
-      - Further nested item 1
-      - Further nested item 2
-      - Further nested item 3
-   - Nested item 2
-   - Nested item 3
+
 
 
 
@@ -21,8 +11,10 @@
    - set python path
 
 2. install pytorch with cuda (https://pytorch.org/)
+
 3. install git
-3.1. set git on path
+  - set git on path
+
 4. install Visual Studio Community (https://visualstudio.microsoft.com/pt-br/vs/community/)
 4.1. in Visual Studio Community, install pack for c++ desktop development.
 5. update pip
