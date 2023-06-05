@@ -15,8 +15,8 @@
 3. install git
    - set git on path
 
-4. install Visual Studio Community (https://visualstudio.microsoft.com/pt-br/vs/community/)
-4.1. in Visual Studio Community, install pack for c++ desktop development.
+4. download and install Visual Studio Community c/c++ IDE + Compiler (https://visualstudio.microsoft.com/vs/features/cplusplus/)
+    - make sure that all tools for c++ compiler is installed. if not done properly, “wheel build” will be a problem in step 8.
 5. update pip
 6. update wheels
 7. install gymnasium
