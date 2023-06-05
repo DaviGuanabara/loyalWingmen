@@ -13,7 +13,7 @@
 2. install pytorch with cuda (https://pytorch.org/)
 
 3. install git
-  - set git on path
+   - set git on path
 
 4. install Visual Studio Community (https://visualstudio.microsoft.com/pt-br/vs/community/)
 4.1. in Visual Studio Community, install pack for c++ desktop development.
