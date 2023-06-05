@@ -1,8 +1,25 @@
 ## Installation
 ### Windows
 
-1. Install python (https://www.python.org/downloads/) \\
-1.1. set python path
+
+1. First item.
+   - Item 1
+   - Item 2
+   - Item 3
+1. Second item.
+   - Nested item 1
+      - Further nested item 1
+      - Further nested item 2
+      - Further nested item 3
+   - Nested item 2
+   - Nested item 3
+
+
+
+
+1. Install python (https://www.python.org/downloads/)
+   - set python path
+
 2. install pytorch with cuda (https://pytorch.org/)
 3. install git
 3.1. set git on path
