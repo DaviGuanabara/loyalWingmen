@@ -53,8 +53,7 @@ Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
 9. install stable baselines 3 bleeding-edge version, required to use gymnasium (https://stable-baselines3.readthedocs.io/en/master/guide/install.html).
 10. clone loyalwingmen (https://github.com/DaviGuanabara/loyalWingmen)
 11. go to loyalWingmen\loyalwingmen folder
-12. install loyalwingmen module: "$ pip install ."
-13. install requirements: "$ pip install -r requirements.txt"
+12. install requirements: "$ pip install -r requirements.txt"
 
 ### Common installation issues
 
