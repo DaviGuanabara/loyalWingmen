@@ -32,5 +32,19 @@ Quoting:
 "Gym did a lot of things very well, but OpenAI didn’t devote substantial resources to it beyond its initial release. The maintenance of Gym gradually decreased until Gym became wholly unmaintained in late 2020. In early 2021, OpenAI gave us control over the Gym repository."
 https://farama.org/Announcing-The-Farama-Foundation
 
-To unsure maintanance, Gymnasium was adopted. 
+To unsure maintanance, Gymnasium was adopted.
+
+#### "modules" module not recognized
+this error normally occurs when you try to execute any .py file inside apps folder. 
+
+the _app.py files need to access files in parent folder. I am not sure why this error happens, but the solution
+is to set sys with parents folder:
+(https://stackoverflow.com/questions/714063/importing-modules-from-parent-folder)
+
+import sys
+sys.path.append('..')
+
+
+I am not sure why this error message is appearing.
+
 
