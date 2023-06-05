@@ -15,8 +15,8 @@
 (https://stackoverflow.com/questions/48152674/how-do-i-check-if-pytorch-is-using-the-gpu)
 >>> import torch
 
->>> torch.cuda.is_available()
-True
+$ torch.cuda.is_available()
+>>>True
 
 >>> torch.cuda.device_count()
 1
