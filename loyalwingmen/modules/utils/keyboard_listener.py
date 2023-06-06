@@ -33,30 +33,31 @@ class KeyboardListener:
         # listener.join()
 
         # ...or, in a non-blocking fashion:
-        listener = keyboard.Listener(on_press=self.on_press, on_release=self.on_release)
+        listener = keyboard.Listener(
+            on_press=self.on_press, on_release=self.on_release)
         listener.start()
 
-    def get_action(self):
+    def get_action(self, intensity=0.005):
         if self.key == keyboard.Key.up:
-            return [0, 1, 0, 0.005]
+            return [0, 1, 0, intensity]
 
         if self.key == keyboard.Key.down:
-            return [0, -1, 0, 0.005]
+            return [0, -1, 0, intensity]
 
         if self.key == keyboard.Key.left:
-            return [-1, 0, 0, 0.005]
+            return [-1, 0, 0, intensity]
 
         if self.key == keyboard.Key.right:
-            return [1, 0, 0, 0.005]
+            return [1, 0, 0, intensity]
 
         if self.key == self.keycode.from_char("w"):
-            return [0, 0, 1, 0.005]
+            return [0, 0, 1, intensity]
 
         if self.key == self.keycode.from_char("s"):
-            return [0, 0, -1, 0.005]
+            return [0, 0, -1, intensity]
 
         else:
-            return [0, 0, 0, 0.005]
+            return [0, 0, 0, intensity]
 
         # return self.k
 

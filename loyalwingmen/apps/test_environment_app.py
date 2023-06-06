@@ -25,11 +25,12 @@ env = DroneAndCube(GUI=True)
 observation, info = env.reset()
 keyboard_listener = KeyboardListener()
 for steps in range(50_000):
-    action = keyboard_listener.get_action()
+    action = keyboard_listener.get_action(intensity=0.5)
     observation, reward, terminated, truncated, info = env.step(action)
 
     # TODO: display text e logreturn pode ser incorporado pelo ambiente.
     env.show_log()
+
     # log_returns(observation, reward, action)
     # if terminated:
     # observation, info = env.reset()

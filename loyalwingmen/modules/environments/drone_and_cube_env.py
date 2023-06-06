@@ -64,7 +64,7 @@ class DroneAndCube(gym.Env):
         initial_rpys=None,
         physics: Physics = Physics.PYB,
         simulation_frequency: int = 240,
-        rl_frequency: int = 15,
+        rl_frequency: int = 30,  # 15, o Marcos recomendou 15.
         # aggregate_phy_steps: int = 15,
         GUI: bool = False,
     ):
@@ -506,6 +506,7 @@ class DroneAndCube(gym.Env):
         # TODO adicionar bonus por chegar no alvo.\
 
         # max_distance = self.environment_parameters.max_distance
+        survivor_bonus = 5
         penalty = 0
         bonus = 0
 
@@ -513,14 +514,17 @@ class DroneAndCube(gym.Env):
         target_position = self.targets[0].gadget.kinematics.position
         distance = np.linalg.norm(target_position - drone_position)
 
-        if distance > self.environment_parameters.max_distance:
+        if np.linalg.norm(drone_position) > self.environment_parameters.max_distance:
+            penalty += 100_000
+
+        if np.linalg.norm(target_position) > self.environment_parameters.max_distance:
             penalty += 100_000
 
         if distance < self.environment_parameters.error:
-            bonus += 10_000 * \
+            bonus += 100_000 * \
                 (self.environment_parameters.error - 1 * distance)
 
-        self.last_reward = (5) - 1 * distance + bonus - penalty
+        self.last_reward = (survivor_bonus) - 1 * distance + bonus - penalty
 
         return self.last_reward
 
