@@ -17,19 +17,20 @@ from typing import Callable
 from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.env_checker import check_env
+from modules.environments.loyalwingmen.lidar_env import DroneLidar
 
 
-env = DroneAndCube(GUI=True)
+env = DroneLidar(GUI=True)
 
 # funciona para sb3 a partir de 2.0.0
 observation, info = env.reset()
 keyboard_listener = KeyboardListener()
 for steps in range(50_000):
-    action = keyboard_listener.get_action(intensity=0.5)
+    action = keyboard_listener.get_action(intensity=0.05)
     observation, reward, terminated, truncated, info = env.step(action)
-
+    #print(observation)
     # TODO: display text e logreturn pode ser incorporado pelo ambiente.
-    env.show_log()
+    env.show_lidar_log()
 
     # log_returns(observation, reward, action)
     # if terminated:

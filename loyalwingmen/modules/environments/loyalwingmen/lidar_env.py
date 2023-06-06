@@ -26,6 +26,7 @@ from modules.factories.obstacle_factory import ObstacleFactory
 from typing import NamedTuple
 
 from modules.factories.drone_factory import DroneFactory
+from modules.environments.drone_and_cube_env import DroneAndCube
 from modules.environments.environment_models import EnvironmentParameters
 
 
@@ -38,7 +39,9 @@ from modules.environments.environment_models import EnvironmentParameters
 # Talvez unir os dois managers
 
 
-class DroneAndCube(gym.Env):
+
+
+class DroneLidar(DroneAndCube):
     """Base class for "drone aviary" Gym environments."""
 
     metadata = {"render.modes": ["human"]}
@@ -52,7 +55,7 @@ class DroneAndCube(gym.Env):
         initial_rpys=None,
         physics: Physics = Physics.PYB,
         simulation_frequency: int = 240,
-        rl_frequency: int = 30, #30,  # 15, o Marcos recomendou 15.
+        rl_frequency: int = 15,
         # aggregate_phy_steps: int = 15,
         GUI: bool = False,
     ):
@@ -160,7 +163,7 @@ class DroneAndCube(gym.Env):
     def setup_targets(
         self,
         number_of_targets: int = 1,
-        initial_positions: np.array = np.array([[1, 1, 1]]),
+        initial_positions: np.array = np.array([[0, 0, 0]]),
         urdf_file_paths: np.array = np.array(["cube_small.urdf"]),
     ):
         assert (
@@ -183,8 +186,8 @@ class DroneAndCube(gym.Env):
         return targets
 
     def apply_target_behavior(self, obstacle):
-        # obstacle.apply_frozen_behavior()
-        obstacle.apply_constant_velocity_behavior()
+        obstacle.apply_frozen_behavior()
+        #obstacle.apply_constant_velocity_behavior()
 
     def setup_drones(
         self,
@@ -277,19 +280,19 @@ class DroneAndCube(gym.Env):
             for target in self.targets:
                 self.apply_target_behavior(target)
                 target.update_kinematics()
-
+            
             p.stepSimulation()
 
         self.step_counter += 1
 
-        observation = self._computeObs()
+        self.observation = self._computeObs()
         reward = self._computeReward()
         terminated = self._computeDone()
         info = self._computeInfo()
 
         # return obs, reward, done, info
         # apagar False (Truncated) para versões do SB3 abaixo da 2.0.0
-        return observation, reward, terminated, False, info
+        return self.observation, reward, terminated, False, info
 
     ################################################################################
 
@@ -369,7 +372,7 @@ class DroneAndCube(gym.Env):
         )
 
         # TODO: Arrumar um nome melhor. Tipo, extended_obstacles. Pq esses targets nem lembrar de obstacle lembra, muito menos do decorator do obstacle (ObstacleDecorator)
-        initial_target_position = self.gen_random_position()
+        initial_target_position = [0, 0, 0] #self.gen_random_position()
         self.targets = self.setup_targets(
             number_of_targets=1, initial_positions=np.array([initial_target_position])
         )
@@ -455,34 +458,15 @@ class DroneAndCube(gym.Env):
         """Returns the current observation of the environment.
         Must be implemented in a subclass.
         """
+  
 
-        drone_kinematics = self.drones[0].gadget.kinematics
-        # drone_state = self.process_kinematics_to_state(drone_kinematics)
-        drone_position = drone_kinematics.position
-        drone_velocity = drone_kinematics.velocity
+        #self.drones[0].get_LiDAR_readings()
+        #readings = self.drones[0].get_LiDAR_readings()
+        #target_location = target_loc if 
+        #reads = [read if read[0] > -1 else None for read in readings] #None nos locais que não tem nada
+        #reads = [x for x in reads if x is not None] #Remover os None
 
-        target_kinematics = self.targets[0].gadget.kinematics
-        target_position = target_kinematics.position
-        target_velocity = target_kinematics.velocity
-
-        # print(kinematics)
-        # time.sleep(0.3)
-
-        distance = np.linalg.norm(target_position - drone_position)
-        direction = (target_position - drone_position) / distance
-
-        observation = np.hstack(
-            (
-                self._normalizePosition(drone_position),
-                self._normalizeVelocity(drone_velocity),
-                self._normalizePosition(target_position),
-                self._normalizeVelocity(target_velocity),
-                direction,
-                self._normalizeDistance(distance),
-            )
-        ).reshape(16)
-
-        return observation  # np.zeros(16).astype("float32")
+        return []#reads #self.drones[0].get_LiDAR_readings() #observation  # np.zeros(16).astype("float32")
 
     def _computeReward(self):
         """Computes the current reward value(s).
@@ -494,7 +478,6 @@ class DroneAndCube(gym.Env):
         # TODO adicionar bonus por chegar no alvo.\
 
         # max_distance = self.environment_parameters.max_distance
-        survivor_bonus = 5
         penalty = 0
         bonus = 0
 
@@ -502,17 +485,14 @@ class DroneAndCube(gym.Env):
         target_position = self.targets[0].gadget.kinematics.position
         distance = np.linalg.norm(target_position - drone_position)
 
-        if np.linalg.norm(drone_position) > self.environment_parameters.max_distance:
-            penalty += 100_000
-
-        if np.linalg.norm(target_position) > self.environment_parameters.max_distance:
+        if distance > self.environment_parameters.max_distance:
             penalty += 100_000
 
         if distance < self.environment_parameters.error:
-            bonus += 100_000 * \
+            bonus += 10_000 * \
                 (self.environment_parameters.error - 1 * distance)
 
-        self.last_reward = (survivor_bonus) - 1 * distance + bonus - penalty
+        self.last_reward = (5) - 1 * distance + bonus - penalty
 
         return self.last_reward
 
@@ -631,61 +611,65 @@ class DroneAndCube(gym.Env):
         stdscr.addstr(0, 0, text)
         stdscr.refresh()
 
-        """
-        import time
-import curses
-import numpy as np
+    def generate_lidar_log(self):
+        #TODO eu botei aqui
+        readings = self.drones[0].get_LiDAR_readings()
+        #target_location = target_loc if 
+        reads = [read if read[0] > -1 else None for read in readings] #None nos locais que não tem nada
+        lidar_reads = [x for x in reads if x is not None]
+        #self.reads = reads
 
+        OBJECT_ID = 0 #int object unique id of the hit object
+        LINK_INDEX = 1 #int link index of the hit object, or -1 if none/parent.
+        HIT_FRACTION = 2 #float hit fraction along the ray in range [0,1] along the ray.
+        HIT_POSITION = 3 #list of 3 floats hit position in Cartesian world coordinates
+        HIT_NORMAL = 4 #list of 3 floats hit normal in Cartesian world coordinates
+        lidar_initial_radius = 0.8
+        RADIUS = 10
 
-def format_array_to_string(arr, keywords, string=""):
-    foo = ["{:.4f}".format(m) for m in arr]
+        drone_kinematics = self.drones[0].gadget.kinematics  
+        drone_position = drone_kinematics.position
+        drone_velocity = drone_kinematics.velocity
 
-    index_foo = 0
+        target_kinematics = self.targets[0].gadget.kinematics
+        target_position = target_kinematics.position
+        target_velocity = target_kinematics.velocity
 
-    for keyword, quantity in keywords:
-        values = ""
-        for i in range(quantity):
-            if i == quantity - 1:
-                values += foo[index_foo + i] + "\n"
-            else:
-                values += foo[index_foo + i] + ", "
-
-        index_foo = index_foo + quantity
-        string += keyword + ": " + values
-
-    return string
-
-
-def format_returns(obs, reward, action):
-    keywords_obs = [
-        ("drone_position", 3),
-        ("drone_velocity", 3),
-        ("cube_position", 3),
-        ("cube_velocity", 3),
-        ("direction", 3),
-        ("distance", 1),
-    ]
-
-    keywords_action = [("Action (Velocity Vector):", 4)]
-
-    string = "Reward:" + "{:.4f}".format(reward) + " \n"
-    string = format_array_to_string(obs, keywords_obs, string)
-    string = format_array_to_string(action, keywords_action, string)
-
-    return string
-
-
-def log(string):
-    stdscr = curses.initscr()
-    stdscr.addstr(0, 0, string)
-    stdscr.refresh()
-
-
-def log_returns(obs, reward=0, action=[0, 0, 0, 0]):
-    log(format_returns(obs, reward, action))
-
-
-# test2()
+        distance = np.linalg.norm(target_position - drone_position)
 
         
-        """
+        
+        if len(lidar_reads) > 0:
+
+            
+            lidar_read = lidar_reads[0]
+            text = ""
+            text += "\n"
+            text += "drone_position: " + self.format_list(drone_position) + "\n"
+            text += "Object ID: " + str(lidar_read[OBJECT_ID]) + "\n"
+            text += "Distance: " + str((RADIUS - lidar_initial_radius) * lidar_read[HIT_FRACTION] + lidar_initial_radius) + "\n"
+            text += "Real Distance: " + str(distance) + "\n"
+            text += "target_position: " + self.format_list([lidar_read[HIT_POSITION][0], lidar_read[HIT_POSITION][1], lidar_read[HIT_POSITION][2]]) + "\n"
+            text += "real_target_position: " + self.format_list(target_position) + "\n"
+
+            return text
+        
+        text = ""
+        text += "\n"
+        text += "drone_position: " + self.format_list(drone_position) + "\n"
+        text += "Object ID: " + str(-1) + "\n"
+        text += "Distance: " + str(RADIUS)  + "\n"
+        text += "Real Distance: " + str(distance) + "\n"
+        text += "target_position: " + "\n"
+        text += "real_target_position: " + self.format_list(target_position) + "\n"
+
+        
+        return text
+
+    def show_lidar_log(self):
+        text = self.generate_lidar_log()
+        #print(text)
+
+        stdscr = curses.initscr()
+        stdscr.addstr(0, 0, text)
+        stdscr.refresh()    
