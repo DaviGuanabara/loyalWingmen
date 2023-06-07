@@ -14,6 +14,7 @@ import random
 import numpy as np
 import pybullet as p
 import pybullet_data
+import math
 
 from modules.utils.enums import DroneModel, Physics, ImageType
 
@@ -37,8 +38,6 @@ from modules.environments.environment_models import EnvironmentParameters
 # Ele tá ficando mais longe, mas a distancia está aumentando.
 # TODO em todo canto está a posição do alvo. Deveria estar em só um local e ser chamado. Tenho que usar o obstacle manager para isso, algo parecido com o drone manager.
 # Talvez unir os dois managers
-
-
 
 
 class DroneLidar(DroneAndCube):
@@ -115,6 +114,8 @@ class DroneLidar(DroneAndCube):
         self.step_counter = 0
         self.RESET_TIME = time.time()
 
+        self.lidar: LiDAR_new = LiDAR_new(max_distance=5, resolution=.1)
+
         #### Housekeeping ##########################################
         self._housekeeping()
 
@@ -187,7 +188,7 @@ class DroneLidar(DroneAndCube):
 
     def apply_target_behavior(self, obstacle):
         obstacle.apply_frozen_behavior()
-        #obstacle.apply_constant_velocity_behavior()
+        # obstacle.apply_constant_velocity_behavior()
 
     def setup_drones(
         self,
@@ -280,7 +281,7 @@ class DroneLidar(DroneAndCube):
             for target in self.targets:
                 self.apply_target_behavior(target)
                 target.update_kinematics()
-            
+
             p.stepSimulation()
 
         self.step_counter += 1
@@ -372,7 +373,7 @@ class DroneLidar(DroneAndCube):
         )
 
         # TODO: Arrumar um nome melhor. Tipo, extended_obstacles. Pq esses targets nem lembrar de obstacle lembra, muito menos do decorator do obstacle (ObstacleDecorator)
-        initial_target_position = [0, 0, 0] #self.gen_random_position()
+        initial_target_position = [0, 0, 0]  # self.gen_random_position()
         self.targets = self.setup_targets(
             number_of_targets=1, initial_positions=np.array([initial_target_position])
         )
@@ -382,6 +383,8 @@ class DroneLidar(DroneAndCube):
 
         for i in range(self.targets.size):
             self.targets[i].update_kinematics()
+
+        self.lidar.reset()
 
         # print("load drones position:", self.INIT_XYZS[0,:])
         # self.DRONE_IDS = np.array([p.loadURDF(pkg_resources.resource_filename('gym_pybullet_drones', 'assets/'+self.URDF),
@@ -458,15 +461,25 @@ class DroneLidar(DroneAndCube):
         """Returns the current observation of the environment.
         Must be implemented in a subclass.
         """
-  
 
-        #self.drones[0].get_LiDAR_readings()
-        #readings = self.drones[0].get_LiDAR_readings()
-        #target_location = target_loc if 
-        #reads = [read if read[0] > -1 else None for read in readings] #None nos locais que não tem nada
-        #reads = [x for x in reads if x is not None] #Remover os None
+        # self.drones[0].get_LiDAR_readings()
+        # readings = self.drones[0].get_LiDAR_readings()
+        # target_location = target_loc if
+        # reads = [read if read[0] > -1 else None for read in readings] #None nos locais que não tem nada
+        # reads = [x for x in reads if x is not None] #Remover os None
+        self.lidar.reset()
+        drone_position = self.drones[0].gadget.kinematics.position
+        # drone_velocity = self.drones[0].gadget.kinematics.velocity
 
-        return []#reads #self.drones[0].get_LiDAR_readings() #observation  # np.zeros(16).astype("float32")
+        # target_position = self.targets[0].gadget.kinematics.position
+        # target_velocity = self.targets[0].gadget.kinematics.velocity
+
+        for target in self.targets:
+            target_position = target.gadget.kinematics.position
+            self.lidar.add_position(target_position, drone_position)
+
+        # reads #self.drones[0].get_LiDAR_readings() #observation  # np.zeros(16).astype("float32")
+        return self.lidar.get_matrix()
 
     def _computeReward(self):
         """Computes the current reward value(s).
@@ -612,64 +625,139 @@ class DroneLidar(DroneAndCube):
         stdscr.refresh()
 
     def generate_lidar_log(self):
-        #TODO eu botei aqui
-        readings = self.drones[0].get_LiDAR_readings()
-        #target_location = target_loc if 
-        reads = [read if read[0] > -1 else None for read in readings] #None nos locais que não tem nada
-        lidar_reads = [x for x in reads if x is not None]
-        #self.reads = reads
 
-        OBJECT_ID = 0 #int object unique id of the hit object
-        LINK_INDEX = 1 #int link index of the hit object, or -1 if none/parent.
-        HIT_FRACTION = 2 #float hit fraction along the ray in range [0,1] along the ray.
-        HIT_POSITION = 3 #list of 3 floats hit position in Cartesian world coordinates
-        HIT_NORMAL = 4 #list of 3 floats hit normal in Cartesian world coordinates
-        lidar_initial_radius = 0.8
-        RADIUS = 10
+        obs = np.round(self.observation, 2)
 
-        drone_kinematics = self.drones[0].gadget.kinematics  
-        drone_position = drone_kinematics.position
-        drone_velocity = drone_kinematics.velocity
-
-        target_kinematics = self.targets[0].gadget.kinematics
-        target_position = target_kinematics.position
-        target_velocity = target_kinematics.velocity
-
-        distance = np.linalg.norm(target_position - drone_position)
-
-        
-        
-        if len(lidar_reads) > 0:
-
-            
-            lidar_read = lidar_reads[0]
-            text = ""
-            text += "\n"
-            text += "drone_position: " + self.format_list(drone_position) + "\n"
-            text += "Object ID: " + str(lidar_read[OBJECT_ID]) + "\n"
-            text += "Distance: " + str((RADIUS - lidar_initial_radius) * lidar_read[HIT_FRACTION] + lidar_initial_radius) + "\n"
-            text += "Real Distance: " + str(distance) + "\n"
-            text += "target_position: " + self.format_list([lidar_read[HIT_POSITION][0], lidar_read[HIT_POSITION][1], lidar_read[HIT_POSITION][2]]) + "\n"
-            text += "real_target_position: " + self.format_list(target_position) + "\n"
-
-            return text
-        
         text = ""
         text += "\n"
-        text += "drone_position: " + self.format_list(drone_position) + "\n"
-        text += "Object ID: " + str(-1) + "\n"
-        text += "Distance: " + str(RADIUS)  + "\n"
-        text += "Real Distance: " + str(distance) + "\n"
-        text += "target_position: " + "\n"
-        text += "real_target_position: " + self.format_list(target_position) + "\n"
+        text += np.array2string(obs)
 
-        
         return text
 
     def show_lidar_log(self):
         text = self.generate_lidar_log()
-        #print(text)
+        # print(text)
 
         stdscr = curses.initscr()
+        stdscr.clear()
         stdscr.addstr(0, 0, text)
-        stdscr.refresh()    
+        stdscr.refresh()
+
+
+class LiDAR_new():
+    def __init__(self, max_distance: int = 3, resolution: float = 1):
+        self.max_distance = max_distance
+        self.resolution = resolution
+
+        _, self.n_theta_readings, self.n_phi_readings = self.__calculate_variables(
+            max_distance, resolution)
+        self.matrix: np.array = self.__gen_matrix_view(
+            self.n_theta_readings, self.n_phi_readings)
+
+    # ============================================================================================================
+    # Setup Functions
+    # ============================================================================================================
+
+    def __calculate_variables(self, max_distance: float, resolution: float = 1):
+        sphere_surface = 4 * math.pi * max_distance ** 2
+        number_of_readings: int = math.ceil(resolution * sphere_surface)
+
+        n_phi_readings: int = math.ceil(math.sqrt(number_of_readings))
+        n_theta_readings: int = math.ceil(math.sqrt(number_of_readings))
+
+        return sphere_surface, n_theta_readings, n_phi_readings
+
+    def __gen_matrix_view(self, n_theta_readings, n_phi_readings):
+        matrix = np.zeros((n_theta_readings, n_phi_readings))
+        return matrix
+
+    def reset(self):
+        self.matrix: np.array = self.__gen_matrix_view(
+            self.n_theta_readings, self.n_phi_readings)
+
+    # ============================================================================================================
+    # Coordinates Functions
+    # ============================================================================================================
+
+    def spherical_to_cartesian(self, spherical: np.array):
+        """
+        https://en.wikipedia.org/wiki/Spherical_coordinate_system
+        spherical = (radius, theta, phi)
+        radius, theta, phi
+        theta is polar angle
+        phi is azimuthal angle
+        """
+
+        radius, theta, phi = spherical[0], spherical[1], spherical[2]
+
+        return [
+            radius * math.sin(theta) * math.cos(phi),
+            radius * math.sin(theta) * math.sin(phi),
+            radius * math.cos(theta)
+        ]
+
+    def cartesian_to_spherical(self, cartesian: np.array):
+        """
+        https://en.wikipedia.org/wiki/Spherical_coordinate_system
+        spherical = (radius, theta, phi)
+        theta is polar angle
+        phi is azimuthal angle
+        """
+
+        x, y, z = cartesian[0], cartesian[1], cartesian[2]
+        x_2, y_2, z_2 = x ** 2, y ** 2, z ** 2
+
+        return [
+            math.sqrt(x_2 + y_2 + z_2),  # Ok
+            math.acos(z/math.sqrt(x_2 + y_2 + z_2)),
+            math.atan2(y, x)
+        ]
+
+    # ============================================================================================================
+    # Matrix Functions
+    # ============================================================================================================
+
+    def __add_spherical_to_matrix(self, matrix: np.array, spherical: list, distance: float = 10):
+        """
+        https://en.wikipedia.org/wiki/Spherical_coordinate_system
+        spherical = (radius, theta, phi)
+        theta is polar angle
+        phi is azimuthal angle
+
+        matrix[theta_position][phi_position]
+        """
+
+        if distance > self.max_distance:
+            return
+
+        n_theta_readings = len(matrix)
+        n_phi_readings = len(matrix[0])
+        theta_step_size = (2 * math.pi) / n_theta_readings
+        phi_step_size = (2 * math.pi) / n_phi_readings
+
+        _, theta, phi = spherical[0], spherical[1], spherical[2]
+        theta_position = round(theta / theta_step_size)
+        phi_position = round(phi / phi_step_size)
+
+        matrix[theta_position][phi_position] = distance
+
+    def __add_cartesian_to_matrix(self, matrix: np.array, cartesian: list, distance: float = 10):
+        spherical = self.cartesian_to_spherical(cartesian)
+        self.__add_spherical_to_matrix(matrix, spherical, distance)
+
+    def add_position(self, target_position: np.array, current_position: np.array = [0, 0, 0]):
+        cartesian: list = target_position - current_position
+        distance = np.linalg.norm(target_position - current_position)
+        self.__add_cartesian_to_matrix(self.matrix, cartesian, distance)
+
+    def get_matrix(self):
+        return self.matrix
+
+
+# lidar = LiDAR_new(max_distance=5, resolution=1)
+
+
+# current_position = np.array([0, 0, 0])
+# target_position = np.array([0, 3, 3])
+# lidar.add_position(target_position, current_position)
+# print(lidar.get_matrix())

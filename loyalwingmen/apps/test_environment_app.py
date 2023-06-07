@@ -26,9 +26,9 @@ env = DroneLidar(GUI=True)
 observation, info = env.reset()
 keyboard_listener = KeyboardListener()
 for steps in range(50_000):
-    action = keyboard_listener.get_action(intensity=0.05)
+    action = keyboard_listener.get_action(intensity=0.005)
     observation, reward, terminated, truncated, info = env.step(action)
-    #print(observation)
+    # print(observation)
     # TODO: display text e logreturn pode ser incorporado pelo ambiente.
     env.show_lidar_log()
 
