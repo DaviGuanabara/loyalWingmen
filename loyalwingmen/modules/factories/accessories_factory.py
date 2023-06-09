@@ -17,10 +17,10 @@ class LiDAR():
             self.n_theta_readings, self.n_phi_readings)
 
     def get_flag(self, name):
-        if name == "LOYALWINGMEN":
+        if name == "LOYAL_WINGMEN":
             return 1
 
-        if name == "TARGET":
+        if name == "LOITERING_MUNITION":
             return 2
 
         if name == "OBSTACLE":
@@ -131,11 +131,11 @@ class LiDAR():
         distance = np.linalg.norm(end_position - current_position)
         self.__add_cartesian_to_matrix(self.matrix, cartesian, distance, flag)
 
-    def add_position(self, target_position: np.array = np.array([]), obstacle_position: np.array = np.array([]), loyalwingmen_position: np.array = np.array([]), current_position: np.array = np.array([0, 0, 0])):
+    def add_position(self, loitering_munition_position: np.array = np.array([]), obstacle_position: np.array = np.array([]), loyalwingmen_position: np.array = np.array([]), current_position: np.array = np.array([0, 0, 0])):
 
-        if len(target_position) > 0:
+        if len(loitering_munition_position) > 0:
             self.__add_end_position(
-                target_position, current_position, self.get_flag("TARGET"))
+                loitering_munition_position, current_position, self.get_flag("LOITERING_MUNITION"))
 
         if len(obstacle_position) > 0:
             self.__add_end_position(
@@ -143,7 +143,7 @@ class LiDAR():
 
         if len(loyalwingmen_position) > 0:
             self.__add_end_position(
-                loyalwingmen_position, current_position, self.get_flag("LOYALWINGMEN"))
+                loyalwingmen_position, current_position, self.get_flag("LOYAL_WINGMEN"))
 
     def get_matrix(self):
         return self.matrix

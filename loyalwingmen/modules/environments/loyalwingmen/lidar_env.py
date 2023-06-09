@@ -470,7 +470,7 @@ class DroneLidar(DroneAndCube):
             target_position = target.gadget.kinematics.position
 
             self.lidar.add_position(
-                target_position=target_position, current_position=drone_position)
+                loitering_munition_position=target_position, current_position=drone_position)
 
         return self.lidar.get_matrix()
 
