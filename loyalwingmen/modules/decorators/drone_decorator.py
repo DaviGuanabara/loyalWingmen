@@ -12,19 +12,16 @@ from typing import NamedTuple
 
 from modules.factories.factory_models import Drone
 from modules.decorators.base_decorator import BaseDecorator
-from modules.factories.accessories_factory import LiDAR
 from modules.environments.environment_models import EnvironmentParameters
-
 
 
 class DroneDecorator(BaseDecorator):
     ################################################################################
-    ## Action
+    # Action
     ################################################################################
     def __init__(self, drone: Drone, environment_parameters: EnvironmentParameters):
         self.drone: Drone = drone
         self.environment_parameters: EnvironmentParameters = environment_parameters
-        self.lidar: LiDAR = LiDAR(environment_parameters.client_id, drone, radius = 10, initial_radius = 1, resolution = 2)
 
         super().__init__(environment_parameters.client_id, drone)
         pass
@@ -48,9 +45,6 @@ class DroneDecorator(BaseDecorator):
 
     def get_id(self):
         return self.drone.id
-    
-    def get_LiDAR_readings(self):
-        return self.lidar.read()
 
     def _preprocessAction(self, action):
         """Pre-processes the action passed to `.step()` into motors' RPMs.

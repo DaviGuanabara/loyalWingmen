@@ -7,50 +7,62 @@ import pybullet as p
 
 
 class LiDAR():
-
-    def __init__(self, client_id, gadget, initial_radius: int = .8, radius: int = 3, resolution: float = 1):
-        assert hasattr(gadget, 'kinematics') and isinstance(
-            gadget.kinematics, Kinematics), "LiDAR cannot operate on object without kinematic attribute"
-        self.client_id = client_id
-        self.gadget = gadget
-        self.radius = radius
-        self.initial_radius = initial_radius
-        # (readings per sphere_surface) (readings per square meter) (the drone has 0.6 meter, so at least it has to be 2 readings)
+    def __init__(self, max_distance: int = 3, resolution: float = 1):
+        self.max_distance = max_distance
         self.resolution = resolution
-        self.lines = []
-        self.single_line = None
-        self.__calculate_variables__()
 
-    def __calculate_variables__(self):
-        self.sphere_surface = 4 * math.pi * self.radius ** 2
-        number_of_readings: int = math.ceil(
-            self.resolution * self.sphere_surface)
+        _, self.n_theta_readings, self.n_phi_readings = self.__calculate_variables(
+            max_distance, resolution)
+        self.matrix: np.array = self.__gen_matrix_view(
+            self.n_theta_readings, self.n_phi_readings)
 
-        self.n_phi_readings: int = math.ceil(math.sqrt(number_of_readings))
-        self.n_theta_readings: int = math.ceil(math.sqrt(number_of_readings))
+    def get_flag(self, name):
+        if name == "LOYALWINGMEN":
+            return 1
 
-    def gen_polar_batch(self, radius: int = 10):
+        if name == "TARGET":
+            return 2
 
-        #radius = self.radius
-        phi_step_size = (2 * math.pi) / self.n_phi_readings
-        theta_step_size = (2 * math.pi) / self.n_theta_readings
+        if name == "OBSTACLE":
+            return 3
 
-        polar_coordinates = []
-        for i_phi in range(self.n_phi_readings):
-            for i_theta in range(self.n_theta_readings):
-                phi = i_phi * phi_step_size
-                theta = i_theta * theta_step_size
+        return 0
 
-                polar_coordinates.append([radius, theta, phi])
+    # ============================================================================================================
+    # Setup Functions
+    # ============================================================================================================
 
-        return polar_coordinates
+    def __calculate_variables(self, max_distance: float, resolution: float = 1):
+        sphere_surface = 4 * math.pi * max_distance ** 2
+        number_of_readings: int = math.ceil(resolution * sphere_surface)
 
-    def polar_to_cartesian(self, polar: list = [0, 0, 0]):
-        # https://en.wikipedia.org/wiki/Spherical_coordinate_system
-        # https://stackoverflow.com/questions/48348953/spherical-polar-co-ordinate-to-cartesian-co-ordinate-conversion
-        radius = polar[0]
-        theta = polar[1]
-        phi = polar[2]
+        n_phi_readings: int = math.ceil(math.sqrt(number_of_readings))
+        n_theta_readings: int = math.ceil(math.sqrt(number_of_readings))
+
+        return sphere_surface, n_theta_readings, n_phi_readings
+
+    def __gen_matrix_view(self, n_theta_readings, n_phi_readings, n_channels: int = 2):
+        matrix = np.zeros((n_theta_readings, n_phi_readings, n_channels))
+        return matrix
+
+    def reset(self):
+        self.matrix: np.array = self.__gen_matrix_view(
+            self.n_theta_readings, self.n_phi_readings)
+
+    # ============================================================================================================
+    # Coordinates Functions
+    # ============================================================================================================
+
+    def spherical_to_cartesian(self, spherical: np.array):
+        """
+        https://en.wikipedia.org/wiki/Spherical_coordinate_system
+        spherical = (radius, theta, phi)
+        radius, theta, phi
+        theta is polar angle
+        phi is azimuthal angle
+        """
+
+        radius, theta, phi = spherical[0], spherical[1], spherical[2]
 
         return [
             radius * math.sin(theta) * math.cos(phi),
@@ -58,78 +70,80 @@ class LiDAR():
             radius * math.cos(theta)
         ]
 
-    def polar_batch_to_cartesian_batch(self, polar_batch: list = [[0, 0, 0]]):
+    def cartesian_to_spherical(self, cartesian: np.array):
+        """
+        https://en.wikipedia.org/wiki/Spherical_coordinate_system
+        spherical = (radius, theta, phi)
+        theta is polar angle
+        phi is azimuthal angle
+        """
 
-        cartesian_batch = [self.polar_to_cartesian(
-            polar) for polar in polar_batch]
+        x, y, z = cartesian[0], cartesian[1], cartesian[2]
+        x_2, y_2, z_2 = x ** 2, y ** 2, z ** 2
 
-        return cartesian_batch
+        return [
+            math.sqrt(x_2 + y_2 + z_2),  # Ok
+            math.acos(z/math.sqrt(x_2 + y_2 + z_2)),
+            math.atan2(y, x)
+        ]
 
-    def calculate_initial_points(self):
+    # ============================================================================================================
+    # Matrix Functions
+    # ============================================================================================================
 
-        gadget_kinematics: Kinematics = self.gadget.kinematics
+    def __add_spherical_to_matrix(self, matrix: np.array, spherical: list, distance: float = 10, flag: int = 0):
+        """
+        https://en.wikipedia.org/wiki/Spherical_coordinate_system
+        spherical = (radius, theta, phi)
+        theta is polar angle
+        phi is azimuthal angle
 
-        gadget_position = gadget_kinematics.position
+        matrix[theta_position][phi_position]
+        """
 
-        polar_batch = self.gen_polar_batch(radius=self.initial_radius)
-        cartesian_batch = self.polar_batch_to_cartesian_batch(polar_batch)
+        DISTANCE_CHANNEL = 0
+        FLAG_CHANNEL = 1
 
-        initial_points = [np.add(cartesian, gadget_position)
-                      for cartesian in cartesian_batch]
+        if distance > self.max_distance:
+            return
 
-        return initial_points
-    
+        n_theta_readings = len(matrix)
+        n_phi_readings = len(matrix[0])
+        theta_step_size = (2 * math.pi) / n_theta_readings
+        phi_step_size = (2 * math.pi) / n_phi_readings
 
-    def calculate_end_points(self):
-        gadget_kinematics: Kinematics = self.gadget.kinematics
+        _, theta, phi = spherical[0], spherical[1], spherical[2]
+        theta_position = round(theta / theta_step_size)
+        phi_position = round(phi / phi_step_size)
 
-        gadget_position = gadget_kinematics.position
+        if matrix[theta_position][phi_position][DISTANCE_CHANNEL] > 0 and distance > matrix[theta_position][phi_position][DISTANCE_CHANNEL]:
+            return
 
-        polar_batch = self.gen_polar_batch(radius=self.radius)
-        cartesian_batch = self.polar_batch_to_cartesian_batch(polar_batch)
+        matrix[theta_position][phi_position][DISTANCE_CHANNEL] = distance
+        matrix[theta_position][phi_position][FLAG_CHANNEL] = flag
 
-        end_points = [np.add(cartesian, gadget_position)
-                      for cartesian in cartesian_batch]
+    def __add_cartesian_to_matrix(self, matrix: np.array, cartesian: list, distance: float = 10, flag: int = 0):
+        spherical = self.cartesian_to_spherical(cartesian)
+        self.__add_spherical_to_matrix(matrix, spherical, distance, flag)
 
-        return end_points
+    def __add_end_position(self, end_position: np.array, current_position: np.array = [0, 0, 0], flag: int = 0):
+        cartesian: list = end_position - current_position
+        distance = np.linalg.norm(end_position - current_position)
+        self.__add_cartesian_to_matrix(self.matrix, cartesian, distance, flag)
 
-    def add_debug_lines(self, initial_points, end_points):
-        columns = []
-        for initial_point in initial_points:
+    def add_position(self, target_position: np.array = np.array([]), obstacle_position: np.array = np.array([]), loyalwingmen_position: np.array = np.array([]), current_position: np.array = np.array([0, 0, 0])):
 
-            rows = []
-            for end_point in end_points:
-            
-                if len(self.lines) > 0:
-                    rows.append(p.addUserDebugLine(lineFromXYZ=initial_point, lineToXYZ=end_point, replaceItemUniqueId=self.lines[initial_point][end_point], physicsClientId=self.client_id))
-                else:
-                    rows.append(p.addUserDebugLine(lineFromXYZ=initial_point, lineToXYZ=end_point, physicsClientId=self.client_id))
-            columns.append(rows)
+        if len(target_position) > 0:
+            self.__add_end_position(
+                target_position, current_position, self.get_flag("TARGET"))
 
-        self.lines = columns
+        if len(obstacle_position) > 0:
+            self.__add_end_position(
+                obstacle_position, current_position, self.get_flag("OBSTACLE"))
 
+        if len(loyalwingmen_position) > 0:
+            self.__add_end_position(
+                loyalwingmen_position, current_position, self.get_flag("LOYALWINGMEN"))
 
-    def add_single_debug_lines(self, initial_points, end_points):
-
-        
-        i = random.choice(range(len(initial_points)))
-        initial_point = initial_points[i]
-        end_point = end_points[i]
-
-
-        if self.single_line is not None:
-            self.single_line = p.addUserDebugLine(lineFromXYZ=initial_point, lineToXYZ=end_point, replaceItemUniqueId=self.single_line, physicsClientId=self.client_id)
-
-        else:
-            self.single_line = p.addUserDebugLine(lineFromXYZ=initial_point, lineToXYZ=end_point, physicsClientId=self.client_id) 
-
-
-    def read(self):
-
-        initial_points = self.calculate_initial_points()
-        end_points = self.calculate_end_points()
-
-        self.add_single_debug_lines(initial_points, end_points)
-
-        return p.rayTestBatch(rayFromPositions=initial_points,
-                       rayToPositions=end_points, physicsClientId=self.client_id)
+    def get_matrix(self):
+        return self.matrix
