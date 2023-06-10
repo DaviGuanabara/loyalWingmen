@@ -48,12 +48,26 @@ Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
     - make sure that all tools for c++ compiler is installed. if not done properly, “wheel build” will be a problem in step 8.
 5. update pip
 6. update wheels
-7. install gymnasium
-8. install stable-baselines3[extra] (need for callbacks)
-9. install stable baselines 3 bleeding-edge version, required to use gymnasium (https://stable-baselines3.readthedocs.io/en/master/guide/install.html).
-10. clone loyalwingmen (https://github.com/DaviGuanabara/loyalWingmen)
-11. go to loyalWingmen\loyalwingmen folder
-12. install requirements: "$ pip install -r requirements.txt"
+7. clone loyalwingmen (https://github.com/DaviGuanabara/loyalWingmen)
+8. go to loyalWingmen\loyalwingmen folder
+9. install requirements: "$ pip install -r requirements.txt"
+
+### MacOS
+1. install xcode
+2. install brew 
+   - use $ unset HOMEBREW_BREW_GIT_REMOTE HOMEBREW_CORE_GIT_REMOTE
+   - then: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+   - (https://brew.sh/index_pt-br)
+   - make sure it is in your PATH    
+4. install python with brew ($ brew install python)
+   - make sure pip is in yout PATH
+   - update pip ('/Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install --upgrade pip')
+5. install pytorch (brew install pytorch)
+6. instalal git (brew install git)
+7. close this repository
+8. install requirements "$ pip install -r requirements.txt"
+
+
 
 ### Common installation issues
 
