@@ -18,7 +18,7 @@ Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
 
 
 
-1. Install latest python (https://www.python.org/downloads/)
+1. Install python3.8 (https://www.python.org/downloads/)
    - set python path
 
 2. install latest pytorch with cuda (https://pytorch.org/)
@@ -59,13 +59,17 @@ Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
    - then: /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
    - (https://brew.sh/index_pt-br)
    - make sure it is in your PATH    
-4. install python with brew ($ brew install python)
+4. install python 3.8 with brew ($ brew install python@3.8)
    - make sure pip is in yout PATH
    - update pip ('/Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install --upgrade pip')
-5. install pytorch (brew install pytorch)
-6. instalal git (brew install git)
-7. close this repository
-8. install requirements "$ pip install -r requirements.txt"
+
+5. Optional: prepare a virtual environment
+   - $ python3.8 -m venv loyalwingmen
+   - $ source loyalwingmen/bin/activate
+8. clone this repository
+9. go to loyalwingmen/loyalwingmen
+10. install requirements
+   - $ pip install -r requirements.txt
 
 
 
@@ -73,7 +77,7 @@ Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
 
 #### Not building Wheels
 wheels is not building due to lack of c/c++ interpreter. On Windows, this can be solved installing a pack for c++ desktop development in Visual Studio Community, as shown in step 4 in Windows Installation
-
+Other reason is related with python version. versions like python@3.11 brings this problem. please, use python 3.8
 
 #### Callback problem
 Callbacks are installd with stable-baselines3[extra] (step 8)
@@ -97,5 +101,11 @@ sys.path.append('..')
 
 
 I am not sure why this error message is appearing.
+
+
+#### MacOS: trace trap or Trace/BPT trap: 5
+It is related with incompatibility of pynput and latest MacOS. I could not workaround it.
+Please, see: https://pynput.readthedocs.io/en/latest/limitations.html
+
 
 
