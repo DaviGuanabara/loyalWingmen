@@ -82,12 +82,7 @@ Other reason is related with python version. versions like python@3.11 brings th
 #### Callback problem
 Callbacks are installd with stable-baselines3[extra] (step 8)
 
-#### Why using Gymnasium
-Quoting:
-"Gym did a lot of things very well, but OpenAI didn’t devote substantial resources to it beyond its initial release. The maintenance of Gym gradually decreased until Gym became wholly unmaintained in late 2020. In early 2021, OpenAI gave us control over the Gym repository."
-https://farama.org/Announcing-The-Farama-Foundation
 
-To unsure maintanance, Gymnasium was adopted.
 
 #### "modules" module not recognized
 this error normally occurs when you try to execute any .py file inside apps folder. 
@@ -108,4 +103,11 @@ It is related with incompatibility of pynput and latest MacOS. I could not worka
 Please, see: https://pynput.readthedocs.io/en/latest/limitations.html
 
 
+### Commom questions:
+#### Why using Gymnasium
+Quoting:
+"Gym did a lot of things very well, but OpenAI didn’t devote substantial resources to it beyond its initial release. The maintenance of Gym gradually decreased until Gym became wholly unmaintained in late 2020. In early 2021, OpenAI gave us control over the Gym repository."
+https://farama.org/Announcing-The-Farama-Foundation
+
+To unsure maintanance, Gymnasium was adopted.
 
