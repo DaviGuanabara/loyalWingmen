@@ -2,6 +2,7 @@ import os
 from sys import platform
 import time
 import curses
+import platform
 import collections
 from datetime import datetime
 import xml.etree.ElementTree as etxml
@@ -9,6 +10,7 @@ import pkg_resources
 from pathlib import Path
 from PIL import Image
 import random
+
 # import pkgutil
 # egl = pkgutil.get_loader('eglRenderer')
 import numpy as np
@@ -52,7 +54,7 @@ class DroneAndCube(gym.Env):
         initial_rpys=None,
         physics: Physics = Physics.PYB,
         simulation_frequency: int = 240,
-        rl_frequency: int = 30, #30,  # 15, o Marcos recomendou 15.
+        rl_frequency: int = 30,  # 30,  # 15, o Marcos recomendou 15.
         # aggregate_phy_steps: int = 15,
         GUI: bool = False,
     ):
@@ -199,7 +201,12 @@ class DroneAndCube(gym.Env):
         drones = np.array([])
 
         base_path = str(Path(os.getcwd()).parent.absolute())
-        path = base_path + "\\" + "assets\\" + "cf2x.urdf"
+
+        if platform.system() == "Windows":
+            path = base_path + "\\" + "assets\\" + "cf2x.urdf"
+
+        else:
+            path = base_path + "/" + "assets/" + "cf2x.urdf"
 
         for i in range(number_of_drones):
             quadcopter = self.drone_factory.gen_extended_drone(
@@ -220,8 +227,7 @@ class DroneAndCube(gym.Env):
             The initial observation, check the specific implementation of `_computeObs()`
             in each subclass for its format.
         """
-        p.resetSimulation(
-            physicsClientId=self.environment_parameters.client_id)
+        p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
         self.RESET_TIME = time.time()
 
         #### Housekeeping ##########################################
@@ -443,8 +449,7 @@ class DroneAndCube(gym.Env):
         #    dtype=np.float32,
         # )
         return spaces.Box(
-            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1,
-                         0, -1, -1, -1, -1, -1, -1, 0]),
+            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
             dtype=np.float32,
         )
@@ -509,8 +514,7 @@ class DroneAndCube(gym.Env):
             penalty += 100_000
 
         if distance < self.environment_parameters.error:
-            bonus += 100_000 * \
-                (self.environment_parameters.error - 1 * distance)
+            bonus += 100_000 * (self.environment_parameters.error - 1 * distance)
 
         self.last_reward = (survivor_bonus) - 1 * distance + bonus - penalty
 
@@ -535,13 +539,10 @@ class DroneAndCube(gym.Env):
             return True
 
         if (
-            np.linalg.norm(
-                drone_position) > self.environment_parameters.max_distance
-            or
-            np.linalg.norm(
-                target_position) > self.environment_parameters.max_distance
-            or
-            distance < self.environment_parameters.error
+            np.linalg.norm(drone_position) > self.environment_parameters.max_distance
+            or np.linalg.norm(target_position)
+            > self.environment_parameters.max_distance
+            or distance < self.environment_parameters.error
         ):
             return True
 
@@ -569,8 +570,7 @@ class DroneAndCube(gym.Env):
         MAX_X_Y = 100
         MAX_Z = 100
 
-        normalized_position_x_y = np.clip(
-            position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
+        normalized_position_x_y = np.clip(position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
         normalized_position_z = np.clip([position[2]], 0, MAX_Z) / MAX_Z
 
         normalized_position = np.concatenate(

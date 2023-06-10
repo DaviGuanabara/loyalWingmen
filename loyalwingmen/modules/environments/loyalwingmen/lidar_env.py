@@ -1,6 +1,7 @@
 import os
-from sys import platform
+import platform
 import time
+
 import curses
 import collections
 from datetime import datetime
@@ -9,6 +10,7 @@ import pkg_resources
 from pathlib import Path
 from PIL import Image
 import random
+
 # import pkgutil
 # egl = pkgutil.get_loader('eglRenderer')
 import numpy as np
@@ -39,6 +41,7 @@ from modules.factories.accessories_factory import LiDAR
 # Ele tá ficando mais longe, mas a distancia está aumentando.
 # TODO em todo canto está a posição do alvo. Deveria estar em só um local e ser chamado. Tenho que usar o obstacle manager para isso, algo parecido com o drone manager.
 # Talvez unir os dois managers
+
 
 # TODO: mudar "drones" para Loyalwingmen. Com o loyalwingmen sendo vários drones com o decorator. Decorator como herança ?
 class DroneLidar(DroneAndCube):
@@ -115,7 +118,7 @@ class DroneLidar(DroneAndCube):
         self.step_counter = 0
         self.RESET_TIME = time.time()
 
-        self.lidar: LiDAR = LiDAR(max_distance=3, resolution=.02)
+        self.lidar: LiDAR = LiDAR(max_distance=3, resolution=0.02)
 
         #### Housekeeping ##########################################
         self._housekeeping()
@@ -204,7 +207,14 @@ class DroneLidar(DroneAndCube):
         drones = np.array([])
 
         base_path = str(Path(os.getcwd()).parent.absolute())
-        path = base_path + "\\" + "assets\\" + "cf2x.urdf"
+        # path = base_path + "\\" + "assets\\" + "cf2x.urdf"
+        if platform.system() == "Windows":
+            path = base_path + "\\" + "assets\\" + "cf2x.urdf"
+
+        else:
+            path = base_path + "/assets/cf2x.urdf"
+
+        print(path)
 
         for i in range(number_of_drones):
             quadcopter = self.drone_factory.gen_extended_drone(
@@ -225,8 +235,7 @@ class DroneLidar(DroneAndCube):
             The initial observation, check the specific implementation of `_computeObs()`
             in each subclass for its format.
         """
-        p.resetSimulation(
-            physicsClientId=self.environment_parameters.client_id)
+        p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
         self.RESET_TIME = time.time()
 
         #### Housekeeping ##########################################
@@ -450,8 +459,7 @@ class DroneLidar(DroneAndCube):
         #    dtype=np.float32,
         # )
         return spaces.Box(
-            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1,
-                         0, -1, -1, -1, -1, -1, -1, 0]),
+            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
             dtype=np.float32,
         )
@@ -470,7 +478,9 @@ class DroneLidar(DroneAndCube):
             target_position = target.gadget.kinematics.position
 
             self.lidar.add_position(
-                loitering_munition_position=target_position, current_position=drone_position)
+                loitering_munition_position=target_position,
+                current_position=drone_position,
+            )
 
         return self.lidar.get_matrix()
 
@@ -495,8 +505,7 @@ class DroneLidar(DroneAndCube):
             penalty += 100_000
 
         if distance < self.environment_parameters.error:
-            bonus += 10_000 * \
-                (self.environment_parameters.error - 1 * distance)
+            bonus += 10_000 * (self.environment_parameters.error - 1 * distance)
 
         self.last_reward = (5) - 1 * distance + bonus - penalty
 
@@ -521,13 +530,10 @@ class DroneLidar(DroneAndCube):
             return True
 
         if (
-            np.linalg.norm(
-                drone_position) > self.environment_parameters.max_distance
-            or
-            np.linalg.norm(
-                target_position) > self.environment_parameters.max_distance
-            or
-            distance < self.environment_parameters.error
+            np.linalg.norm(drone_position) > self.environment_parameters.max_distance
+            or np.linalg.norm(target_position)
+            > self.environment_parameters.max_distance
+            or distance < self.environment_parameters.error
         ):
             return True
 
@@ -555,8 +561,7 @@ class DroneLidar(DroneAndCube):
         MAX_X_Y = 100
         MAX_Z = 100
 
-        normalized_position_x_y = np.clip(
-            position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
+        normalized_position_x_y = np.clip(position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
         normalized_position_z = np.clip([position[2]], 0, MAX_Z) / MAX_Z
 
         normalized_position = np.concatenate(
@@ -618,7 +623,6 @@ class DroneLidar(DroneAndCube):
         stdscr.refresh()
 
     def generate_lidar_log(self):
-
         obs = np.round(self.observation, 2)
 
         text = ""

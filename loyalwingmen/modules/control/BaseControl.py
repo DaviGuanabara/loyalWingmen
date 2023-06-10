@@ -1,4 +1,5 @@
 import os
+import platform
 from pathlib import Path
 
 import numpy as np
@@ -213,8 +214,16 @@ class BaseControl(object):
         # print(os.path.dirname(inspect.getfile(loyalwingmen)))
         URDF = self.DRONE_MODEL.value + ".urdf"
         # print(os.getcwd())
+        # TODO isso aqui está estático. deve ser ajustado pelo environment e não aqui aonde fode tudo
         base_path = str(Path(os.getcwd()).parent.absolute())
-        path = base_path + "\\" + "assets\\" + URDF
+
+        if platform.system() == "Windows":
+            path = base_path + "\\" + "assets\\" + "cf2x.urdf"
+
+        else:
+            path = base_path + "/" + "assets/" + "cf2x.urdf"
+
+        # path = base_path + "\\" + "assets\\" + URDF
         # path = pkg_resources.resource_filename("loyalwingmen", "assets/" + URDF)
         # path = "assets/" + URDF
         URDF_TREE = etxml.parse(path).getroot()
