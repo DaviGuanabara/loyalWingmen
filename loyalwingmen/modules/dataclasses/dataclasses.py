@@ -44,3 +44,16 @@ class Informations:
     speed_limit: float = 0
     gnd_eff_h_clip: float = 0
     max_xy_torque: float = 0
+
+
+@dataclass
+class EnvironmentParameters():
+    G: float
+    NEIGHBOURHOOD_RADIUS: float
+    simulation_frequency: int
+    rl_frequency: int
+    timestep_period: float
+    aggregate_physics_steps: int
+    client_id: int
+    max_distance: float
+    error: float

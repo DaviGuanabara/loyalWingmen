@@ -24,27 +24,16 @@ import gymnasium as gym  # import gym
 from gymnasium import spaces
 
 from dataclasses import dataclass, fields, asdict
-from modules.factories.obstacle_factory import ObstacleFactory
 
-from typing import NamedTuple
 
-from modules.factories.drone_factory import DroneFactory
-from modules.environments.drone_and_cube_env import DroneAndCube
+from modules.factories.drone_factory import DroneFactory, Drone
+from modules.factories.loiteringmunition_factory import LoiteringMunitionFactory
+from modules.factories.loyalwingman_factory import LoyalWingmanFactory
+
 from modules.environments.environment_models import EnvironmentParameters
 
 
-# TODO: Fazer uma classe só com as constantes.
-# TODO: Rever o agent_factory e o agent_manager.
-# TODO: normalizar a observação
-# TODO: o drone está se aproximando no target, mas algo está quebrado, pois a distancia se aproxima de zero enquanto que a reward diminui absurdamente.
-# Ele tá ficando mais longe, mas a distancia está aumentando.
-# TODO em todo canto está a posição do alvo. Deveria estar em só um local e ser chamado. Tenho que usar o obstacle manager para isso, algo parecido com o drone manager.
-# Talvez unir os dois managers
-
-
-# TODO: mudar "drones" para Loyalwingmen. Com o loyalwingmen sendo vários drones com o decorator. Decorator como herança ?
-class DroneLidar(DroneAndCube):
-    """Base class for "drone aviary" Gym environments."""
+class DroneLidar2(gym.Env):
 
     metadata = {"render.modes": ["human"]}
 
@@ -52,53 +41,12 @@ class DroneLidar(DroneAndCube):
 
     def __init__(
         self,
-        drone_model: DroneModel = DroneModel.CF2X,
-        initial_xyzs=None,
-        initial_rpys=None,
-        physics: Physics = Physics.PYB,
         simulation_frequency: int = 240,
         rl_frequency: int = 15,
-        # aggregate_phy_steps: int = 15,
         GUI: bool = False,
     ):
-        """Initialization of a generic aviary environment.
-        Parameters
-        ----------
-        drone_model : DroneModel, optional
-            The desired drone type (detailed in an .urdf file in folder `assets`).
-        num_drones : int, optional
-            The desired number of drones in the aviary.
-        neighbourhood_radius : float, optional
-            Radius used to compute the drones' adjacency matrix, in meters.
-        initial_xyzs: ndarray | None, optional
-            (NUM_DRONES, 3)-shaped array containing the initial XYZ position of the drones.
-        initial_rpys: ndarray | None, optional
-            (NUM_DRONES, 3)-shaped array containing the initial orientations of the drones (in radians).
-        physics : Physics, optional
-            The desired implementation of PyBullet physics/custom dynamics.
-        freq : int, optional
-            The frequency (Hz) at which the physics engine steps.
-        aggregate_phy_steps : int, optional
-            The number of physics steps within one call to `BaseAviary.step()`.
-        gui : bool, optional
-            Whether to use PyBullet's GUI.
-        record : bool, optional
-            Whether to save a video of the simulation in folder `files/videos/`.
-        obstacles : bool, optional
-            Whether to add obstacles to the simulation.
-        user_debug_gui : bool, optional
-            Whether to draw the drones' axes and the GUI RPMs sliders.
-        vision_attributes : bool, optional
-            Whether to allocate the attributes needed by vision-based aviary subclasses.self.TIMESTEP
-        dynamics_attributes : bool, optional
-            Whether to allocate the attributes needed by subclasses accepting thrust and torques inputs.
-        """
 
-        #### Factories #############################################
-        self.rl_action_activated = False
-        self.drone_factory = DroneFactory()
-        self.obstacle_factory = ObstacleFactory()
-
+        #### client #############################################
         if GUI:
             client_id = self.setup_pybulley_GUI()
 
@@ -106,18 +54,13 @@ class DroneLidar(DroneAndCube):
             client_id = self.setup_pybullet_DIRECT()
 
         #### Constants #############################################
-
         self.setup_Parameteres(simulation_frequency, rl_frequency, client_id)
 
         #### Options ###############################################
-        self.DRONE_MODEL = drone_model
-        self.PHYSICS = physics
-        self.URDF = str(drone_model.value + ".urdf")
-
-        self.step_counter = 0
         self.RESET_TIME = time.time()
 
-        self.lidar: LiDAR = LiDAR(max_distance=3, resolution=0.02)
+        #### Factories #############################################
+        self.setup_factories()
 
         #### Housekeeping ##########################################
         self._housekeeping()
@@ -125,6 +68,28 @@ class DroneLidar(DroneAndCube):
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         self.observation_space = self._observationSpace()
+
+    def setup_factories(self):
+        self.lwingman_factory: DroneFactory = self.setup_lw_factory()
+        self.lmunition_factory: DroneFactory = self.setup_lw_factory()
+
+    def setup_lw_factory(self) -> DroneFactory:
+        factory: DroneFactory = LoyalWingmanFactory()
+
+        factory.set_environment_parameters(self.environment_parameters)
+        factory.set_initial_position(np.array([1, 1, 1]))
+        factory.set_initial_angular_position(np.array([0, 0, 0]))
+
+        return factory
+
+    def setup_lw_factory(self) -> DroneFactory:
+        factory: DroneFactory = LoyalWingmanFactory()
+
+        factory.set_environment_parameters(self.environment_parameters)
+        factory.set_initial_position(np.array([1, 1, 1]))
+        factory.set_initial_angular_position(np.array([0, 0, 0]))
+
+        return factory
 
     def setup_pybullet_DIRECT(self):
         return p.connect(p.DIRECT)
@@ -164,67 +129,9 @@ class DroneLidar(DroneAndCube):
     def get_parameteres(self):
         return self.environment_parameters
 
-    def setup_targets(
-        self,
-        number_of_targets: int = 1,
-        initial_positions: np.array = np.array([[0, 0, 0]]),
-        urdf_file_paths: np.array = np.array(["cube_small.urdf"]),
-    ):
-        assert (
-            number_of_targets == initial_positions.shape[0]
-            and number_of_targets == urdf_file_paths.shape[0]
-        ), "number of targets not correctly adjusted"
-
-        targets = np.array([])
-
-        for i in range(number_of_targets):
-            target = self.obstacle_factory.generate_extended_obstacle(
-                environment_parameters=self.environment_parameters,
-                urdf_file_path=urdf_file_paths[i],
-                initial_position=np.array(initial_positions[i]),
-                initial_angular_position=np.zeros(3),
-            )
-
-            targets = np.append(targets, target)
-
-        return targets
-
     def apply_target_behavior(self, obstacle):
         obstacle.apply_frozen_behavior()
         # obstacle.apply_constant_velocity_behavior()
-
-    def setup_drones(
-        self,
-        number_of_drones: int = 1,
-        initial_positions: np.array = np.array([[1, 1, 1]]),
-    ):
-        # print(number_of_drones, initial_positions.size)
-        assert (
-            number_of_drones == initial_positions.shape[0]
-        ), "number of drones not correctly adjusted"
-
-        drones = np.array([])
-
-        base_path = str(Path(os.getcwd()).parent.absolute())
-        # path = base_path + "\\" + "assets\\" + "cf2x.urdf"
-        if platform.system() == "Windows":
-            path = base_path + "\\" + "assets\\" + "cf2x.urdf"
-
-        else:
-            path = base_path + "/assets/cf2x.urdf"
-
-        print(path)
-
-        for i in range(number_of_drones):
-            quadcopter = self.drone_factory.gen_extended_drone(
-                environment_parameters=self.environment_parameters,
-                urdf_file_path=path,  # "assets/" + "cf2x.urdf",  # drone_model.value + ".urdf"
-                initial_position=initial_positions[i],
-            )
-
-            drones = np.append(drones, quadcopter)
-
-        return drones
 
     def reset(self, seed=1):
         """Resets the environment.
@@ -281,20 +188,18 @@ class DroneLidar(DroneAndCube):
         # É importante para que uma decisão da rede neural tenha realmente impacto
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             # ainda não está pronto múltiplos drones.
-            for drone in self.drones:
+            for loyalwingman in self.loyalwingmen:
                 velocity_action = rl_action
 
                 self.last_action = velocity_action
-                drone.apply_velocity_action(velocity_action)
-                drone.update_kinematics()
+                loyalwingman.apply_velocity_action(velocity_action)
+                loyalwingman.update_kinematics()
 
-            for target in self.targets:
-                self.apply_target_behavior(target)
-                target.update_kinematics()
+            for loitering_munition in self.loitering_munitions:
+                self.apply_target_behavior(loitering_munition)
+                loitering_munition.update_kinematics()
 
             p.stepSimulation()
-
-        self.step_counter += 1
 
         self.observation = self._computeObs()
         reward = self._computeReward()
@@ -367,77 +272,40 @@ class DroneLidar(DroneAndCube):
         p.setTimeStep(
             self.environment_parameters.timestep_period,
             physicsClientId=self.environment_parameters.client_id,
-        )  # EachStep takes self.TIMESTEP_PERIOD to execute
+        )
 
-        # p.setTimeStep(1.0 / 240, physicsClientId=self.CLIENT)
         p.setAdditionalSearchPath(
             pybullet_data.getDataPath(),
             physicsClientId=self.environment_parameters.client_id,
         )
 
-        # TODO: Arrumar um nome melhor. Tipo, extended_drones. Pq esses drones aí são o 'Drone' em si embrulhado com o DroneDecorator.
+        self.loyalwingmen = self.setup_loyalwingmen(1)
+        self.loitering_munitions = self.setup_loiteringmunition(1)
 
-        initial_drone_position = self.gen_random_position()
-        self.drones = self.setup_drones(
-            number_of_drones=1, initial_positions=np.array([initial_drone_position])
-        )
+    def setup_drones(self, factory: DroneFactory, quantity: int = 1):
+        drones = np.array([], dtype=Drone)
 
-        # TODO: Arrumar um nome melhor. Tipo, extended_obstacles. Pq esses targets nem lembrar de obstacle lembra, muito menos do decorator do obstacle (ObstacleDecorator)
-        initial_target_position = [0, 0, 0]  # self.gen_random_position()
-        self.targets = self.setup_targets(
-            number_of_targets=1, initial_positions=np.array([initial_target_position])
-        )
+        for _ in range(quantity):
+            random_position = self.gen_random_position()
+            factory.set_initial_position(random_position)
+            drone = factory.create()
+            drone.update_kinematics()
 
-        for i in range(self.drones.size):
-            self.drones[i].update_kinematics()
+            drones = np.append(drones, drone)
 
-        for i in range(self.targets.size):
-            self.targets[i].update_kinematics()
+        return drones
 
-        self.lidar.reset()
+    def setup_loyalwingmen(self, quantity: int = 1) -> np.array:
+        return self.setup_drones(self.lwingman_factory, quantity)
 
-        # print("load drones position:", self.INIT_XYZS[0,:])
-        # self.DRONE_IDS = np.array([p.loadURDF(pkg_resources.resource_filename('gym_pybullet_drones', 'assets/'+self.URDF),
-        #                                      self.INIT_XYZS[i, :],
-        #                                      p.getQuaternionFromEuler(
-        #                                          self.INIT_RPYS[i, :]),
-        #                                      flags=p.URDF_USE_INERTIA_FROM_FILE,
-        #                                      physicsClientId=self.CLIENT
-        #                                      ) for i in range(self.NUM_DRONES)])
-        # if self.OBSTACLES:
-        #    self._addObstacles()
+    def setup_loiteringmunition(self, quantity: int = 1) -> np.array:
+        return self.setup_drones(self.lmunition_factory, quantity)
 
     ################################################################################
 
     def _actionSpace(self):
-        """Returns the action space of the environment.
-        Returns
-        -------
-        ndarray
-            A Box() of size 1, 3, 4, or 6 depending on the action type.
-        """
-        """
-        Por algum motivo inusitado, o stable baselines 3 quebra com
-        o Box do gymnasium
-        assert isinstance(self.action_space, supported_action_spaces), (
-        Mensagem de erro: AssertionError: The algorithm only supports (<class 'gym.spaces.box.Box'>, 
-        <class 'gym.spaces.discrete.Discrete'>, 
-        <class 'gym.spaces.multi_discrete.MultiDiscrete'>, <class 'gym.spaces.multi_binary.MultiBinary'>) 
-        as action spaces but Box([-1. -1. -1.  0.], 1.0, (4,), float32) was provided
-        Então, tô puxando do gym antigo até eles ajeitarem isso (oficialmente, o SB3 dá suporte).
-
-        https://stackoverflow.com/questions/75832713/stable-baselines-3-support-for-farama-gymnasium
-        """
-        # a workaround to work with gymnasium
-        # return old_gym_Box(
-        #    low=np.array([-1, -1, -1, 0]),  # Alternative action space, see PR #32
-        #    high=np.array([1, 1, 1, 1]),
-        #    shape=(4,),
-        #    dtype=np.float32,
-        # )
 
         return spaces.Box(
-            # Alternative action space, see PR #32
             low=np.array([-1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1]),
             shape=(4,),
@@ -472,18 +340,17 @@ class DroneLidar(DroneAndCube):
         Must be implemented in a subclass.
         """
 
-        self.lidar.reset()
-        drone_position = self.drones[0].gadget.kinematics.position
+        drone_position = self.loyalwingmen[0].kinematics.position
 
-        for target in self.targets:
-            target_position = target.gadget.kinematics.position
+        for loitering_munition in self.loitering_munitions:
+            loitering_munition_position = loitering_munition.kinematics.position
 
-            self.lidar.add_position(
-                loitering_munition_position=target_position,
-                current_position=drone_position,
-            )
+            # self.lidar.add_position(
+            #    loitering_munition_position=target_position,
+            #    current_position=drone_position,
+            # )
 
-        return self.lidar.get_matrix()
+        return  # self.lidar.get_matrix()
 
     def _computeReward(self):
         """Computes the current reward value(s).
@@ -498,8 +365,8 @@ class DroneLidar(DroneAndCube):
         penalty = 0
         bonus = 0
 
-        drone_position = self.drones[0].gadget.kinematics.position
-        target_position = self.targets[0].gadget.kinematics.position
+        drone_position = self.loyalwingmen[0].kinematics.position
+        target_position = self.loitering_munitions[0].gadget.kinematics.position
         distance = np.linalg.norm(target_position - drone_position)
 
         if distance > self.environment_parameters.max_distance:
@@ -518,11 +385,11 @@ class DroneLidar(DroneAndCube):
         Must be implemented in a subclass.
         """
 
-        drone_position = self.drones[0].gadget.kinematics.position
-        drone_velocity = self.drones[0].gadget.kinematics.velocity
+        drone_position = self.loyalwingmen[0].kinematics.position
+        drone_velocity = self.loyalwingmen[0].kinematics.velocity
 
-        target_position = self.targets[0].gadget.kinematics.position
-        target_velocity = self.targets[0].gadget.kinematics.velocity
+        target_position = self.loitering_munitions[0].gadget.kinematics.position
+        target_velocity = self.loitering_munitions[0].gadget.kinematics.velocity
 
         distance = np.linalg.norm(target_position - drone_position)
 
@@ -580,66 +447,3 @@ class DroneLidar(DroneAndCube):
             np.clip(distance, -MAX_DISTANCE, MAX_DISTANCE) / MAX_DISTANCE
         )
         return normalized_distance
-
-    def format_list(self, list_of_values):
-        return str.join(" ", ["%0.2f".center(5) % i for i in list_of_values])
-
-    def generate_log(self):
-        drone_kinematics = self.drones[0].gadget.kinematics  # .position
-        # drone_state = self.process_kinematics_to_state(drone_kinematics)
-        drone_position = drone_kinematics.position
-        drone_velocity = drone_kinematics.velocity
-
-        target_kinematics = self.targets[0].gadget.kinematics
-        target_position = target_kinematics.position
-        target_velocity = target_kinematics.velocity
-
-        # print(kinematics)
-        # time.sleep(0.3)
-
-        distance = np.linalg.norm(target_position - drone_position)
-        direction = (target_position - drone_position) / distance
-
-        text = ""
-        text += (
-            "WARNING: RL ACTION IS DISABLED"
-            if not self.rl_action_activated
-            else "WARNING: RL ACTION IS ENABLED"
-        )
-
-        text += "\n"
-        text += "drone_position: " + self.format_list(drone_position) + "\n"
-        text += "drone_velocity: " + self.format_list(drone_velocity) + "\n"
-        text += "target_position: " + self.format_list(target_position) + "\n"
-        text += "target_velocity: " + self.format_list(target_velocity) + "\n"
-        text += "direction: " + self.format_list(direction) + "\n"
-        text += "distance: " + str(distance) + "\n"
-        text += "reward: " + str(self.last_reward) + "\n"
-        text += "action: " + self.format_list(self.last_action) + "\n"
-
-        return text
-
-    def show_log(self):
-        text = self.generate_log()
-
-        stdscr = curses.initscr()
-        stdscr.addstr(0, 0, text)
-        stdscr.refresh()
-
-    def generate_lidar_log(self):
-        obs = np.round(self.observation, 2)
-
-        text = ""
-        text += "\n"
-        text += np.array2string(obs)
-
-        return text
-
-    def show_lidar_log(self):
-        text = self.generate_lidar_log()
-        # print(text)
-
-        stdscr = curses.initscr()
-        stdscr.clear()
-        stdscr.addstr(0, 0, text)
-        stdscr.refresh()

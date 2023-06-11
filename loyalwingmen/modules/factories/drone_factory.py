@@ -1,18 +1,21 @@
 import numpy as np
 import pybullet as p
-
+import platform
+import os
+from pathlib import Path
 
 import xml.etree.ElementTree as etxml
+from typing import Tuple
+
+from modules.control.DSLPIDControl import DSLPIDControl
+from modules.utils.enums import DroneModel
+from modules.interfaces.factory_interface import IDroneFactory
+from modules.models.drone import Drone, Parameters, Kinematics, Informations, EnvironmentParameters
 
 
-from modules.environments.environment_models import EnvironmentParameters
-from modules.interfaces.factory_interface import IFactory
-from modules.models.drone import Drone, Parameters, Kinematics, Informations
-
-
-class DroneFactory(IFactory):
+class DroneFactory(IDroneFactory):
     def __init__(self):
-        pass
+        self.__setup_urdf_file_path(DroneModel.CF2X)
 
     # =================================================================================================================
     # Private
@@ -120,6 +123,10 @@ class DroneFactory(IFactory):
             DW_COEFF_3=DW_COEFF_3,
         )
 
+    def __compute_control(self, model: DroneModel, parameters: Parameters, environment_parameters: EnvironmentParameters, urdf_file_path: str):
+
+        return DSLPIDControl(model, parameters, environment_parameters, urdf_path=urdf_file_path)
+
     def __load_urdf(self):
 
         id = p.loadURDF(
@@ -131,6 +138,33 @@ class DroneFactory(IFactory):
         )
 
         return id
+
+    def __compute_drone_model(self):
+        return DroneModel.CF2X
+
+    def __setup_urdf_file_path(self, drone_model: DroneModel = DroneModel.CF2X):
+        urdf_name = drone_model.value + ".urdf"
+        base_path = str(Path(os.getcwd()).parent.absolute())
+
+        if platform.system() == "Windows":
+            path = base_path + "\\" + "assets\\" + urdf_name  # "cf2x.urdf"
+
+        else:
+            path = base_path + "/" + "assets/" + urdf_name  # "cf2x.urdf"
+
+        self.set_urdf_file_path(path)
+
+    def load_drone_attributes(self) -> Tuple[int, DroneModel, Parameters, Informations, Kinematics, DSLPIDControl, EnvironmentParameters]:
+        id = self.__load_urdf()
+        model = self.__compute_drone_model()
+        parameters = self.__compute_parameters()
+        informations = self.__compute_informations(parameters)
+        kinematics = self.__compute_kinematics()
+        control = self.__compute_control(
+            model, parameters, self.environment_parameters, self.urdf_file_path)
+        environment_parameters = self.environment_parameters
+
+        return id, model, parameters, informations, kinematics, control, environment_parameters
 
     # =================================================================================================================
     # Public
@@ -150,17 +184,10 @@ class DroneFactory(IFactory):
         self.initial_quaternion = p.getQuaternionFromEuler(
             initial_angular_position)
 
-    def create(self):
+    def create(self) -> Drone:
 
-        id = self.__load_urdf()
-        parameters = self.__compute_parameters()
-        informations = self.__compute_informations(parameters)
-        kinematics = self.__compute_kinematics()
-
-        drone = Drone()
-        drone.id = id
-        drone.parameters = parameters
-        drone.kinematics = kinematics
-        drone.informations = informations
+        id, model, parameters, informations, kinematics, control, environment_parameters = self.load_drone_attributes()
+        drone = Drone(id, model, parameters, informations, kinematics,
+                      control, environment_parameters)
 
         return drone

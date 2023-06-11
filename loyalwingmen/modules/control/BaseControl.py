@@ -8,6 +8,7 @@ import pkg_resources
 
 from modules.utils.enums import DroneModel
 import inspect
+from modules.dataclasses.dataclasses import Parameters, EnvironmentParameters
 
 
 class BaseControl(object):
@@ -20,7 +21,7 @@ class BaseControl(object):
 
     ################################################################################
 
-    def __init__(self, drone_model: DroneModel, g: float = 9.8):
+    def __init__(self, drone_model: DroneModel, parameters: Parameters, environmentParameters: EnvironmentParameters, urdf_path: str):
         """Common control classes __init__ method.
 
         Parameters
@@ -32,14 +33,16 @@ class BaseControl(object):
 
         """
         #### Set general use constants #############################
+        self.urdf_path = urdf_path
         self.DRONE_MODEL = drone_model
         """DroneModel: The type of drone to control."""
-        self.GRAVITY = g * self._getURDFParameter("m")
+        self.GRAVITY = environmentParameters.G * parameters.M
         """float: The gravitational force (M*g) acting on each drone."""
-        self.KF = self._getURDFParameter("kf")
+        self.KF = parameters.KF
         """float: The coefficient converting RPMs into thrust."""
-        self.KM = self._getURDFParameter("km")
+        self.KM = parameters.KM
         """float: The coefficient converting RPMs into torque."""
+        self.parameters = parameters
         self.reset()
 
     ################################################################################
@@ -211,17 +214,8 @@ class BaseControl(object):
 
         """
         #### Get the XML tree of the drone model to control ########
-        # print(os.path.dirname(inspect.getfile(loyalwingmen)))
-        URDF = self.DRONE_MODEL.value + ".urdf"
-        # print(os.getcwd())
-        # TODO isso aqui está estático. deve ser ajustado pelo environment e não aqui aonde fode tudo
-        base_path = str(Path(os.getcwd()).parent.absolute())
 
-        if platform.system() == "Windows":
-            path = base_path + "\\" + "assets\\" + "cf2x.urdf"
-
-        else:
-            path = base_path + "/" + "assets/" + "cf2x.urdf"
+        path = self.urdf_path
 
         # path = base_path + "\\" + "assets\\" + URDF
         # path = pkg_resources.resource_filename("loyalwingmen", "assets/" + URDF)

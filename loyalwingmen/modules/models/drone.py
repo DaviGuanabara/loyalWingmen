@@ -12,17 +12,20 @@ from modules.dataclasses.dataclasses import Parameters, Kinematics, Informations
 
 class Drone(IDrone):
 
-    def __init__(self, id: int, client_id: int, parameters: Parameters, kinematics: Kinematics, informations: Informations, control: DSLPIDControl, environment_parameters: EnvironmentParameters):
-        super().__init__(id, client_id, parameters, kinematics,
-                         informations, control, environment_parameters)
-
+    def __setup(self):
+        """This function is called in init
+        Parameters
+        ----------
+        Returns
+        ----------
+        """
         self.set_lidar_parameters(max_distance=3, resolution=1)
 
     # =================================================================================================================
     # Private
     # =================================================================================================================
 
-    def __physics(self, rpm: np.array):
+    def physics(self, rpm: np.array):
         """Base PyBullet physics implementation.
         Parameters
         ----------
@@ -57,7 +60,7 @@ class Drone(IDrone):
             physicsClientId=self.client_id,
         )
 
-    def __collect_kinematics(self) -> Kinematics:
+    def collect_kinematics(self) -> Kinematics:
         position, quaternions = p.getBasePositionAndOrientation(
             self.id, physicsClientId=self.client_id
         )
@@ -85,7 +88,7 @@ class Drone(IDrone):
         self.kinematics = kinematics
 
     def update_kinematics(self):
-        kinematics = self.__collect_kinematics()
+        kinematics = self.collect_kinematics()
         self.store_kinematics(kinematics)
 
     def set_lidar_parameters(self, max_distance: int = 3, resolution: int = 1):

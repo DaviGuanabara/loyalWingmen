@@ -1,8 +1,9 @@
 from abc import ABCMeta, abstractmethod
 # https://pypi.org/project/abcmeta/
+from modules.models.drone import Drone
 
 
-class IFactory(metaclass=ABCMeta):
+class IDroneFactory(metaclass=ABCMeta):
 
     # =================================================================================================================
     # Private
@@ -13,5 +14,5 @@ class IFactory(metaclass=ABCMeta):
     # =================================================================================================================
 
     @abstractmethod
-    def create(self):
+    def create(self) -> Drone:
         """Abstract method."""

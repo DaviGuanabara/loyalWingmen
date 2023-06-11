@@ -8,6 +8,9 @@ class LoyalWingman(Drone):
     # Private
     # =================================================================================================================
 
+    # def __init__(self):
+    #    super().__init__()
+
     def __preprocessAction(self, action: np.array) -> np.array:
         """Pre-processes the velocty action into motors' RPMs.
         Parameters
@@ -56,4 +59,4 @@ class LoyalWingman(Drone):
 
     def apply_velocity_action(self, action):
         rpm = self.__preprocessAction(action)
-        self.__physics(rpm)
+        self.physics(rpm)

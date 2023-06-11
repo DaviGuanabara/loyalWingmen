@@ -10,6 +10,9 @@ from modules.models.drone import Drone
 
 class LoiteringMunition(Drone):
 
+    # def __init__(self):
+    #    super().__init__()
+
     def apply_frozen_behavior(self):
         obstacle_weigth = (
             self.environment_parameters.G * self.obstacle.informations.mass
