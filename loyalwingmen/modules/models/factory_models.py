@@ -65,12 +65,18 @@ class Drone_Informations:
 
 
 class Drone:
+    sort_index: int = field(init=False, repr=False)
     id: int
     parameters: Parameters
     kinematics: Kinematics
     informations: Drone_Informations
     control: DSLPIDControl = DSLPIDControl(drone_model=DroneModel.CF2X)
-    # behavior: BehaviorTree
+
+    def __post_init__(self):
+        """
+        initializes after init
+        """
+        self.sort_index = self.id
 
 
 class Obstacle_Informations:

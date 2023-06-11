@@ -1,8 +1,6 @@
 import numpy as np
 import pybullet as p
-
-from modules.factories.factory_models import Obstacle
-from modules.decorators.base_decorator import BaseDecorator
+from modules.models.drone import Drone
 
 
 ################################################################################
@@ -10,12 +8,7 @@ from modules.decorators.base_decorator import BaseDecorator
 ################################################################################
 
 
-class ObstacleDecorator(BaseDecorator):
-    def __init__(self, environment_parameters, obstacle: Obstacle):
-        self.obstacle = obstacle
-        self.environment_parameters = environment_parameters
-
-        super().__init__(environment_parameters.client_id, obstacle)
+class LoiteringMunition(Drone):
 
     def apply_frozen_behavior(self):
         obstacle_weigth = (

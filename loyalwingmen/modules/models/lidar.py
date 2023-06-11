@@ -1,9 +1,6 @@
-import pybullet as p
-from modules.factories.factory_models import Kinematics
+
 import math
 import numpy as np
-import random
-import pybullet as p
 
 
 class LiDAR():
@@ -129,9 +126,12 @@ class LiDAR():
     def __add_end_position(self, end_position: np.array, current_position: np.array = [0, 0, 0], flag: int = 0):
         cartesian: list = end_position - current_position
         distance = np.linalg.norm(end_position - current_position)
-        self.__add_cartesian_to_matrix(self.matrix, cartesian, distance, flag)
 
-    def add_position(self, loitering_munition_position: np.array = np.array([]), obstacle_position: np.array = np.array([]), loyalwingmen_position: np.array = np.array([]), current_position: np.array = np.array([0, 0, 0])):
+        if distance > 0:
+            self.__add_cartesian_to_matrix(
+                self.matrix, cartesian, distance, flag)
+
+    def add_position(self, loitering_munition_position: np.array = np.array([]), obstacle_position: np.array = np.array([]), loyalwingman_position: np.array = np.array([]), current_position: np.array = np.array([0, 0, 0])):
 
         if len(loitering_munition_position) > 0:
             self.__add_end_position(
@@ -141,9 +141,9 @@ class LiDAR():
             self.__add_end_position(
                 obstacle_position, current_position, self.get_flag("OBSTACLE"))
 
-        if len(loyalwingmen_position) > 0:
+        if len(loyalwingman_position) > 0:
             self.__add_end_position(
-                loyalwingmen_position, current_position, self.get_flag("LOYAL_WINGMEN"))
+                loyalwingman_position, current_position, self.get_flag("LOYAL_WINGMEN"))
 
     def get_matrix(self):
         return self.matrix
