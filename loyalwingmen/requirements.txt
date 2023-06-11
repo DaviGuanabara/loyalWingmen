@@ -13,5 +13,5 @@ torchvision==0.15.1
 tqdm==4.65.0
 typing_extensions==4.5.0
 vcstool==0.3.0
-virtualenv==20.21.0
-windows-curses==2.3.1
+pybullet==3.2.5
+pynput

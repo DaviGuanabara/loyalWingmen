@@ -1,8 +1,8 @@
 import os
-from sys import platform
-import time
-import curses
 import platform
+import time
+
+import curses
 import collections
 from datetime import datetime
 import xml.etree.ElementTree as etxml
@@ -16,6 +16,7 @@ import random
 import numpy as np
 import pybullet as p
 import pybullet_data
+import math
 
 from modules.utils.enums import DroneModel, Physics, ImageType
 
@@ -28,7 +29,9 @@ from modules.factories.obstacle_factory import ObstacleFactory
 from typing import NamedTuple
 
 from modules.factories.drone_factory import DroneFactory
+from modules.environments.drone_and_cube_env import DroneAndCube
 from modules.environments.environment_models import EnvironmentParameters
+from modules.factories.accessories_factory import LiDAR
 
 
 # TODO: Fazer uma classe só com as constantes.
@@ -40,7 +43,8 @@ from modules.environments.environment_models import EnvironmentParameters
 # Talvez unir os dois managers
 
 
-class DroneAndCube(gym.Env):
+# TODO: mudar "drones" para Loyalwingmen. Com o loyalwingmen sendo vários drones com o decorator. Decorator como herança ?
+class DroneLidar(DroneAndCube):
     """Base class for "drone aviary" Gym environments."""
 
     metadata = {"render.modes": ["human"]}
@@ -54,7 +58,7 @@ class DroneAndCube(gym.Env):
         initial_rpys=None,
         physics: Physics = Physics.PYB,
         simulation_frequency: int = 240,
-        rl_frequency: int = 30,  # 30,  # 15, o Marcos recomendou 15.
+        rl_frequency: int = 15,
         # aggregate_phy_steps: int = 15,
         GUI: bool = False,
     ):
@@ -114,6 +118,8 @@ class DroneAndCube(gym.Env):
         self.step_counter = 0
         self.RESET_TIME = time.time()
 
+        self.lidar: LiDAR = LiDAR(max_distance=3, resolution=0.02)
+
         #### Housekeeping ##########################################
         self._housekeeping()
 
@@ -162,7 +168,7 @@ class DroneAndCube(gym.Env):
     def setup_targets(
         self,
         number_of_targets: int = 1,
-        initial_positions: np.array = np.array([[1, 1, 1]]),
+        initial_positions: np.array = np.array([[0, 0, 0]]),
         urdf_file_paths: np.array = np.array(["cube_small.urdf"]),
     ):
         assert (
@@ -185,8 +191,8 @@ class DroneAndCube(gym.Env):
         return targets
 
     def apply_target_behavior(self, obstacle):
-        # obstacle.apply_frozen_behavior()
-        obstacle.apply_constant_velocity_behavior()
+        obstacle.apply_frozen_behavior()
+        # obstacle.apply_constant_velocity_behavior()
 
     def setup_drones(
         self,
@@ -201,12 +207,14 @@ class DroneAndCube(gym.Env):
         drones = np.array([])
 
         base_path = str(Path(os.getcwd()).parent.absolute())
-
+        # path = base_path + "\\" + "assets\\" + "cf2x.urdf"
         if platform.system() == "Windows":
             path = base_path + "\\" + "assets\\" + "cf2x.urdf"
 
         else:
-            path = base_path + "/" + "assets/" + "cf2x.urdf"
+            path = base_path + "/assets/cf2x.urdf"
+
+        print(path)
 
         for i in range(number_of_drones):
             quadcopter = self.drone_factory.gen_extended_drone(
@@ -288,14 +296,14 @@ class DroneAndCube(gym.Env):
 
         self.step_counter += 1
 
-        observation = self._computeObs()
+        self.observation = self._computeObs()
         reward = self._computeReward()
         terminated = self._computeDone()
         info = self._computeInfo()
 
         # return obs, reward, done, info
         # apagar False (Truncated) para versões do SB3 abaixo da 2.0.0
-        return observation, reward, terminated, False, info
+        return self.observation, reward, terminated, False, info
 
     ################################################################################
 
@@ -375,7 +383,7 @@ class DroneAndCube(gym.Env):
         )
 
         # TODO: Arrumar um nome melhor. Tipo, extended_obstacles. Pq esses targets nem lembrar de obstacle lembra, muito menos do decorator do obstacle (ObstacleDecorator)
-        initial_target_position = self.gen_random_position()
+        initial_target_position = [0, 0, 0]  # self.gen_random_position()
         self.targets = self.setup_targets(
             number_of_targets=1, initial_positions=np.array([initial_target_position])
         )
@@ -385,6 +393,8 @@ class DroneAndCube(gym.Env):
 
         for i in range(self.targets.size):
             self.targets[i].update_kinematics()
+
+        self.lidar.reset()
 
         # print("load drones position:", self.INIT_XYZS[0,:])
         # self.DRONE_IDS = np.array([p.loadURDF(pkg_resources.resource_filename('gym_pybullet_drones', 'assets/'+self.URDF),
@@ -461,33 +471,18 @@ class DroneAndCube(gym.Env):
         Must be implemented in a subclass.
         """
 
-        drone_kinematics = self.drones[0].gadget.kinematics
-        # drone_state = self.process_kinematics_to_state(drone_kinematics)
-        drone_position = drone_kinematics.position
-        drone_velocity = drone_kinematics.velocity
+        self.lidar.reset()
+        drone_position = self.drones[0].gadget.kinematics.position
 
-        target_kinematics = self.targets[0].gadget.kinematics
-        target_position = target_kinematics.position
-        target_velocity = target_kinematics.velocity
+        for target in self.targets:
+            target_position = target.gadget.kinematics.position
 
-        # print(kinematics)
-        # time.sleep(0.3)
-
-        distance = np.linalg.norm(target_position - drone_position)
-        direction = (target_position - drone_position) / distance
-
-        observation = np.hstack(
-            (
-                self._normalizePosition(drone_position),
-                self._normalizeVelocity(drone_velocity),
-                self._normalizePosition(target_position),
-                self._normalizeVelocity(target_velocity),
-                direction,
-                self._normalizeDistance(distance),
+            self.lidar.add_position(
+                loitering_munition_position=target_position,
+                current_position=drone_position,
             )
-        ).reshape(16)
 
-        return observation  # np.zeros(16).astype("float32")
+        return self.lidar.get_matrix()
 
     def _computeReward(self):
         """Computes the current reward value(s).
@@ -499,7 +494,6 @@ class DroneAndCube(gym.Env):
         # TODO adicionar bonus por chegar no alvo.\
 
         # max_distance = self.environment_parameters.max_distance
-        survivor_bonus = 5
         penalty = 0
         bonus = 0
 
@@ -507,16 +501,13 @@ class DroneAndCube(gym.Env):
         target_position = self.targets[0].gadget.kinematics.position
         distance = np.linalg.norm(target_position - drone_position)
 
-        if np.linalg.norm(drone_position) > self.environment_parameters.max_distance:
-            penalty += 100_000
-
-        if np.linalg.norm(target_position) > self.environment_parameters.max_distance:
+        if distance > self.environment_parameters.max_distance:
             penalty += 100_000
 
         if distance < self.environment_parameters.error:
-            bonus += 100_000 * (self.environment_parameters.error - 1 * distance)
+            bonus += 10_000 * (self.environment_parameters.error - 1 * distance)
 
-        self.last_reward = (survivor_bonus) - 1 * distance + bonus - penalty
+        self.last_reward = (5) - 1 * distance + bonus - penalty
 
         return self.last_reward
 
@@ -631,61 +622,20 @@ class DroneAndCube(gym.Env):
         stdscr.addstr(0, 0, text)
         stdscr.refresh()
 
-        """
-        import time
-import curses
-import numpy as np
+    def generate_lidar_log(self):
+        obs = np.round(self.observation, 2)
 
+        text = ""
+        text += "\n"
+        text += np.array2string(obs)
 
-def format_array_to_string(arr, keywords, string=""):
-    foo = ["{:.4f}".format(m) for m in arr]
+        return text
 
-    index_foo = 0
+    def show_lidar_log(self):
+        text = self.generate_lidar_log()
+        # print(text)
 
-    for keyword, quantity in keywords:
-        values = ""
-        for i in range(quantity):
-            if i == quantity - 1:
-                values += foo[index_foo + i] + "\n"
-            else:
-                values += foo[index_foo + i] + ", "
-
-        index_foo = index_foo + quantity
-        string += keyword + ": " + values
-
-    return string
-
-
-def format_returns(obs, reward, action):
-    keywords_obs = [
-        ("drone_position", 3),
-        ("drone_velocity", 3),
-        ("cube_position", 3),
-        ("cube_velocity", 3),
-        ("direction", 3),
-        ("distance", 1),
-    ]
-
-    keywords_action = [("Action (Velocity Vector):", 4)]
-
-    string = "Reward:" + "{:.4f}".format(reward) + " \n"
-    string = format_array_to_string(obs, keywords_obs, string)
-    string = format_array_to_string(action, keywords_action, string)
-
-    return string
-
-
-def log(string):
-    stdscr = curses.initscr()
-    stdscr.addstr(0, 0, string)
-    stdscr.refresh()
-
-
-def log_returns(obs, reward=0, action=[0, 0, 0, 0]):
-    log(format_returns(obs, reward, action))
-
-
-# test2()
-
-        
-        """
+        stdscr = curses.initscr()
+        stdscr.clear()
+        stdscr.addstr(0, 0, text)
+        stdscr.refresh()

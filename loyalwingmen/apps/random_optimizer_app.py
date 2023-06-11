@@ -81,7 +81,7 @@ class Training:
             model = PPO(
                 "MlpPolicy",
                 vectorized_environment,
-                verbose=1, #0,
+                verbose=0, #0,
                 device="auto",
                 tensorboard_log="./logs/" + log_name + "/",
                 policy_kwargs=policy_kwargs,

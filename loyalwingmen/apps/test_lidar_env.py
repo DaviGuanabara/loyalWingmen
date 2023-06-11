@@ -1,12 +1,11 @@
 import pybullet as p
-from modules.factories.factory_models import Kinematics
+from modules.factories.drone_factory import DroneFactory
 import math
-import numpy as np
 import random
-import pybullet as p
+import numpy as np
 
 
-class LiDAR():
+class LiDAR_new():
     def __init__(self, max_distance: int = 3, resolution: float = 1):
         self.max_distance = max_distance
         self.resolution = resolution
@@ -15,18 +14,6 @@ class LiDAR():
             max_distance, resolution)
         self.matrix: np.array = self.__gen_matrix_view(
             self.n_theta_readings, self.n_phi_readings)
-
-    def get_flag(self, name):
-        if name == "LOYAL_WINGMEN":
-            return 1
-
-        if name == "LOITERING_MUNITION":
-            return 2
-
-        if name == "OBSTACLE":
-            return 3
-
-        return 0
 
     # ============================================================================================================
     # Setup Functions
@@ -41,8 +28,8 @@ class LiDAR():
 
         return sphere_surface, n_theta_readings, n_phi_readings
 
-    def __gen_matrix_view(self, n_theta_readings, n_phi_readings, n_channels: int = 2):
-        matrix = np.zeros((n_theta_readings, n_phi_readings, n_channels))
+    def __gen_matrix_view(self, n_theta_readings, n_phi_readings):
+        matrix = np.zeros((n_theta_readings, n_phi_readings))
         return matrix
 
     def reset(self):
@@ -91,7 +78,7 @@ class LiDAR():
     # Matrix Functions
     # ============================================================================================================
 
-    def __add_spherical_to_matrix(self, matrix: np.array, spherical: list, distance: float = 10, flag: int = 0):
+    def __add_spherical_to_matrix(self, matrix: np.array, spherical: list, distance: float = 10):
         """
         https://en.wikipedia.org/wiki/Spherical_coordinate_system
         spherical = (radius, theta, phi)
@@ -100,9 +87,6 @@ class LiDAR():
 
         matrix[theta_position][phi_position]
         """
-
-        DISTANCE_CHANNEL = 0
-        FLAG_CHANNEL = 1
 
         if distance > self.max_distance:
             return
@@ -116,34 +100,25 @@ class LiDAR():
         theta_position = round(theta / theta_step_size)
         phi_position = round(phi / phi_step_size)
 
-        if matrix[theta_position][phi_position][DISTANCE_CHANNEL] > 0 and distance > matrix[theta_position][phi_position][DISTANCE_CHANNEL]:
-            return
+        matrix[theta_position][phi_position] = distance
 
-        matrix[theta_position][phi_position][DISTANCE_CHANNEL] = distance
-        matrix[theta_position][phi_position][FLAG_CHANNEL] = flag
-
-    def __add_cartesian_to_matrix(self, matrix: np.array, cartesian: list, distance: float = 10, flag: int = 0):
+    def __add_cartesian_to_matrix(self, matrix: np.array, cartesian: list, distance: float = 10):
         spherical = self.cartesian_to_spherical(cartesian)
-        self.__add_spherical_to_matrix(matrix, spherical, distance, flag)
+        self.__add_spherical_to_matrix(matrix, spherical, distance)
 
-    def __add_end_position(self, end_position: np.array, current_position: np.array = [0, 0, 0], flag: int = 0):
-        cartesian: list = end_position - current_position
-        distance = np.linalg.norm(end_position - current_position)
-        self.__add_cartesian_to_matrix(self.matrix, cartesian, distance, flag)
-
-    def add_position(self, loitering_munition_position: np.array = np.array([]), obstacle_position: np.array = np.array([]), loyalwingmen_position: np.array = np.array([]), current_position: np.array = np.array([0, 0, 0])):
-
-        if len(loitering_munition_position) > 0:
-            self.__add_end_position(
-                loitering_munition_position, current_position, self.get_flag("LOITERING_MUNITION"))
-
-        if len(obstacle_position) > 0:
-            self.__add_end_position(
-                obstacle_position, current_position, self.get_flag("OBSTACLE"))
-
-        if len(loyalwingmen_position) > 0:
-            self.__add_end_position(
-                loyalwingmen_position, current_position, self.get_flag("LOYAL_WINGMEN"))
+    def add_position(self, target_position: np.array, current_position: np.array = [0, 0, 0]):
+        cartesian: list = target_position - current_position
+        distance = np.linalg.norm(target_position - current_position)
+        self.__add_cartesian_to_matrix(self.matrix, cartesian, distance)
 
     def get_matrix(self):
         return self.matrix
+
+
+lidar = LiDAR_new(max_distance=5, resolution=1)
+
+
+current_position = np.array([0, 0, 0])
+target_position = np.array([0, 3, 3])
+lidar.add_position(target_position, current_position)
+print(lidar.get_matrix())

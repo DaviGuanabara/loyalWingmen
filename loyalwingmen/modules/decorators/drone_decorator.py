@@ -12,15 +12,16 @@ from typing import NamedTuple
 
 from modules.factories.factory_models import Drone
 from modules.decorators.base_decorator import BaseDecorator
+from modules.environments.environment_models import EnvironmentParameters
 
 
 class DroneDecorator(BaseDecorator):
     ################################################################################
-    ## Action
+    # Action
     ################################################################################
-    def __init__(self, drone: Drone, environment_parameters):
+    def __init__(self, drone: Drone, environment_parameters: EnvironmentParameters):
         self.drone: Drone = drone
-        self.environment_parameters = environment_parameters
+        self.environment_parameters: EnvironmentParameters = environment_parameters
 
         super().__init__(environment_parameters.client_id, drone)
         pass
