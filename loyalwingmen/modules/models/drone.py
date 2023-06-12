@@ -8,9 +8,21 @@ from modules.models.lidar import LiDAR
 from modules.control import DSLPIDControl
 from modules.environments.environment_models import EnvironmentParameters
 from modules.dataclasses.dataclasses import Parameters, Kinematics, Informations
+from modules.utils.enums import DroneModel
 
 
 class Drone(IDrone):
+
+    def __init__(self, id: int, model: DroneModel, parameters: Parameters, kinematics: Kinematics, informations: Informations, control: DSLPIDControl, environment_parameters: EnvironmentParameters):
+        self.id: int = id
+        self.client_id: int = environment_parameters.client_id
+        self.model = model
+        self.parameters: Parameters = parameters
+        self.kinematics: Kinematics = kinematics
+        self.informations: Informations = informations
+        self.control: DSLPIDControl = control
+        self.environment_parameters: EnvironmentParameters = environment_parameters
+        self.__setup()
 
     def __setup(self):
         """This function is called in init
@@ -19,7 +31,10 @@ class Drone(IDrone):
         Returns
         ----------
         """
-        self.set_lidar_parameters(max_distance=3, resolution=1)
+        resolution: float = 1
+        max_distance: float = 5
+        self.set_lidar_parameters(
+            max_distance=max_distance, resolution=resolution)
 
     # =================================================================================================================
     # Private
@@ -91,10 +106,23 @@ class Drone(IDrone):
         kinematics = self.collect_kinematics()
         self.store_kinematics(kinematics)
 
-    def set_lidar_parameters(self, max_distance: int = 3, resolution: int = 1):
+    def set_lidar_parameters(self, max_distance: float = 5, resolution: float = 1):
         self.lidar: LiDAR = LiDAR(
             max_distance=max_distance, resolution=resolution)
 
-    def observation(self, loitering_munition_position: np.array = np.array([]), obstacle_position: np.array = np.array([]), loyalwingman_position: np.array = np.array([]), current_position: np.array = np.array([0, 0, 0])):
-        self.lidar.add_position(loitering_munition_position=loitering_munition_position, obstacle_position=obstacle_position,
-                                loyalwingman_position=loyalwingman_position, current_position=current_position)
+    def observation(self, loyalwingmen: np.array = np.array([], dtype=IDrone), loitering_munitions: np.array = np.array([], dtype=IDrone), obstacles: np.array = np.array([])):
+        self.lidar.reset()
+
+        for lw in loyalwingmen:
+            self.lidar.add_position(
+                loyalwingman_position=lw.kinematics.position, current_position=self.kinematics.position)
+
+        for lm in loitering_munitions:
+            self.lidar.add_position(
+                loitering_munition_position=lm.kinematics.position, current_position=self.kinematics.position)
+
+        for obstacle in obstacles:
+            self.lidar.add_position(
+                obstacle_position=obstacle.kinematics.position, current_position=self.kinematics.position)
+
+        return self.lidar.get_matrix()

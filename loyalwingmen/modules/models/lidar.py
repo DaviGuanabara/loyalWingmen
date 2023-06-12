@@ -4,7 +4,7 @@ import numpy as np
 
 
 class LiDAR():
-    def __init__(self, max_distance: int = 3, resolution: float = 1):
+    def __init__(self, max_distance: float = 5, resolution: float = 1):
         self.max_distance = max_distance
         self.resolution = resolution
 
@@ -14,7 +14,7 @@ class LiDAR():
             self.n_theta_readings, self.n_phi_readings)
 
     def get_flag(self, name):
-        if name == "LOYAL_WINGMEN":
+        if name == "LOYAL_WINGMAN":
             return 1
 
         if name == "LOITERING_MUNITION":
@@ -143,7 +143,7 @@ class LiDAR():
 
         if len(loyalwingman_position) > 0:
             self.__add_end_position(
-                loyalwingman_position, current_position, self.get_flag("LOYAL_WINGMEN"))
+                loyalwingman_position, current_position, self.get_flag("LOYAL_WINGMAN"))
 
     def get_matrix(self):
         return self.matrix

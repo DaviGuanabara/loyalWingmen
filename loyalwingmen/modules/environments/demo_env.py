@@ -1,30 +1,15 @@
-import os
-import platform
 import time
 
 import curses
-import collections
-from datetime import datetime
-import xml.etree.ElementTree as etxml
-import pkg_resources
-from pathlib import Path
-from PIL import Image
 import random
 
-# import pkgutil
-# egl = pkgutil.get_loader('eglRenderer')
 import numpy as np
 import pybullet as p
 import pybullet_data
-import math
 
-from modules.utils.enums import DroneModel, Physics, ImageType
 
-import gymnasium as gym  # import gym
+import gymnasium as gym
 from gymnasium import spaces
-
-from dataclasses import dataclass, fields, asdict
-
 
 from modules.factories.drone_factory import DroneFactory, Drone
 from modules.factories.loiteringmunition_factory import LoiteringMunitionFactory, LoiteringMunition
@@ -33,7 +18,7 @@ from modules.factories.loyalwingman_factory import LoyalWingmanFactory, LoyalWin
 from modules.environments.environment_models import EnvironmentParameters
 
 
-class DroneLidar2(gym.Env):
+class DemoEnvironment(gym.Env):
 
     metadata = {"render.modes": ["human"]}
 
@@ -42,10 +27,10 @@ class DroneLidar2(gym.Env):
     def __init__(
         self,
         simulation_frequency: int = 240,
-        rl_frequency: int = 15,
+        rl_frequency: int = 60,
         GUI: bool = False,
     ):
-        self.curses_activated = False
+
         #### client #############################################
         if GUI:
             client_id = self.setup_pybulley_GUI()
@@ -69,21 +54,21 @@ class DroneLidar2(gym.Env):
         self.action_space = self._actionSpace()
         self.observation_space = self._observationSpace()
 
+        #### Demo Debug Setup ##################
+        self.setup_demo_lidar_log()
+
     def setup_factories(self):
         self.lwingman_factory: DroneFactory = self.setup_lw_factory()
         self.lmunition_factory: DroneFactory = self.setup_lm_factory()
 
     def setup_lw_factory(self) -> DroneFactory:
-        factory: DroneFactory = LoyalWingmanFactory()
-
-        factory.set_environment_parameters(self.environment_parameters)
-        factory.set_initial_position(np.array([1, 1, 1]))
-        factory.set_initial_angular_position(np.array([0, 0, 0]))
-
-        return factory
+        return self.setup_drone_factory(LoyalWingmanFactory)
 
     def setup_lm_factory(self) -> DroneFactory:
-        factory: DroneFactory = LoiteringMunitionFactory()
+        return self.setup_drone_factory(LoiteringMunitionFactory)
+
+    def setup_drone_factory(self, factory_s) -> DroneFactory:
+        factory: DroneFactory = factory_s()
 
         factory.set_environment_parameters(self.environment_parameters)
         factory.set_initial_position(np.array([1, 1, 1]))
@@ -159,7 +144,6 @@ class DroneLidar2(gym.Env):
 
     ################################################################################
 
-    # TODO preciso fixar a posição do target
     def step(self, rl_action):
         """Advances the environment by one simulation step.
         Parameters
@@ -183,9 +167,6 @@ class DroneLidar2(gym.Env):
             in each subclass for its format.
         """
 
-        # TODO: o rl_action está desabilitado até que eu consiga alinhar os aspectos da behavior_tree com o do RL. Até lá
-
-        # É importante para que uma decisão da rede neural tenha realmente impacto
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             # ainda não está pronto múltiplos drones.
             for loyalwingman in self.loyalwingmen:
@@ -445,59 +426,54 @@ class DroneLidar2(gym.Env):
         )
         return normalized_distance
 
+    #####################################################################################################
+    # Log
+    #####################################################################################################
+
     def format_list(self, list_of_values):
         return str.join(" ", ["%0.2f".center(5) % i for i in list_of_values])
 
-    def generate_log(self):
-        drone_kinematics = self.drones[0].gadget.kinematics  # .position
-        # drone_state = self.process_kinematics_to_state(drone_kinematics)
-        drone_position = drone_kinematics.position
-        drone_velocity = drone_kinematics.velocity
+    def setup_demo_lidar_log(self):
 
-        target_kinematics = self.targets[0].gadget.kinematics
-        target_position = target_kinematics.position
-        target_velocity = target_kinematics.velocity
+        max_distance: float = 5
+        resolution: float = 0.01
 
-        distance = np.linalg.norm(target_position - drone_position)
-        direction = (target_position - drone_position) / distance
+        self.loyalwingmen[0].set_lidar_parameters(
+            max_distance=max_distance, resolution=resolution)
 
-        text = ""
-        text += (
-            "WARNING: RL ACTION IS DISABLED"
-            if not self.rl_action_activated
-            else "WARNING: RL ACTION IS ENABLED"
-        )
-
-        text += "\n"
-        text += "drone_position: " + self.format_list(drone_position) + "\n"
-        text += "drone_velocity: " + self.format_list(drone_velocity) + "\n"
-        text += "target_position: " + self.format_list(target_position) + "\n"
-        text += "target_velocity: " + self.format_list(target_velocity) + "\n"
-        text += "direction: " + self.format_list(direction) + "\n"
-        text += "distance: " + str(distance) + "\n"
-        text += "reward: " + str(self.last_reward) + "\n"
-        text += "action: " + self.format_list(self.last_action) + "\n"
-
-        return text
-
-    def show_log(self):
-        text = self.generate_log()
-
-        stdscr = curses.initscr()
-        stdscr.addstr(0, 0, text)
-        stdscr.refresh()
+        return max_distance, resolution
 
     def generate_lidar_log(self):
+        lw_kinematics = self.loyalwingmen[0].kinematics
+        lm_kinematics = self.loitering_munitions[0].kinematics
 
-        # resolution: float = 0.01
-        # max_distance: float = 5
+        lw_position = lw_kinematics.position
+        lm_position = lm_kinematics.position
 
-        # self.loyalwingmen[0].set_lidar_parameters(
-        #    max_distance=max_distance, resolution=resolution)
+        distance = np.linalg.norm(lm_position - lw_position)
+        direction = (lm_position - lw_position) / distance
 
+        max_distance, resolution = self.setup_demo_lidar_log()
         obs = np.round(self.observation, 2)
 
-        text = ""
+        text = "The Demo Environment reduces the lidar resolution to be able to log it"
+        text += "\n"
+        text += f'LiDAR Max distance: {max_distance}, Resolution: {resolution}'
+        text += "\n"
+        text += "LoyalWingman position:"
+        text += "({:.2f}, {:.2f}, {:.2f})".format(
+            lw_position[0], lw_position[1], lw_position[2])
+        text += "\n"
+        text += "LoiteringMunition position:"
+        text += "({:.2f}, {:.2f}, {:.2f})".format(
+            lm_position[0], lm_position[1], lm_position[2])
+        text += "\n"
+        text += "direction: " + self.format_list(direction) + "\n"
+        text += "distance: {:.2f}".format(distance) + "\n"
+        text += "reward: {:.2f}".format(self.last_reward) + "\n"
+        text += "action: " + self.format_list(self.last_action) + "\n"
+        text += "Lidar View"
+        text += "\n"
         text += "\n"
         text += np.array2string(obs)
 
@@ -506,21 +482,15 @@ class DroneLidar2(gym.Env):
     def show_lidar_log(self):
         # print(self.observation)
         text = self.generate_lidar_log()
-        print(text)
         # stdscr = self.init_curses()
         stdscr = curses.initscr()
         stdscr.clear()
 
-        # try:
-        # stdscr.addstr('*', color_pair(1))
-        # stdscr.addstr('*', text)
-        stdscr.addstr(0, 0, text)
-        stdscr.refresh()
-        # except curses.error:
-        #    pass
-
-        # stdscr.addstr(0, 0, text)
-        # stdscr.refresh()
+        try:
+            stdscr.addstr(0, 0, text)
+            stdscr.refresh()
+        except curses.error:
+            pass
 
     def init_curses(self):
         if not self.curses_activated:

@@ -11,16 +11,9 @@ from modules.utils.enums import DroneModel
 
 
 class IDrone(metaclass=ABCMeta):
-
+    @abstractmethod
     def __init__(self, id: int, model: DroneModel, parameters: Parameters, kinematics: Kinematics, informations: Informations, control: DSLPIDControl, environment_parameters: EnvironmentParameters):
-        self.id: int = id
-        self.client_id: int = environment_parameters.client_id
-        self.model = model
-        self.parameters: Parameters = parameters
-        self.kinematics: Kinematics = kinematics
-        self.informations: Informations = informations
-        self.control: DSLPIDControl = control
-        self.environment_parameters: EnvironmentParameters = environment_parameters
+        """Abstract method."""
 
     # =================================================================================================================
     # Private

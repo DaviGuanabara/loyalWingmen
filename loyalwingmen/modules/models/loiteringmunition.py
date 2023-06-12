@@ -14,11 +14,8 @@ class LoiteringMunition(Drone):
     #    super().__init__()
 
     def apply_frozen_behavior(self):
-        obstacle_weigth = (
-            self.environment_parameters.G * self.obstacle.informations.mass
-        )
-
-        self.apply_force(np.array([0, 0, obstacle_weigth]))
+        weigth = self.environment_parameters.G * self.parameters.M
+        self.apply_force(np.array([0, 0, weigth]))
         self.apply_velocity(velocity=[0, 0, 0], angular_velocity=[0, 0, 0])
 
     def apply_constant_velocity_behavior(self):
@@ -28,7 +25,7 @@ class LoiteringMunition(Drone):
 
     def apply_force(self, force):
         p.applyExternalForce(
-            self.obstacle.id,
+            self.id,
             -1,
             forceObj=force,
             posObj=[0, 0, 0],
@@ -42,7 +39,7 @@ class LoiteringMunition(Drone):
         angular_velocity: np.array,
     ):
         p.resetBaseVelocity(
-            self.obstacle.id,
+            self.id,
             velocity,
             angular_velocity,
             physicsClientId=self.environment_parameters.client_id,

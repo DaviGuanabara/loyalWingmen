@@ -11,7 +11,7 @@ class LoyalWingmanFactory(DroneFactory):
         id, model, parameters, informations, kinematics, control, environment_parameters = \
             super().load_drone_attributes()
 
-        loyalwingman = LoyalWingman(id, model, parameters, informations, kinematics,
-                                    control, environment_parameters)
+        loyalwingman = LoyalWingman(id=id, model=model, parameters=parameters, kinematics=kinematics,
+                                    informations=informations, control=control, environment_parameters=environment_parameters)
 
         return loyalwingman

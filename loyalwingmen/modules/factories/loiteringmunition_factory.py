@@ -10,7 +10,7 @@ class LoiteringMunitionFactory(DroneFactory):
 
         id, model, parameters, informations, kinematics, control, environment_parameters = \
             super().load_drone_attributes()
-        loiteringmunition = LoiteringMunition(id, model, parameters, informations, kinematics,
-                                              control, environment_parameters)
+        loiteringmunition = LoiteringMunition(id=id, model=model, parameters=parameters, kinematics=kinematics,
+                                              informations=informations, control=control, environment_parameters=environment_parameters)
 
         return loiteringmunition
