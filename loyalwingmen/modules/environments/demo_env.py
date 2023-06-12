@@ -58,23 +58,9 @@ class DemoEnvironment(gym.Env):
         self.setup_demo_lidar_log()
 
     def setup_factories(self):
-        self.lwingman_factory: DroneFactory = self.setup_lw_factory()
-        self.lmunition_factory: DroneFactory = self.setup_lm_factory()
-
-    def setup_lw_factory(self) -> DroneFactory:
-        return self.setup_drone_factory(LoyalWingmanFactory)
-
-    def setup_lm_factory(self) -> DroneFactory:
-        return self.setup_drone_factory(LoiteringMunitionFactory)
-
-    def setup_drone_factory(self, factory_s) -> DroneFactory:
-        factory: DroneFactory = factory_s()
-
-        factory.set_environment_parameters(self.environment_parameters)
-        factory.set_initial_position(np.array([1, 1, 1]))
-        factory.set_initial_angular_position(np.array([0, 0, 0]))
-
-        return factory
+        env_p = self.environment_parameters
+        self.lwingman_factory = LoyalWingmanFactory(env_p)
+        self.lmunition_factory = LoiteringMunitionFactory(env_p)
 
     def setup_pybullet_DIRECT(self):
         return p.connect(p.DIRECT)

@@ -14,8 +14,12 @@ from modules.models.drone import Drone, Parameters, Kinematics, Informations, En
 
 
 class DroneFactory(IDroneFactory):
-    def __init__(self):
-        self.__setup_urdf_file_path(DroneModel.CF2X)
+    def __init__(self, environment_parameters: EnvironmentParameters, drone_model: DroneModel = DroneModel.CF2X, initial_position: np.array = np.ones((3,)), initial_angular_position: np.array = np.zeros((3,))):
+
+        self.set_drone_model(drone_model)
+        self.set_environment_parameters(environment_parameters)
+        self.set_initial_position(initial_position)
+        self.set_initial_angular_position(initial_angular_position)
 
     # =================================================================================================================
     # Private
@@ -128,7 +132,6 @@ class DroneFactory(IDroneFactory):
         return DSLPIDControl(model, parameters, environment_parameters, urdf_path=urdf_file_path)
 
     def __load_urdf(self):
-
         id = p.loadURDF(
             self.urdf_file_path,
             self.initial_position,
@@ -140,7 +143,7 @@ class DroneFactory(IDroneFactory):
         return id
 
     def __compute_drone_model(self):
-        return DroneModel.CF2X
+        return self.drone_model  # DroneModel.CF2X
 
     def __setup_urdf_file_path(self, drone_model: DroneModel = DroneModel.CF2X):
         urdf_name = drone_model.value + ".urdf"
@@ -154,6 +157,10 @@ class DroneFactory(IDroneFactory):
 
         self.set_urdf_file_path(path)
 
+    # =================================================================================================================
+    # Public
+    # =================================================================================================================
+
     def load_drone_attributes(self) -> Tuple[int, DroneModel, Parameters, Informations, Kinematics, DSLPIDControl, EnvironmentParameters]:
         id = self.__load_urdf()
         model = self.__compute_drone_model()
@@ -166,9 +173,9 @@ class DroneFactory(IDroneFactory):
 
         return id, model, parameters, informations, kinematics, control, environment_parameters
 
-    # =================================================================================================================
-    # Public
-    # =================================================================================================================
+    def set_drone_model(self, drone_model: DroneModel):
+        self.drone_model = drone_model
+        self.__setup_urdf_file_path(drone_model)
 
     def set_environment_parameters(self, environment_parameters: EnvironmentParameters):
         self.environment_parameters = environment_parameters
