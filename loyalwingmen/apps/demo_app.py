@@ -28,7 +28,6 @@ I were not able to make it work in MacOS Ventura on M1 Pro
 # Veritifation
 # ===============================================================================
 
-# assert os.name != "Darwin", "Demo_app.py is unable to run on MacOS due to pynput (on KeyboardListener) incompatibility"
 MACOS = "posix"
 
 if os.name == MACOS:
@@ -57,6 +56,8 @@ for steps in range(50_000):
     observation, reward, terminated, truncated, info = env.step(action)
     env.show_lidar_log()
 
-    # if terminated:
-    #    env.reset()
-    #    print("Environment reseted")
+    if terminated:
+        print("Episode terminated")
+
+        # I preferred to remove the reset to be able to make a long test
+        # env.reset()
