@@ -1,8 +1,9 @@
-from modules.utils.keyboard_listener import KeyboardListener
-from modules.environments.demo_env import DemoEnvironment
 import os
 import sys
+
 sys.path.append("..")
+from modules.utils.keyboard_listener import KeyboardListener
+from modules.environments.demo_env import DemoEnvironment
 
 
 """
@@ -27,7 +28,14 @@ I were not able to make it work in MacOS Ventura on M1 Pro
 # Veritifation
 # ===============================================================================
 
-assert os.name != "Darwin", "Demo_app.py is unable to run on MacOS due to pynput (on KeyboardListener) incompatibility"
+# assert os.name != "Darwin", "Demo_app.py is unable to run on MacOS due to pynput (on KeyboardListener) incompatibility"
+MACOS = "posix"
+
+if os.name == MACOS:
+    print(os.name)
+    print(
+        "Demo_app.py is unable to run properly on MacOS due to pynput (on KeyboardListener) incompatibility"
+    )
 
 # ===============================================================================
 # Setup
@@ -35,13 +43,17 @@ assert os.name != "Darwin", "Demo_app.py is unable to run on MacOS due to pynput
 
 env = DemoEnvironment(GUI=True)
 observation, info = env.reset()
-keyboard_listener = KeyboardListener()
+keyboard_listener = KeyboardListener() if os.name != MACOS else None
 
 # ===============================================================================
 # Execution
 # ===============================================================================
 for steps in range(50_000):
-    action = keyboard_listener.get_action(intensity=0.005)
+    action = (
+        keyboard_listener.get_action(intensity=0.005)
+        if keyboard_listener is not None
+        else [1, 0, 0, 0.5]
+    )
     observation, reward, terminated, truncated, info = env.step(action)
     env.show_lidar_log()
 
