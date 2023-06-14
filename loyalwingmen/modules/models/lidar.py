@@ -3,6 +3,7 @@ import math
 import numpy as np
 
 
+# TODO colocar os hints ao redor do código
 class LiDAR():
     def __init__(self, max_distance: float = 5, resolution: float = 1):
         self.max_distance = max_distance
@@ -33,8 +34,10 @@ class LiDAR():
         sphere_surface = 4 * math.pi * max_distance ** 2
         number_of_readings: int = math.ceil(resolution * sphere_surface)
 
-        n_phi_readings: int = math.ceil(math.sqrt(number_of_readings))
-        n_theta_readings: int = math.ceil(math.sqrt(number_of_readings))
+        n_phi_readings: int = math.ceil(
+            math.sqrt(number_of_readings))  # TODO phi: -pi/2 até +phi/2
+        n_theta_readings: int = math.ceil(
+            math.sqrt(number_of_readings))  # TODO Dobrar o theta
 
         return sphere_surface, n_theta_readings, n_phi_readings
 
@@ -79,7 +82,7 @@ class LiDAR():
         x_2, y_2, z_2 = x ** 2, y ** 2, z ** 2
 
         return [
-            math.sqrt(x_2 + y_2 + z_2),  # Ok
+            math.sqrt(x_2 + y_2 + z_2),  # radius
             math.acos(z/math.sqrt(x_2 + y_2 + z_2)),
             math.atan2(y, x)
         ]
@@ -107,6 +110,7 @@ class LiDAR():
         n_theta_readings = len(matrix)
         n_phi_readings = len(matrix[0])
         theta_step_size = (2 * math.pi) / n_theta_readings
+        # TODO PHI DE -PI/2 ATÉ +PI/2, para evitar sobreposição
         phi_step_size = (2 * math.pi) / n_phi_readings
 
         _, theta, phi = spherical[0], spherical[1], spherical[2]
