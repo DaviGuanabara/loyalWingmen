@@ -15,7 +15,7 @@ from modules.factories.drone_factory import DroneFactory, Drone
 from modules.factories.loiteringmunition_factory import LoiteringMunitionFactory, LoiteringMunition
 from modules.factories.loyalwingman_factory import LoyalWingmanFactory, LoyalWingman
 
-from modules.environments.environment_models import EnvironmentParameters
+from modules.dataclasses.dataclasses import EnvironmentParameters
 
 
 class DemoEnvironment(gym.Env):
