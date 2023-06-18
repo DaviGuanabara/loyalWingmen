@@ -32,9 +32,8 @@ class Drone(IDrone):
         ----------
         """
         resolution: float = 1
-        max_distance: float = 5
-        self.set_lidar_parameters(
-            max_distance=max_distance, resolution=resolution)
+        radius: float = 5
+        self.set_lidar_parameters(radius, resolution)
 
     # =================================================================================================================
     # Private
@@ -106,9 +105,10 @@ class Drone(IDrone):
         kinematics = self.collect_kinematics()
         self.store_kinematics(kinematics)
 
-    def set_lidar_parameters(self, max_distance: float = 5, resolution: float = 1):
-        self.lidar: LiDAR = LiDAR(
-            max_distance=max_distance, resolution=resolution)
+    def set_lidar_parameters(self, radius: float = 5, resolution: float = 1):
+        print("lidar setup")
+        self.lidar: LiDAR = LiDAR(radius, resolution)
+        print("done")
 
     def observation(self, loyalwingmen: np.array = np.array([], dtype=IDrone), loitering_munitions: np.array = np.array([], dtype=IDrone), obstacles: np.array = np.array([])):
         self.lidar.reset()
@@ -125,4 +125,4 @@ class Drone(IDrone):
             self.lidar.add_position(
                 obstacle_position=obstacle.kinematics.position, current_position=self.kinematics.position)
 
-        return self.lidar.get_matrix()
+        return self.lidar.get_sphere()

@@ -19,10 +19,14 @@ from modules.environments.environment_models import EnvironmentParameters
 
 
 class DemoEnvironment(gym.Env):
+    """
+        This class aims to demonstrate a environment with one Loyal Wingmen and one Loitering Munition,
+        in a simplest way possible. 
+        It was developed for Stable Baselines 3 2.0.0 or higher.
+        Gym Pybullet Drones was an inspiration for this project. For more: https://github.com/utiasDSL/gym-pybullet-drones
 
-    metadata = {"render.modes": ["human"]}
-
-    ################################################################################
+        Finally, I tried to do my best inside of my time constraint. Then, sorry for messy code.
+    """
 
     def __init__(
         self,
@@ -102,7 +106,6 @@ class DemoEnvironment(gym.Env):
 
     def apply_target_behavior(self, obstacle):
         obstacle.apply_frozen_behavior()
-        # obstacle.apply_constant_velocity_behavior()
 
     def reset(self, seed=1):
         """Resets the environment.
@@ -119,13 +122,6 @@ class DemoEnvironment(gym.Env):
         #### Housekeeping ##########################################
 
         self._housekeeping()
-
-        #### Update and store the drones kinematic information #####
-        # self._updateAndStoreKinematicInformation()
-        #### Start video recording #################################
-        # self._startVideoRecording()
-        #### Return the initial observation ########################
-        # apagar computerInfo para versões do SB3 abaixo da 2.0.0
         return self._computeObs(), self._computeInfo()
 
     ################################################################################
@@ -154,7 +150,7 @@ class DemoEnvironment(gym.Env):
         """
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
-            # ainda não está pronto múltiplos drones.
+            # multiple drones not ready. TODO: setup multiple drones
             for loyalwingman in self.loyalwingmen:
                 velocity_action = rl_action
 
@@ -168,14 +164,13 @@ class DemoEnvironment(gym.Env):
 
             p.stepSimulation()
 
-        self.observation = self._computeObs()
+        observation = self._computeObs()
         reward = self._computeReward()
         terminated = self._computeDone()
         info = self._computeInfo()
 
-        # return obs, reward, done, info
-        # apagar False (Truncated) para versões do SB3 abaixo da 2.0.0
-        return self.observation, reward, terminated, False, info
+        self.observation = observation
+        return observation, reward, terminated, False, info
 
     ################################################################################
 
@@ -223,8 +218,6 @@ class DemoEnvironment(gym.Env):
         Allocation and zero-ing of the variables and PyBullet's parameters/objects
         in the `reset()` function.
         """
-
-        #### Initialize the drones kinemaatic information ##########
 
         #### Set PyBullet's parameters #############################
         p.setGravity(
@@ -292,11 +285,6 @@ class DemoEnvironment(gym.Env):
         """
         # a workaround to work with gymnasium
 
-        # return old_gym_Box(
-        #    low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
-        #    high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
-        #    dtype=np.float32,
-        # )
         return spaces.Box(
             low=np.array([-1, -1, 0, -1, -1, -1, -1, -1,
                          0, -1, -1, -1, -1, -1, -1, 0]),
@@ -307,9 +295,6 @@ class DemoEnvironment(gym.Env):
     ################################################################################
 
     def _computeObs(self):
-        """Returns the current observation of the environment.
-        Must be implemented in a subclass.
-        """
 
         lw: LoyalWingman = self.loyalwingmen[0]
         lm: LoiteringMunition = self.loitering_munitions[0]
@@ -317,15 +302,7 @@ class DemoEnvironment(gym.Env):
         return lw.observation(loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions)
 
     def _computeReward(self):
-        """Computes the current reward value(s).
-        Must be implemented in a subclass.
-        """
 
-        # TODO adicionar o Survivor Bonus
-        # TODO adicionar penalidade por morrer.
-        # TODO adicionar bonus por chegar no alvo.\
-
-        # max_distance = self.environment_parameters.max_distance
         penalty = 0
         bonus = 0
 
@@ -345,9 +322,6 @@ class DemoEnvironment(gym.Env):
         return self.last_reward
 
     def _computeDone(self):
-        """Computes the current done value(s).
-        Must be implemented in a subclass.
-        """
 
         drone_position = self.loyalwingmen[0].kinematics.position
         drone_velocity = self.loyalwingmen[0].kinematics.velocity
@@ -374,10 +348,6 @@ class DemoEnvironment(gym.Env):
         return False
 
     def _computeInfo(self):
-        """Computes the current info dict(s).
-        Must be implemented in a subclass.
-        """
-        # raise NotImplementedError
         return {}
 
     #####################################################################################################
@@ -421,13 +391,12 @@ class DemoEnvironment(gym.Env):
 
     def setup_demo_lidar_log(self):
 
-        max_distance: float = 5
-        resolution: float = 0.01
+        radius: float = 5
+        resolution: float = 0.0045
 
-        self.loyalwingmen[0].set_lidar_parameters(
-            max_distance=max_distance, resolution=resolution)
+        self.loyalwingmen[0].set_lidar_parameters(radius, resolution)
 
-        return max_distance, resolution
+        return radius, resolution
 
     def generate_lidar_log(self):
         lw_kinematics = self.loyalwingmen[0].kinematics
@@ -439,12 +408,12 @@ class DemoEnvironment(gym.Env):
         distance = np.linalg.norm(lm_position - lw_position)
         direction = (lm_position - lw_position) / distance
 
-        max_distance, resolution = self.setup_demo_lidar_log()
+        radius, resolution = self.setup_demo_lidar_log()
         obs = np.round(self.observation, 2)
 
         text = "The Demo Environment reduces the lidar resolution to be able to log it"
         text += "\n"
-        text += f'LiDAR Max distance: {max_distance}, Resolution: {resolution}'
+        text += f'LiDAR Max distance: {radius}, Resolution: {resolution}'
         text += "\n"
         text += "LoyalWingman position:"
         text += "({:.2f}, {:.2f}, {:.2f})".format(
@@ -466,9 +435,7 @@ class DemoEnvironment(gym.Env):
         return text
 
     def show_lidar_log(self):
-        # print(self.observation)
         text = self.generate_lidar_log()
-        # stdscr = self.init_curses()
         stdscr = curses.initscr()
         stdscr.clear()
 
