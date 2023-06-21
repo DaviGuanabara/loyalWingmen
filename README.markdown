@@ -42,18 +42,19 @@ Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
       >>>'GeForce GTX 950M'
 
 3. install git (set git on path)
-4.  Optional, Make Virtual Envorioment:
-   - py -3.8 -m loyalwingmen_venv
-   - ./loyalwingmen_venv/script/activate
    
 
 5. download and install Visual Studio Community c/c++ IDE + Compiler (https://visualstudio.microsoft.com/vs/features/cplusplus/)
     - make sure that all tools for c++ compiler is installed. if not done properly, “wheel build” will be a problem in step 8.
+    - ( Microsoft Visual C++ 14.0 or greater is required. Get it with "Microsoft C++ Build Tools": https://visualstudio.microsoft.com/visual-cpp-build-tools/)
 6. update pip
 7. update wheels
-8. clone loyalwingmen (https://github.com/DaviGuanabara/loyalWingmen)
-9. go to loyalWingmen\loyalwingmen folder
-10. install requirements: "$ pip install -r requirements.txt"
+8. Optional, Make Virtual Envorioment:
+   - py -3.8 -m loyalwingmen_venv
+   - ./loyalwingmen_venv/script/activate
+9. clone loyalwingmen (https://github.com/DaviGuanabara/loyalWingmen)
+10. go to loyalWingmen\loyalwingmen folder
+11. install requirements: "$ pip install -r requirements.txt"
 
 ### MacOS
 1. install xcode
