@@ -38,19 +38,22 @@ Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
       $ torch.cuda.device(0)
       >>> <torch.cuda.device at 0x7efce0b03be0>
 
-      $ torch.cuda.get_device_name(0)
+      $ torch.cuda.get_device_name(0) #In My Case:
       >>>'GeForce GTX 950M'
 
-3. install git
-   - set git on path
+3. install git (set git on path)
+4.  Optional, Make Virtual Envorioment:
+   - py -3.8 -m loyalwingmen_venv
+   - ./loyalwingmen_venv/script/activate
+   
 
-4. download and install Visual Studio Community c/c++ IDE + Compiler (https://visualstudio.microsoft.com/vs/features/cplusplus/)
+5. download and install Visual Studio Community c/c++ IDE + Compiler (https://visualstudio.microsoft.com/vs/features/cplusplus/)
     - make sure that all tools for c++ compiler is installed. if not done properly, “wheel build” will be a problem in step 8.
-5. update pip
-6. update wheels
-7. clone loyalwingmen (https://github.com/DaviGuanabara/loyalWingmen)
-8. go to loyalWingmen\loyalwingmen folder
-9. install requirements: "$ pip install -r requirements.txt"
+6. update pip
+7. update wheels
+8. clone loyalwingmen (https://github.com/DaviGuanabara/loyalWingmen)
+9. go to loyalWingmen\loyalwingmen folder
+10. install requirements: "$ pip install -r requirements.txt"
 
 ### MacOS
 1. install xcode
@@ -64,8 +67,9 @@ Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
    - update pip ('/Applications/Xcode.app/Contents/Developer/usr/bin/python3 -m pip install --upgrade pip')
 
 5. Optional: prepare a virtual environment
-   - $ python3.8 -m venv loyalwingmen
-   - $ source loyalwingmen/bin/activate
+   - $ python3.8 -m venv loyalwingmen_venv
+   - $ source loyalwingmen_venv/bin/activate
+      
 8. clone this repository
 9. go to loyalwingmen/loyalwingmen
 10. install requirements
