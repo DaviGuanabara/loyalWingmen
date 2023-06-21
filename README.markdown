@@ -119,3 +119,8 @@ To unsure maintanance, Gymnasium was adopted.
 #### - Multiple Python Versions:
 https://martinfritz.medium.com/work-with-multiple-versions-of-python-on-windows-10-eed1e5f52f07
 
+### - Invalid requirement: '_curses'
+install curses:
+Windows
+$ pip install windows-curses
+
