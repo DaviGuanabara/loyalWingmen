@@ -6,8 +6,7 @@ from modules.interfaces.drone_interface import IDrone
 
 from modules.models.lidar import LiDAR
 from modules.control import DSLPIDControl
-from modules.environments.environment_models import EnvironmentParameters
-from modules.dataclasses.dataclasses import Parameters, Kinematics, Informations
+from modules.dataclasses.dataclasses import Parameters, Kinematics, Informations, EnvironmentParameters
 from modules.utils.enums import DroneModel
 
 

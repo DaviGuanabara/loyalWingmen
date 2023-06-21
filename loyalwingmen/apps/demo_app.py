@@ -1,9 +1,10 @@
-from modules.environments.demo_env import DemoEnvironment
-from modules.utils.keyboard_listener import KeyboardListener
 import os
 import sys
 
 sys.path.append("..")
+from modules.environments.demo_env import DemoEnvironment
+from modules.utils.keyboard_listener import KeyboardListener
+
 
 
 """
