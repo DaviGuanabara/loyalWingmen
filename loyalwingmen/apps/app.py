@@ -4,7 +4,6 @@ import sys
 from stable_baselines3 import PPO
 from modules.factories.callback_factory import gen_eval_callback, callbacklist
 from modules.utils.Logger import Logger
-from modules.environments.drone_and_cube_env import DroneAndCube
 from modules.utils.utils import sync, str2bool
 import torch
 from stable_baselines3.common.env_util import make_vec_env
@@ -21,8 +20,7 @@ from pathlib import Path
 
 
 def generate_model(vectorized_enviroment, nn_t=[512, 512, 512]):
-    policy_kwargs = dict(activation_fn=th.nn.LeakyReLU,
-                         net_arch=dict(pi=nn_t, vf=nn_t))
+    policy_kwargs = dict(activation_fn=th.nn.LeakyReLU, net_arch=dict(pi=nn_t, vf=nn_t))
 
     model = PPO(
         "MlpPolicy",
@@ -104,7 +102,6 @@ if train_flag:
     )
 
 if test_flag:
-
     assert os.path.isfile(
         "./models/best_model.zip"
     ), "There isn't 'best model' available to test"

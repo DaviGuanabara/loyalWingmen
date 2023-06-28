@@ -7,27 +7,46 @@ from pathlib import Path
 import xml.etree.ElementTree as etxml
 from typing import Tuple
 
+from modules.models.lidar import LiDAR
+
 from modules.control.DSLPIDControl import DSLPIDControl
 from modules.utils.enums import DroneModel
 from modules.interfaces.factory_interface import IDroneFactory
-from modules.models.drone import Drone, Parameters, Kinematics, Informations, EnvironmentParameters
+from modules.models.drone import (
+    Drone,
+    Parameters,
+    Kinematics,
+    Informations,
+    EnvironmentParameters,
+)
 
 
 class DroneFactory(IDroneFactory):
-    def __init__(self, environment_parameters: EnvironmentParameters, drone_model: DroneModel = DroneModel.CF2X, initial_position: np.array = np.ones((3,)), initial_angular_position: np.array = np.zeros((3,))):
-
+    def __init__(
+        self,
+        environment_parameters: EnvironmentParameters,
+        drone_model: DroneModel = DroneModel.CF2X,
+        initial_position: np.array = np.ones((3,)),
+        initial_angular_position: np.array = np.zeros((3,)),
+        radius: float = 5,
+        resolution: float = 1,
+    ):
         self.set_drone_model(drone_model)
         self.set_environment_parameters(environment_parameters)
         self.set_initial_position(initial_position)
         self.set_initial_angular_position(initial_angular_position)
+        self.set_LiDAR(radius, resolution)
 
     # =================================================================================================================
     # Private
     # =================================================================================================================
 
+    ################### Compute ###############################
+
     def __compute_kinematics(self) -> Kinematics:
         return Kinematics(
-            position=self.initial_position, angular_position=self.initial_angular_position
+            position=self.initial_position,
+            angular_position=self.initial_angular_position,
         )
 
     def __compute_parameters(self):
@@ -35,7 +54,6 @@ class DroneFactory(IDroneFactory):
         return self.__parseURDFParameters(urdf_file_path)
 
     def __compute_informations(self, parameters: Parameters):
-
         gravity_acceleration = self.environment_parameters.G
         KMH_TO_MS = 1000 / 3600
         VELOCITY_LIMITER = 1  # 0.03
@@ -74,6 +92,38 @@ class DroneFactory(IDroneFactory):
         informations.max_xy_torque = max_xy_torque
 
         return informations
+
+    def __compute_drone_model(self):
+        return self.drone_model  # DroneModel.CF2X
+
+    def __setup_urdf_file_path(self, drone_model: DroneModel = DroneModel.CF2X):
+        urdf_name = drone_model.value + ".urdf"
+        base_path = str(Path(os.getcwd()).parent.absolute())
+
+        if platform.system() == "Windows":
+            path = base_path + "\\" + "assets\\" + urdf_name  # "cf2x.urdf"
+
+        else:
+            path = base_path + "/" + "assets/" + urdf_name  # "cf2x.urdf"
+
+        self.set_urdf_file_path(path)
+
+    def __compute_control(
+        self,
+        model: DroneModel,
+        parameters: Parameters,
+        environment_parameters: EnvironmentParameters,
+        urdf_file_path: str,
+    ):
+        return DSLPIDControl(
+            model, parameters, environment_parameters, urdf_path=urdf_file_path
+        )
+
+    def __compute_LiDAR(self, radius: float = 5, resolution: float = 1) -> LiDAR:
+        lidar: LiDAR = LiDAR(radius, resolution)
+        return lidar
+
+    ################### Adjust ###############################
 
     def __parseURDFParameters(self, urdf_file_path):
         """Loads parameters from an URDF file.
@@ -127,10 +177,6 @@ class DroneFactory(IDroneFactory):
             DW_COEFF_3=DW_COEFF_3,
         )
 
-    def __compute_control(self, model: DroneModel, parameters: Parameters, environment_parameters: EnvironmentParameters, urdf_file_path: str):
-
-        return DSLPIDControl(model, parameters, environment_parameters, urdf_path=urdf_file_path)
-
     def __load_urdf(self):
         id = p.loadURDF(
             self.urdf_file_path,
@@ -142,36 +188,11 @@ class DroneFactory(IDroneFactory):
 
         return id
 
-    def __compute_drone_model(self):
-        return self.drone_model  # DroneModel.CF2X
-
-    def __setup_urdf_file_path(self, drone_model: DroneModel = DroneModel.CF2X):
-        urdf_name = drone_model.value + ".urdf"
-        base_path = str(Path(os.getcwd()).parent.absolute())
-
-        if platform.system() == "Windows":
-            path = base_path + "\\" + "assets\\" + urdf_name  # "cf2x.urdf"
-
-        else:
-            path = base_path + "/" + "assets/" + urdf_name  # "cf2x.urdf"
-
-        self.set_urdf_file_path(path)
-
     # =================================================================================================================
     # Public
     # =================================================================================================================
 
-    def load_drone_attributes(self) -> Tuple[int, DroneModel, Parameters, Informations, Kinematics, DSLPIDControl, EnvironmentParameters]:
-        id = self.__load_urdf()
-        model = self.__compute_drone_model()
-        parameters = self.__compute_parameters()
-        informations = self.__compute_informations(parameters)
-        kinematics = self.__compute_kinematics()
-        control = self.__compute_control(
-            model, parameters, self.environment_parameters, self.urdf_file_path)
-        environment_parameters = self.environment_parameters
-
-        return id, model, parameters, informations, kinematics, control, environment_parameters
+    ################### set ###############################
 
     def set_drone_model(self, drone_model: DroneModel):
         self.drone_model = drone_model
@@ -188,13 +209,67 @@ class DroneFactory(IDroneFactory):
 
     def set_initial_angular_position(self, initial_angular_position: np.array):
         self.initial_angular_position = initial_angular_position
-        self.initial_quaternion = p.getQuaternionFromEuler(
-            initial_angular_position)
+        self.initial_quaternion = p.getQuaternionFromEuler(initial_angular_position)
+
+    def set_LiDAR(self, radius: float = 5, resolution: float = 1):
+        self.radius = radius
+        self.resolution = resolution
+
+    ################### create ###############################
+
+    def load_drone_attributes(
+        self,
+    ) -> Tuple[
+        int,
+        DroneModel,
+        Parameters,
+        Informations,
+        Kinematics,
+        DSLPIDControl,
+        EnvironmentParameters,
+    ]:
+        id = self.__load_urdf()
+        model = self.__compute_drone_model()
+        parameters = self.__compute_parameters()
+        informations = self.__compute_informations(parameters)
+        kinematics = self.__compute_kinematics()
+        control = self.__compute_control(
+            model, parameters, self.environment_parameters, self.urdf_file_path
+        )
+        environment_parameters = self.environment_parameters
+        lidar = self.__compute_LiDAR()
+
+        return (
+            id,
+            model,
+            parameters,
+            informations,
+            kinematics,
+            control,
+            environment_parameters,
+            lidar,
+        )
 
     def create(self) -> Drone:
-
-        id, model, parameters, informations, kinematics, control, environment_parameters = self.load_drone_attributes()
-        drone = Drone(id, model, parameters, informations, kinematics,
-                      control, environment_parameters)
+        (
+            id,
+            model,
+            parameters,
+            informations,
+            kinematics,
+            control,
+            environment_parameters,
+            lidar,
+        ) = self.load_drone_attributes()
+        drone = Drone(
+            id,
+            model,
+            parameters,
+            informations,
+            kinematics,
+            control,
+            environment_parameters,
+            lidar,
+        )
 
         return drone

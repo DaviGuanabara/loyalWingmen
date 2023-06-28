@@ -1,10 +1,14 @@
-import os
 import sys
 
 sys.path.append("..")
-from modules.environments.demo_env import DemoEnvironment
-from modules.utils.keyboard_listener import KeyboardListener
 
+from modules.environments.demo_env import DemoEnvironment
+
+from stable_baselines3 import PPO
+import math
+
+# from multiprocessing import cpu_count
+# from stable_baselines3.common.vec_env import SubprocVecEnv
 
 """
 Demo.app is a file made to show a simple execution of an environment.
@@ -28,33 +32,49 @@ I were not able to make it work in MacOS Ventura on M1 Pro
 # Veritifation
 # ===============================================================================
 
-MACOS = "posix"
-
-if os.name == MACOS:
-    print(os.name)
-    print(
-        "Demo_app.py is unable to run properly on MacOS due to pynput (on KeyboardListener) incompatibility"
-    )
 
 # ===============================================================================
 # Setup
 # ===============================================================================
+# number_of_logical_cores = cpu_count()
+# n_envs = number_of_logical_cores
 
-env = DemoEnvironment(GUI=True)
-observation, info = env.reset()
-keyboard_listener = KeyboardListener() if os.name != MACOS else None
+# env_fns = []
+# for _ in range(n_envs):
+#    env_fns.append(DemoEnvironment)
+
+
+# vectorized_environment = SubprocVecEnv(env_fns)
+# é preciso colocar o if __main__ lá em vaixo para funcionar
+env = DemoEnvironment(GUI=False)
+
+model = PPO(
+    "CnnPolicy",
+    env,
+    verbose=0,
+    device="auto",
+    tensorboard_log="./logs/my_first_env/",
+    # policy_kwargs=[256, 256, 256],
+    policy_kwargs=dict(normalize_images=False),
+    learning_rate=math.pow(10, -5),
+)
+
+model.learn(total_timesteps=25000)
+model.save("demo_trained_model")
 
 # ===============================================================================
 # Execution
 # ===============================================================================
+del model  # remove to demonstrate saving and loading
+model = PPO.load("demo_trained_model")
+
+env = DemoEnvironment(GUI=True)
+observation, info = env.reset()
+
 for steps in range(50_000):
-    action = (
-        keyboard_listener.get_action(intensity=0.005)
-        if keyboard_listener is not None
-        else [1, 0, 0, 0.1]
-    )
+    action = model.predict(observation)
     observation, reward, terminated, truncated, info = env.step(action)
-    env.show_lidar_log()
+    # env.show_lidar_log()
 
     if terminated:
         print("Episode terminated")

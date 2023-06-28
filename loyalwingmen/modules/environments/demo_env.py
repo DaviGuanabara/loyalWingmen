@@ -1,6 +1,6 @@
 import time
 
-import curses
+# import curses
 import random
 
 import numpy as np
@@ -12,7 +12,10 @@ import gymnasium as gym
 from gymnasium import spaces
 
 from modules.factories.drone_factory import DroneFactory, Drone
-from modules.factories.loiteringmunition_factory import LoiteringMunitionFactory, LoiteringMunition
+from modules.factories.loiteringmunition_factory import (
+    LoiteringMunitionFactory,
+    LoiteringMunition,
+)
 from modules.factories.loyalwingman_factory import LoyalWingmanFactory, LoyalWingman
 
 from modules.dataclasses.dataclasses import EnvironmentParameters
@@ -20,12 +23,12 @@ from modules.dataclasses.dataclasses import EnvironmentParameters
 
 class DemoEnvironment(gym.Env):
     """
-        This class aims to demonstrate a environment with one Loyal Wingmen and one Loitering Munition,
-        in a simplest way possible. 
-        It was developed for Stable Baselines 3 2.0.0 or higher.
-        Gym Pybullet Drones was an inspiration for this project. For more: https://github.com/utiasDSL/gym-pybullet-drones
+    This class aims to demonstrate a environment with one Loyal Wingmen and one Loitering Munition,
+    in a simplest way possible.
+    It was developed for Stable Baselines 3 2.0.0 or higher.
+    Gym Pybullet Drones was an inspiration for this project. For more: https://github.com/utiasDSL/gym-pybullet-drones
 
-        Finally, I tried to do my best inside of my time constraint. Then, sorry for messy code.
+    Finally, I tried to do my best inside of my time constraint. Then, sorry for messy code.
     """
 
     def __init__(
@@ -34,7 +37,6 @@ class DemoEnvironment(gym.Env):
         rl_frequency: int = 60,
         GUI: bool = False,
     ):
-
         #### client #############################################
         if GUI:
             client_id = self.setup_pybulley_GUI()
@@ -56,10 +58,13 @@ class DemoEnvironment(gym.Env):
 
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
-        self.observation_space = self._observationSpace()
-
+        loyalwingman: LoyalWingman = self.loyalwingmen[0]
+        self.observation_space = (
+            loyalwingman.lidar.observation_space()
+        )  # self._observationSpace()
+        print(self.observation_space)
         #### Demo Debug Setup ##################
-        self.setup_demo_lidar_log()
+        # self.setup_demo_lidar_log()
 
     def setup_factories(self):
         env_p = self.environment_parameters
@@ -115,8 +120,7 @@ class DemoEnvironment(gym.Env):
             The initial observation, check the specific implementation of `_computeObs()`
             in each subclass for its format.
         """
-        p.resetSimulation(
-            physicsClientId=self.environment_parameters.client_id)
+        p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
         self.RESET_TIME = time.time()
 
         #### Housekeeping ##########################################
@@ -268,7 +272,6 @@ class DemoEnvironment(gym.Env):
     ################################################################################
 
     def _actionSpace(self):
-
         return spaces.Box(
             low=np.array([-1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1]),
@@ -286,8 +289,7 @@ class DemoEnvironment(gym.Env):
         # a workaround to work with gymnasium
 
         return spaces.Box(
-            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1,
-                         0, -1, -1, -1, -1, -1, -1, 0]),
+            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
             dtype=np.float32,
         )
@@ -295,14 +297,14 @@ class DemoEnvironment(gym.Env):
     ################################################################################
 
     def _computeObs(self):
-
         lw: LoyalWingman = self.loyalwingmen[0]
         lm: LoiteringMunition = self.loitering_munitions[0]
 
-        return lw.observation(loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions)
+        return lw.observation(
+            loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions
+        )
 
     def _computeReward(self):
-
         penalty = 0
         bonus = 0
 
@@ -314,15 +316,13 @@ class DemoEnvironment(gym.Env):
             penalty += 100_000
 
         if distance < self.environment_parameters.error:
-            bonus += 10_000 * \
-                (self.environment_parameters.error - 1 * distance)
+            bonus += 10_000 * (self.environment_parameters.error - 1 * distance)
 
         self.last_reward = (5) - 1 * distance + bonus - penalty
 
         return self.last_reward
 
     def _computeDone(self):
-
         drone_position = self.loyalwingmen[0].kinematics.position
         drone_velocity = self.loyalwingmen[0].kinematics.velocity
 
@@ -337,8 +337,7 @@ class DemoEnvironment(gym.Env):
             return True
 
         if (
-            np.linalg.norm(
-                drone_position) > self.environment_parameters.max_distance
+            np.linalg.norm(drone_position) > self.environment_parameters.max_distance
             or np.linalg.norm(target_position)
             > self.environment_parameters.max_distance
             or distance < self.environment_parameters.error
@@ -365,8 +364,7 @@ class DemoEnvironment(gym.Env):
         MAX_X_Y = 100
         MAX_Z = 100
 
-        normalized_position_x_y = np.clip(
-            position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
+        normalized_position_x_y = np.clip(position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
         normalized_position_z = np.clip([position[2]], 0, MAX_Z) / MAX_Z
 
         normalized_position = np.concatenate(
@@ -385,12 +383,11 @@ class DemoEnvironment(gym.Env):
     #####################################################################################################
     # Log
     #####################################################################################################
-
+    """
     def format_list(self, list_of_values):
         return str.join(" ", ["%0.2f".center(5) % i for i in list_of_values])
 
     def setup_demo_lidar_log(self):
-
         radius: float = 5
         resolution: float = 0.0045
 
@@ -408,20 +405,22 @@ class DemoEnvironment(gym.Env):
         distance = np.linalg.norm(lm_position - lw_position)
         direction = (lm_position - lw_position) / distance
 
-        radius, resolution = self.setup_demo_lidar_log()
+        # radius, resolution = self.setup_demo_lidar_log()
         obs = np.round(self.observation, 2)
 
         text = "The Demo Environment reduces the lidar resolution to be able to log it"
         text += "\n"
-        text += f'LiDAR Max distance: {radius}, Resolution: {resolution}'
+        text += f"LiDAR Max distance: {radius}, Resolution: {resolution}"
         text += "\n"
         text += "LoyalWingman position:"
         text += "({:.2f}, {:.2f}, {:.2f})".format(
-            lw_position[0], lw_position[1], lw_position[2])
+            lw_position[0], lw_position[1], lw_position[2]
+        )
         text += "\n"
         text += "LoiteringMunition position:"
         text += "({:.2f}, {:.2f}, {:.2f})".format(
-            lm_position[0], lm_position[1], lm_position[2])
+            lm_position[0], lm_position[1], lm_position[2]
+        )
         text += "\n"
         text += "direction: " + self.format_list(direction) + "\n"
         text += "distance: {:.2f}".format(distance) + "\n"
@@ -435,8 +434,8 @@ class DemoEnvironment(gym.Env):
         return text
 
     def show_lidar_log(self):
-        text = self.generate_lidar_log()
-        stdscr = curses.initscr()
+        # text = self.generate_lidar_log()
+        # stdscr = curses.initscr()
         stdscr.clear()
 
         try:
@@ -451,3 +450,4 @@ class DemoEnvironment(gym.Env):
             self.curses_activated = True
 
         return stdscr
+"""

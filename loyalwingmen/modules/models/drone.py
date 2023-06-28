@@ -6,13 +6,27 @@ from modules.interfaces.drone_interface import IDrone
 
 from modules.models.lidar import LiDAR
 from modules.control import DSLPIDControl
-from modules.dataclasses.dataclasses import Parameters, Kinematics, Informations, EnvironmentParameters
+from modules.dataclasses.dataclasses import (
+    Parameters,
+    Kinematics,
+    Informations,
+    EnvironmentParameters,
+)
 from modules.utils.enums import DroneModel
 
 
 class Drone(IDrone):
-
-    def __init__(self, id: int, model: DroneModel, parameters: Parameters, kinematics: Kinematics, informations: Informations, control: DSLPIDControl, environment_parameters: EnvironmentParameters):
+    def __init__(
+        self,
+        id: int,
+        model: DroneModel,
+        parameters: Parameters,
+        kinematics: Kinematics,
+        informations: Informations,
+        control: DSLPIDControl,
+        environment_parameters: EnvironmentParameters,
+        lidar: LiDAR,
+    ):
         self.id: int = id
         self.client_id: int = environment_parameters.client_id
         self.model = model
@@ -21,18 +35,7 @@ class Drone(IDrone):
         self.informations: Informations = informations
         self.control: DSLPIDControl = control
         self.environment_parameters: EnvironmentParameters = environment_parameters
-        self.__setup()
-
-    def __setup(self):
-        """This function is called in init
-        Parameters
-        ----------
-        Returns
-        ----------
-        """
-        resolution: float = 1
-        radius: float = 5
-        self.set_lidar_parameters(radius, resolution)
+        self.lidar: LiDAR = lidar
 
     # =================================================================================================================
     # Private
@@ -105,23 +108,32 @@ class Drone(IDrone):
         self.store_kinematics(kinematics)
 
     def set_lidar_parameters(self, radius: float = 5, resolution: float = 1):
-        print("lidar setup")
         self.lidar: LiDAR = LiDAR(radius, resolution)
-        print("done")
 
-    def observation(self, loyalwingmen: np.array = np.array([], dtype=IDrone), loitering_munitions: np.array = np.array([], dtype=IDrone), obstacles: np.array = np.array([])):
+    def observation(
+        self,
+        loyalwingmen: np.array = np.array([], dtype=IDrone),
+        loitering_munitions: np.array = np.array([], dtype=IDrone),
+        obstacles: np.array = np.array([]),
+    ):
         self.lidar.reset()
 
         for lw in loyalwingmen:
             self.lidar.add_position(
-                loyalwingman_position=lw.kinematics.position, current_position=self.kinematics.position)
+                loyalwingman_position=lw.kinematics.position,
+                current_position=self.kinematics.position,
+            )
 
         for lm in loitering_munitions:
             self.lidar.add_position(
-                loitering_munition_position=lm.kinematics.position, current_position=self.kinematics.position)
+                loitering_munition_position=lm.kinematics.position,
+                current_position=self.kinematics.position,
+            )
 
         for obstacle in obstacles:
             self.lidar.add_position(
-                obstacle_position=obstacle.kinematics.position, current_position=self.kinematics.position)
+                obstacle_position=obstacle.kinematics.position,
+                current_position=self.kinematics.position,
+            )
 
         return self.lidar.get_sphere()
