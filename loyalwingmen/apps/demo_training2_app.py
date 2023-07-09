@@ -83,7 +83,7 @@ def main():
         device="auto",
         tensorboard_log="./logs/my_first_env/",
         policy_kwargs=policy_kwargs,
-        learning_rate=math.pow(10, -5),
+        learning_rate=math.pow(10, -7),
     )
 
     model.learn(total_timesteps=3_000_000, callback=callback_list)
