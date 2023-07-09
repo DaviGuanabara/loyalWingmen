@@ -19,6 +19,7 @@ from modules.factories.loiteringmunition_factory import (
 from modules.factories.loyalwingman_factory import LoyalWingmanFactory, LoyalWingman
 
 from modules.dataclasses.dataclasses import EnvironmentParameters
+from modules.models.lidar import CoordinateConverter
 
 
 class DemoEnvironment(gym.Env):
@@ -120,7 +121,8 @@ class DemoEnvironment(gym.Env):
             The initial observation, check the specific implementation of `_computeObs()`
             in each subclass for its format.
         """
-        p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
+        p.resetSimulation(
+            physicsClientId=self.environment_parameters.client_id)
         self.RESET_TIME = time.time()
 
         #### Housekeeping ##########################################
@@ -153,16 +155,26 @@ class DemoEnvironment(gym.Env):
             in each subclass for its format.
         """
 
+        theta, phi, intensity = np.pi * \
+            rl_action[0], np.pi * rl_action[1], 1 * rl_action[2]
+        radius = 1
+        spherical = np.array([radius, theta, phi])
+        cartesian = np.array(
+            CoordinateConverter.spherical_to_cartesian(spherical))
+        velocity_action = np.append(cartesian, intensity)
+
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             # multiple drones not ready. TODO: setup multiple drones
-            for loyalwingman in self.loyalwingmen:
-                velocity_action = rl_action
+            for lw in self.loyalwingmen:
+                loyalwingman: LoyalWingman = lw
+                # velocity_action = rl_action
 
                 self.last_action = velocity_action
                 loyalwingman.apply_velocity_action(velocity_action)
                 loyalwingman.update_kinematics()
 
-            for loitering_munition in self.loitering_munitions:
+            for lm in self.loitering_munitions:
+                loitering_munition: LoiteringMunition = lm
                 self.apply_target_behavior(loitering_munition)
                 loitering_munition.update_kinematics()
 
@@ -272,10 +284,33 @@ class DemoEnvironment(gym.Env):
     ################################################################################
 
     def _actionSpace(self):
+        """
+        https://en.wikipedia.org/wiki/Spherical_coordinate_system
+        spherical = (radius, theta, phi)
+
+        the action space is the possible values for unitary vector and intensity.
+        To keep the unitary constraint, I choose spherical coordinates with radius equals 1.
+        In this way, we got: action = (theta, phi, intensity)
+
+        theta is polar angle and phi is azimuthal angle,
+        in which theta is between 0 and pi (0 to 1) and phi is between -pi and +phi (-1 to 1).
+
+        But its used as 0 to 1
+        """
+
+        """
         return spaces.Box(
             low=np.array([-1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1]),
             shape=(4,),
+            dtype=np.float32,
+        )
+        """
+
+        return spaces.Box(
+            low=np.array([0, -1, 0]),
+            high=np.array([1, 1, 1]),
+            shape=(3,),
             dtype=np.float32,
         )
 
@@ -289,7 +324,8 @@ class DemoEnvironment(gym.Env):
         # a workaround to work with gymnasium
 
         return spaces.Box(
-            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1, 0, -1, -1, -1, -1, -1, -1, 0]),
+            low=np.array([-1, -1, 0, -1, -1, -1, -1, -1,
+                         0, -1, -1, -1, -1, -1, -1, 0]),
             high=np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]),
             dtype=np.float32,
         )
@@ -316,7 +352,8 @@ class DemoEnvironment(gym.Env):
             penalty += 100_000
 
         if distance < self.environment_parameters.error:
-            bonus += 10_000 * (self.environment_parameters.error - 1 * distance)
+            bonus += 10_000 * \
+                (self.environment_parameters.error - 1 * distance)
 
         self.last_reward = (5) - 1 * distance + bonus - penalty
 
@@ -337,7 +374,8 @@ class DemoEnvironment(gym.Env):
             return True
 
         if (
-            np.linalg.norm(drone_position) > self.environment_parameters.max_distance
+            np.linalg.norm(
+                drone_position) > self.environment_parameters.max_distance
             or np.linalg.norm(target_position)
             > self.environment_parameters.max_distance
             or distance < self.environment_parameters.error
@@ -364,7 +402,8 @@ class DemoEnvironment(gym.Env):
         MAX_X_Y = 100
         MAX_Z = 100
 
-        normalized_position_x_y = np.clip(position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
+        normalized_position_x_y = np.clip(
+            position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
         normalized_position_z = np.clip([position[2]], 0, MAX_Z) / MAX_Z
 
         normalized_position = np.concatenate(

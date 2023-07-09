@@ -3,7 +3,23 @@ import numpy as np
 from typing import Tuple
 from gymnasium import spaces
 
-# TODO colocar os hints ao redor do código
+
+class CoordinateConverter:
+    @staticmethod
+    def spherical_to_cartesian(spherical: np.array) -> np.array:
+        radius, theta, phi = spherical
+        x = radius * np.sin(theta) * np.cos(phi)
+        y = radius * np.sin(theta) * np.sin(phi)
+        z = radius * np.cos(theta)
+        return np.array([x, y, z])
+
+    @staticmethod
+    def cartesian_to_spherical(cartesian: np.array) -> np.array:
+        x, y, z = cartesian
+        radius = np.sqrt(x**2 + y**2 + z**2)
+        theta = np.arccos(z / radius)
+        phi = np.arctan2(y, x)
+        return np.array([radius, theta, phi])
 
 
 class LiDAR:
@@ -35,7 +51,8 @@ class LiDAR:
         self.PHI_FINAL_RADIAN = np.pi
         self.PHI_SIZE = self.PHI_FINAL_RADIAN - self.PHI_INITIAL_RADIAN
 
-        self.n_theta_points, self.n_phi_points = self.__count_points(radius, resolution)
+        self.n_theta_points, self.n_phi_points = self.__count_points(
+            radius, resolution)
         self.sphere: np.array = self.__gen_sphere(
             self.n_theta_points, self.n_phi_points, self.channels
         )
@@ -95,7 +112,8 @@ class LiDAR:
 
     def __gen_sphere(self, n_theta_points, n_phi_points, n_channels: int = 2):
         # it is assumed the following shape: CxHxW (channels first)
-        sphere = np.zeros((n_channels, n_theta_points, n_phi_points), dtype=np.float32)
+        sphere = np.zeros((n_channels, n_theta_points,
+                          n_phi_points), dtype=np.float32)
         return sphere
 
     def reset(self):
@@ -104,33 +122,14 @@ class LiDAR:
         )
 
     # ============================================================================================================
-    # Coordinates Functions
-    # ============================================================================================================
-
-    def spherical_to_cartesian(self, spherical: np.array) -> list:
-        radius, theta, phi = spherical[0], spherical[1], spherical[2]
-        x: float = (radius * math.sin(theta) * math.cos(phi),)
-        y: float = (radius * math.sin(theta) * math.sin(phi),)
-        z: float = radius * math.cos(theta)
-        return [x, y, z]
-
-    def cartesian_to_spherical(self, cartesian: np.array):
-        x, y, z = cartesian[0], cartesian[1], cartesian[2]
-
-        radius: float = math.sqrt(x**2 + y**2 + z**2)
-        theta: float = math.acos(z / radius)
-        phi: float = math.atan2(y, x)
-
-        return [radius, theta, phi]
-
-    # ============================================================================================================
     # Matrix Functions
     # ============================================================================================================
 
     def __normalize_angle(self, angle, initial_angle, final_angle, n_points) -> float:
         # linear interpolation
         return (
-            round((angle - initial_angle) / (final_angle - initial_angle) * n_points)
+            round((angle - initial_angle) /
+                  (final_angle - initial_angle) * n_points)
             % n_points
         )
 
@@ -173,7 +172,7 @@ class LiDAR:
         self.__update_sphere(theta_point, phi_point, normalized_distance, flag)
 
     def __add_cartesian(self, cartesian: list, distance: float = 10, flag: int = 0):
-        spherical: list = self.cartesian_to_spherical(cartesian)
+        spherical: list = CoordinateConverter.cartesian_to_spherical(cartesian)
         self.__add_spherical(spherical, distance, flag)
 
     def __add_end_position(
@@ -204,7 +203,8 @@ class LiDAR:
 
         if len(obstacle_position) > 0:
             self.__add_end_position(
-                obstacle_position, current_position, self.__get_flag("OBSTACLE")
+                obstacle_position, current_position, self.__get_flag(
+                    "OBSTACLE")
             )
 
         if len(loyalwingman_position) > 0:
@@ -245,7 +245,7 @@ class LiDAR:
 
 
 def cartesian_to_spherical_test(lidar: LiDAR, lm_position, spherical_degree_result):
-    spherical = lidar.cartesian_to_spherical(lm_position)
+    spherical = CoordinateConverter.cartesian_to_spherical(lm_position)
     radius, theta, phi = spherical[0], spherical[1], spherical[2]
     theta_degree = np.rad2deg(theta)
     phi_degree = np.rad2deg(phi)
