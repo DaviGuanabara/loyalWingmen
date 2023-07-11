@@ -1,3 +1,7 @@
+import sys
+
+sys.path.append("..")
+
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
 import torch.nn as nn
@@ -5,9 +9,9 @@ import torch as th
 import math
 from stable_baselines3 import PPO
 from modules.environments.demo_env import DemoEnvironment
-import sys
 
-sys.path.append("..")
+
+
 
 # ===============================================================================
 # Execution
