@@ -186,6 +186,7 @@ class DemoEnvironment(gym.Env):
         info = self._computeInfo()
 
         self.observation = observation
+        print(observation)
         return observation, reward, terminated, False, info
 
     ################################################################################
@@ -336,9 +337,13 @@ class DemoEnvironment(gym.Env):
         lw: LoyalWingman = self.loyalwingmen[0]
         lm: LoiteringMunition = self.loitering_munitions[0]
 
-        return lw.observation(
+        observation = lw.observation(
             loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions
         )
+
+        print("Compute Obs")
+        print(observation.shape)
+        return observation
 
     def _computeReward(self):
         penalty = 0
