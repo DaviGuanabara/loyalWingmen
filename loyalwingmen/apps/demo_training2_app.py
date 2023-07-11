@@ -1,25 +1,25 @@
+
 import sys
 sys.path.append("..")
 
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
-import torch.nn as nn
-import torch as th
-import math
 from stable_baselines3 import PPO
 from modules.environments.demo_env import DemoEnvironment
-
 from multiprocessing import cpu_count
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from modules.factories.callback_factory import gen_eval_callback, callbacklist
+from modules.models.policy import CustomActorCriticPolicy, CustomCNN
+import torch.nn as nn
+import torch as th
+import math
 
 
-
-from modules.models.policy import CustomActorCriticPolicy
 
 # ===============================================================================
 # Setup
 # ===============================================================================
+
 
 def main():
     number_of_logical_cores = cpu_count()
@@ -41,15 +41,15 @@ def main():
 
     nn_t = [256, 512, 1024]
     policy_kwargs = dict(
-        #features_extractor_class=CustomCNN,
-        #features_extractor_kwargs=dict(features_dim=128),
+        features_extractor_class=CustomCNN,
+        features_extractor_kwargs=dict(features_dim=128),
         normalize_images=False,
         net_arch=dict(pi=nn_t, vf=nn_t)
     )
     # env = DemoEnvironment(GUI=False)
 
     model = PPO(
-        CustomActorCriticPolicy, #"CnnPolicy",
+        CustomActorCriticPolicy,  # "CnnPolicy",
         vectorized_environment,
         verbose=0,
         device="auto",
@@ -58,6 +58,7 @@ def main():
         learning_rate=math.pow(10, -7),
     )
 
+    print(model.policy)
     model.learn(total_timesteps=3_000_000, callback=callback_list)
     model.save("demo_trained2_model")
 

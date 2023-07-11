@@ -63,7 +63,7 @@ class DemoEnvironment(gym.Env):
         self.observation_space = (
             loyalwingman.lidar.observation_space()
         )  # self._observationSpace()
-        print(self.observation_space)
+        #print(self.observation_space)
         #### Demo Debug Setup ##################
         # self.setup_demo_lidar_log()
 
@@ -186,7 +186,7 @@ class DemoEnvironment(gym.Env):
         info = self._computeInfo()
 
         self.observation = observation
-        print(observation)
+        #print(observation)
         return observation, reward, terminated, False, info
 
     ################################################################################
@@ -341,8 +341,8 @@ class DemoEnvironment(gym.Env):
             loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions
         )
 
-        print("Compute Obs")
-        print(observation.shape)
+        #print("Compute Obs")
+        #print(observation.shape)
         return observation
 
     def _computeReward(self):
