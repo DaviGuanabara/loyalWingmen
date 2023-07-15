@@ -12,9 +12,19 @@ from PIL import Image
 
 from dataclasses import dataclass, field
 from typing import NamedTuple
-from modules.factories.factory_models import Kinematics
-from modules.factories.factory_models import Obstacle_Informations, Obstacle
-from modules.decorators.obstacle_decorator import ObstacleDecorator
+from modules.factories.drone_factory import Kinematics
+#from modules.factories.factory_models import Obstacle_Informations, Obstacle
+#from modules.decorators.obstacle_decorator import ObstacleDecorator
+
+class Obstacle_Informations:
+    mass: float = 0
+
+
+class Obstacle:  # Imutável com (NamedTuple):
+    id: int
+    kinematics: Kinematics
+    informations: Obstacle_Informations
+
 
 
 class ObstacleFactory:

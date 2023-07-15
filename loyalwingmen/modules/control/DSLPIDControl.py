@@ -5,6 +5,7 @@ from scipy.spatial.transform import Rotation
 
 from modules.control.BaseControl import BaseControl
 from modules.utils.enums import DroneModel
+from modules.dataclasses.dataclasses import Parameters, EnvironmentParameters
 
 
 class DSLPIDControl(BaseControl):
@@ -17,7 +18,7 @@ class DSLPIDControl(BaseControl):
 
     ################################################################################
 
-    def __init__(self, drone_model: DroneModel, g: float = 9.8):
+    def __init__(self, drone_model: DroneModel, parameters: Parameters, environmentParameters: EnvironmentParameters, urdf_path: str):
         """Common control classes __init__ method.
 
         Parameters
@@ -28,7 +29,7 @@ class DSLPIDControl(BaseControl):
             The gravitational acceleration in m/s^2.
 
         """
-        super().__init__(drone_model=drone_model, g=g)
+        super().__init__(drone_model, parameters, environmentParameters, urdf_path)
         if self.DRONE_MODEL != DroneModel.CF2X and self.DRONE_MODEL != DroneModel.CF2P:
             print(
                 "[ERROR] in DSLPIDControl.__init__(), DSLPIDControl requires DroneModel.CF2X or DroneModel.CF2P"
@@ -178,7 +179,8 @@ class DSLPIDControl(BaseControl):
             The current position error.
 
         """
-        cur_rotation = np.array(p.getMatrixFromQuaternion(cur_quat)).reshape(3, 3)
+        cur_rotation = np.array(
+            p.getMatrixFromQuaternion(cur_quat)).reshape(3, 3)
         pos_e = target_pos - cur_pos
         vel_e = target_vel - cur_vel
         self.integral_pos_e = self.integral_pos_e + pos_e * control_timestep
@@ -196,7 +198,8 @@ class DSLPIDControl(BaseControl):
             math.sqrt(scalar_thrust / (4 * self.KF)) - self.PWM2RPM_CONST
         ) / self.PWM2RPM_SCALE
         target_z_ax = target_thrust / np.linalg.norm(target_thrust)
-        target_x_c = np.array([math.cos(target_rpy[2]), math.sin(target_rpy[2]), 0])
+        target_x_c = np.array(
+            [math.cos(target_rpy[2]), math.sin(target_rpy[2]), 0])
         target_y_ax = np.cross(target_z_ax, target_x_c) / np.linalg.norm(
             np.cross(target_z_ax, target_x_c)
         )
@@ -242,7 +245,8 @@ class DSLPIDControl(BaseControl):
             (4,1)-shaped array of integers containing the RPMs to apply to each of the 4 motors.
 
         """
-        cur_rotation = np.array(p.getMatrixFromQuaternion(cur_quat)).reshape(3, 3)
+        cur_rotation = np.array(
+            p.getMatrixFromQuaternion(cur_quat)).reshape(3, 3)
         cur_rpy = np.array(p.getEulerFromQuaternion(cur_quat))
         target_quat = (
             Rotation.from_euler("XYZ", target_euler, degrees=False)
@@ -252,8 +256,10 @@ class DSLPIDControl(BaseControl):
         rot_matrix_e = np.dot((target_rotation.transpose()), cur_rotation) - np.dot(
             cur_rotation.transpose(), target_rotation
         )
-        rot_e = np.array([rot_matrix_e[2, 1], rot_matrix_e[0, 2], rot_matrix_e[1, 0]])
-        rpy_rates_e = target_rpy_rates - (cur_rpy - self.last_rpy) / control_timestep
+        rot_e = np.array(
+            [rot_matrix_e[2, 1], rot_matrix_e[0, 2], rot_matrix_e[1, 0]])
+        rpy_rates_e = target_rpy_rates - \
+            (cur_rpy - self.last_rpy) / control_timestep
         self.last_rpy = cur_rpy
         self.integral_rpy_e = self.integral_rpy_e - rot_e * control_timestep
         self.integral_rpy_e = np.clip(self.integral_rpy_e, -1500.0, 1500.0)

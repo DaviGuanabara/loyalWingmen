@@ -76,17 +76,17 @@ class Training:
                 activation_fn=th.nn.LeakyReLU, net_arch=dict(pi=nn_t, vf=nn_t)
             )
 
-            print(th.cuda.is_available())
+            print("Is CUDA available ? ", th.cuda.is_available())
             
             model = PPO(
                 "MlpPolicy",
                 vectorized_environment,
-                verbose=1,
+                verbose=0, #0,
                 device="auto",
                 tensorboard_log="./logs/" + log_name + "/",
                 policy_kwargs=policy_kwargs,
                 learning_rate=learning_rate,
-                batch_size=2048 #from 32 up to 2048
+                batch_size=1024 #from 32 up to 2048
             )
 
             model.learn(
