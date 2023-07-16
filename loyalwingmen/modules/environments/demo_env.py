@@ -106,6 +106,12 @@ class DemoEnvironment(gym.Env):
             max_distance=100,
             error=0.5,
         )
+        
+    def set_frequency(self, simulation_frequency, rl_frequency):
+        self.environment_parameters.simulation_frequency = simulation_frequency
+        self.environment_parameters.rl_frequency = rl_frequency
+
+            
 
     def get_parameteres(self):
         return self.environment_parameters
