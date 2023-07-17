@@ -281,11 +281,9 @@ def debug(lidar: LiDAR, lm_position, spherical_degree_result):
 
 
 def test():
-    lidar = LiDAR(max_distance=1, resolution=1)
+    lidar = LiDAR(radius=1, resolution=.1)
 
     debug(lidar, np.array([1, 0, 0]), np.array([1, 90, 0]))
     debug(lidar, np.array([0, 1, 0]), np.array([1, 90, 90]))
     debug(lidar, np.array([0, 0, 1]), np.array([1, 0, 0]))
-
-
-# test()
+#test()

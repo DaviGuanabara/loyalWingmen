@@ -1,14 +1,18 @@
+import os
+from typing import Optional, Tuple
+import numpy as np
+import math
+from dataclasses import dataclass
+
 from stable_baselines3.common.callbacks import (
     CallbackList,
     CheckpointCallback,
     EvalCallback,
+    StopTrainingOnNoModelImprovement,
+    ProgressBarCallback,
+    BaseCallback
 )
-from stable_baselines3.common.callbacks import StopTrainingOnNoModelImprovement
-from stable_baselines3.common.callbacks import ProgressBarCallback
-from stable_baselines3.common.callbacks import BaseCallback
-import numpy as np
-import math
-from dataclasses import dataclass
+from stable_baselines3.common.vec_env import VecEnv
 
 
 @dataclass
@@ -17,50 +21,36 @@ class StorageForEvalCallback:
 
 
 class StoreDataOnBestCallback(BaseCallback):
-    def __init__(self, storage: StorageForEvalCallback = None, verbose: int = 0):
-        assert (
-            storage is not None
-        ), "`StoreDataOnBestCallback` callback must be initialized with an `StorageForCallback`"
+    def __init__(self, storage: Optional[StorageForEvalCallback] = None, verbose: int = 0):
+        assert storage is not None, "`StoreDataOnBestCallback` callback must be initialized with an `StorageForCallback`"
 
-        super(StoreDataOnBestCallback, self).__init__(verbose=verbose)
-        self.best_mean_reward = -math.inf
+        super().__init__(verbose=verbose)
         self.storage = storage
 
     def _on_step(self) -> bool:
-        """
-        This method will be called by the model after each call to `env.step()`.
+        assert self.parent is not None, "`StoreDataOnBestCallback` callback must be used with an `EvalCallback`"
 
-        For child callback (of an `EventCallback`), this will be called
-        when the event is triggered.
-
-        :return: (bool) If the callback returns False, training is aborted early.
-        """
-        assert self.parent is not None, (
-            "`StoreDataOnBestCallback` callback must be used " "with an `EvalCallback`"
-        )
-
-        # self.best_mean_reward = self.parent.best_mean_reward
-        self.storage.best_mean_reward = self.parent.best_mean_reward
+        # Only update storage if a new best mean reward is found
+        if self.storage.best_mean_reward != self.parent.best_mean_reward:
+            self.storage.best_mean_reward = self.parent.best_mean_reward
 
         return True
 
 
-class TensorboardCallback(BaseCallback):
-    """
-    Custom callback for plotting additional values in tensorboard.
-    """
+def gen_eval_callback(
+    env: VecEnv, 
+    log_path: str, 
+    model_path: str, 
+    eval_freq: int = 1000, 
+    storage: Optional[StorageForEvalCallback] = None
+) -> EvalCallback:
+    # Check if directories are writable
+    assert os.access(log_path, os.W_OK), "log_path must be a writable directory"
+    assert os.access(model_path, os.W_OK), "model_path must be a writable directory"
 
-    def __init__(self, verbose=0):
-        super().__init__(verbose)
+    # Check if eval_freq is valid
+    assert isinstance(eval_freq, int) and eval_freq > 0, "eval_freq must be a positive integer"
 
-    def _on_step(self) -> bool:
-        # Log scalar value (here a random variable)
-        value = np.random.random()
-        self.logger.record("random_value", value)
-        return True
-
-
-def gen_eval_callback(env, log_path, model_path, eval_freq=1000, storage=None):
     stop_train_callback = StopTrainingOnNoModelImprovement(
         max_no_improvement_evals=3, min_evals=5, verbose=0
     )
@@ -83,28 +73,53 @@ def gen_eval_callback(env, log_path, model_path, eval_freq=1000, storage=None):
     return eval_callback
 
 
-def gen_checkpoint_callback(save_freq, save_path, n_envs):
+def gen_checkpoint_callback(
+    save_freq: int, 
+    save_path: str, 
+    n_envs: int
+) -> CheckpointCallback:
+    # Check if save_path is writable
+    assert os.access(save_path, os.W_OK), "save_path must be a writable directory"
+
+    # Check if save_freq and n_envs are valid
+    assert isinstance(save_freq, int) and save_freq > 0, "save_freq must be a positive integer"
+    assert isinstance(n_envs, int) and n_envs > 0, "n_envs must be a positive integer"
+
     save_freq = max(save_freq // n_envs, 1)
     checkpoint_callback = CheckpointCallback(save_freq=save_freq, save_path=save_path)
 
     return checkpoint_callback
 
 
+from typing import List, Tuple
+
 def callbacklist(
-    env, log_path="./logs/", model_path="./models/", n_envs=1, save_freq=10000
-):
-    list = []
+    env: VecEnv, 
+    log_path: str = "./logs/", 
+    model_path: str = "./models/", 
+    n_envs: int = 1, 
+    save_freq: int = 10000, 
+    callbacks_to_include: List[str] = ["eval", "checkpoint", "progressbar"]
+) -> Tuple[CallbackList, StorageForEvalCallback]:
+    list_callbacks = []
 
-    # trigger its child callback when there is a new best model
-    storageForEvalCallback = StorageForEvalCallback()
-    eval_callback = gen_eval_callback(
-        env, log_path, model_path, eval_freq=save_freq, storage=storageForEvalCallback
-    )
-    checkpoint_callback = gen_checkpoint_callback(save_freq, model_path, n_envs)
-    progressbar_callback = ProgressBarCallback()
+    if "eval" in callbacks_to_include:
+        # trigger its child callback when there is a new best model
+        storageForEvalCallback = StorageForEvalCallback()
+        eval_callback = gen_eval_callback(
+            env, log_path, model_path, eval_freq=save_freq, storage=storageForEvalCallback
+        )
+        list_callbacks.append(eval_callback)
+    else:
+        storageForEvalCallback = None
 
-    list.append(eval_callback)
-    list.append(checkpoint_callback)
-    list.append(progressbar_callback)
+    if "checkpoint" in callbacks_to_include:
+        checkpoint_callback = gen_checkpoint_callback(save_freq, model_path, n_envs)
+        list_callbacks.append(checkpoint_callback)
+    
+    if "progressbar" in callbacks_to_include:
+        progressbar_callback = ProgressBarCallback()
+        list_callbacks.append(progressbar_callback)
 
-    return CallbackList(list), storageForEvalCallback
+    return CallbackList(list_callbacks), storageForEvalCallback
+

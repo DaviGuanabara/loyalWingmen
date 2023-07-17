@@ -73,7 +73,7 @@ def test(model, environment_function):
     for steps in range(50_000):
         # action = keyboard_listener.get_action()
 
-        action, _states = model.predict(observation)
+        action, _states = model.predict(observation, deterministic=True)
         # observation, reward, done, info = env.step(action)
         observation, reward, terminated, truncated, info = env.step(action)
 
