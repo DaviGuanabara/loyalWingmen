@@ -18,6 +18,8 @@ from optuna.trial import Trial
 from optuna.samplers import TPESampler
 
 # Configurando o logging
+# TODO: A new study created in memory with name: no-name-4ae93828-1f18-48da-a74d-e18b574987b3 
+#WHO IS THIS GUY??
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def create_vectorized_environment(n_envs: int, frequency: int) -> SubprocVecEnv:
@@ -99,7 +101,7 @@ def objective(trial: Trial) -> float:
     hiddens = trial.suggest_int('hiddens', 10, 1000)
     num_hiddens = trial.suggest_int('num_hiddens', 3, 8)
     hiddens = [trial.suggest_int(f'hiddens_{i}', 10, 1000) for i in range(num_hiddens)]
-    frequency = trial.suggest_int('frequency', 15, 120)
+    frequency = trial.suggest_int('frequency', 1, 8) * 15 #Explanation: 1, 2, 3, 4, 5, 6, 7, 8 -> 15, 30, 45, 60, 75, 90, 105, 120
     learning_rate = trial.suggest_float('learning_rate', 0.00000000001, 0.1)
     
     #TODO melhorar o nome num_folds. 
