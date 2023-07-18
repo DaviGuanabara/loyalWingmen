@@ -230,7 +230,6 @@ class LiDAR:
         """
         # a workaround to work with gymnasium
         sphere: np.array = self.sphere
-        print(sphere.shape)
         return spaces.Box(
             low=0,
             high=1,
