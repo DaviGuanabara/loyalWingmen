@@ -270,7 +270,42 @@ Here's a breakdown of each function within the DemoEnvironment class:
 ### Relationships between Functions
 
 This diagram shows the relationships between functions in the DemoEnvironment class. Each function is connected to the functions it calls or depends on. The diagram helps visualize the control and data flow between different parts of the class.
-```scss
+
+| Functions                   | Dependencies                                |
+|-----------------------------|---------------------------------------------|
+| reset()                     | _housekeeping()                             |
+| _housekeeping()             |                                             |
+| setup_factories()           |                                             |
+| setup_pybullet_DIRECT()     |                                             |
+| setup_pybulley_GUI()        |                                             |
+| setup_Parameteres()         |                                             |
+| set_frequency()             |                                             |
+| get_parameteres()           |                                             |
+| apply_target_behavior()     |                                             |
+| setup_drones()              |                                             |
+| setup_loyalwingmen()        |                                             |
+| setup_loiteringmunition()   |                                             |
+| _actionSpace()              |                                             |
+| _observationSpace()         |                                             |
+| _computeObs()               |                                             |
+| _computeReward()            |                                             |
+| _computeDone()              |                                             |
+| _computeInfo()              |                                             |
+| gen_random_position()       |                                             |
+| getPyBulletClient()         |                                             |
+| getDroneIds()               |                                             |
+| _normalizeVelocity()        |                                             |
+| _normalizePosition()        |                                             |
+| _normalizeDistance()        |                                             |
+| Other functions             |                                             |
+|                             | _computeReward()                            |
+|                             | _computeDone()                              |
+|                             | _computeInfo()                              |
+|                             | _computeObs()                               |
+|                             | Other functions                             |
+
+
+```css
                        ┌─────────────────────┐
                        │       reset()       │
                        └─────────────────────┘
