@@ -149,7 +149,7 @@ from modules.utils.keyboard_listener import KeyboardListener
 
 Due to pynput (on KeyboardListener) incompatibility, demo_app.py is not able to run on macos properly. If you are using MacOS, the KeyboardListener will be deactivate.
 
-```
+```python
 
 
 # ===============================================================================
@@ -168,7 +168,7 @@ if os.name == MACOS:
 
 In the Setup chunk, the demo environment (DemoEnvironment) with the GUI option enabled is set. It then initializes the environment by calling the reset() function to obtain the initial observation and environment information. The keyboard listener (KeyboardListener) is initialized unless the operating system is macOS, in which case it is set to None.
 
-```
+```python
 # ===============================================================================
 # Setup
 # ===============================================================================
@@ -193,7 +193,7 @@ The spherical coordinate was chosen due to unitary constraint, which keeps the v
 The 'action' is then passed to the environment's step() function, which returns the new observation, reward, termination status, and other relevant information. The code also includes a comment about the show_lidar_log() function, which has been removed due to some limitations in its functionality.
 At the end of each iteration, it checks if the episode has terminated and prints a message if it has. The reset() function of the environment has been commented out to allow for a longer test without resetting the environment at each episode, giving more time to test and check.
 
-```
+```python
 # ===============================================================================
 # Execution
 # ===============================================================================
