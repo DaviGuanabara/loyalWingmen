@@ -102,7 +102,7 @@ def save_model(model: PPO, hiddens: list, frequency: int, learning_rate: float, 
     logging.info(f"Model saved at: {model_path}")
 
 
-def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: float, num_folds: int, output_folder: str, n_timesteps: int) -> float:
+def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: float, num_evaluations: int, output_folder: str, n_timesteps: int) -> float:
     number_of_logical_cores = os.cpu_count()
     n_envs = number_of_logical_cores
 
@@ -119,7 +119,7 @@ def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: fl
     logging.info(model.policy)
     model = train_model(model, callback_list, n_timesteps)
     save_model(model, hiddens, frequency, learning_rate, output_folder)
-    avg_score, std_dev = evaluate_policy(model, vectorized_environment, n_eval_episodes=num_folds, deterministic=True)
+    avg_score, std_dev = evaluate_policy(model, vectorized_environment, n_eval_episodes=num_evaluations, deterministic=True)
     logging.info(f"Avg score: {avg_score}")
     return avg_score
 
@@ -194,7 +194,7 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int) -> float:
     print("Frequency: ", frequency)
     print("Learning Rate: ", learning_rate)
 
-    avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, num_folds=5, output_folder=output_folder, n_timesteps=n_timesteps)
+    avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, num_evaluations=100, output_folder=output_folder, n_timesteps=n_timesteps)
 
     # Salvar os resultados na planilha
     result = (hiddens, frequency, learning_rate, avg_score)
