@@ -266,3 +266,97 @@ Here's a breakdown of each function within the DemoEnvironment class:
 - `_computeReward(self)`: This method computes the reward for the current environment state. It calculates a reward value based on the distance between the loyal wingman drone and the loitering munition drone and applies penalties or bonuses depending on the distance.
 - `_computeDone(self)`: This method determines whether the current episode in the environment is over. It checks termination conditions, such as maximum distance exceeded or target reached, and returns a boolean indicating whether the episode is done.
 - `_computeInfo(self)`: This method computes additional information about the current environment state. It can provide extra information to the agent, such as debugging or performance metrics.
+
+### Relationships between Functions
+
+This diagram shows the relationships between functions in the DemoEnvironment class. Each function is connected to the functions it calls or depends on. The diagram helps visualize the control and data flow between different parts of the class.
+```scss
+                       ┌─────────────────────┐
+                       │       reset()       │
+                       └─────────────────────┘
+                                │
+                                ▼
+                       ┌─────────────────────┐
+                       │   _housekeeping()   │
+                       └─────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+    ┌──────────────────────┐              ┌─────────────────────┐
+    │ setup_factories()   │              │  _normalizeVelocity() │
+    └──────────────────────┘              └─────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+   ┌───────────────────────┐             ┌───────────────────────┐
+   │ setup_pybullet_DIRECT() │             │ setup_pybulley_GUI() │
+   └───────────────────────┘             └───────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+    ┌──────────────────────┐            ┌──────────────────────────┐
+    │ setup_Parameteres() │            │   set_frequency()        │
+    └──────────────────────┘            └──────────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+    ┌──────────────────────┐            ┌──────────────────────────┐
+    │ apply_target_behavior() │            │  get_parameteres()       │
+    └──────────────────────┘            └──────────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+    ┌──────────────────────┐           ┌───────────────────────────┐
+    │     setup_drones()    │           │   getPyBulletClient()      │
+    └──────────────────────┘           └───────────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+     ┌──────────────────────┐          ┌─────────────────────────────┐
+     │  setup_loyalwingmen() │          │   getDroneIds()               │
+     └──────────────────────┘          └─────────────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+   ┌────────────────────────┐           ┌──────────────────────────┐
+   │ setup_loiteringmunition() │           │  gen_random_position()   │
+   └────────────────────────┘           └──────────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+   ┌─────────────────────────┐          ┌─────────────────────────────┐
+   │   _actionSpace()        │          │   _normalizePosition()     │
+   └─────────────────────────┘          └─────────────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+    ┌──────────────────────┐           ┌─────────────────────────────┐
+    │ _observationSpace() │           │   _normalizeDistance()      │
+    └──────────────────────┘           └─────────────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+    ┌──────────────────────┐           ┌─────────────────────────────┐
+    │    _computeObs()     │           │        Other functions       │
+    └──────────────────────┘           └─────────────────────────────┘
+                                │
+            ┌────────────────────┴─────────────────────┐
+            │                                          │
+    ┌──────────────────────┐           ┌─────────────────────────────┐
+    │   _computeReward()   │           │                          │
+    └──────────────────────┘           │                          │
+                                │     │                          │
+            ┌────────────────────┴─────────────────────┐        │
+            │                                          │        │
+    ┌──────────────────────┐           ┌─────────────────────────────┐
+    │   _computeDone()    │           │                          │
+    └──────────────────────┘           │                          │
+                                │     │                          │
+            ┌────────────────────┴─────────────────────┐        │
+            │                                          │        │
+    ┌──────────────────────┐           ┌─────────────────────────────┐
+    │  _computeInfo()     │           │                          │
+    └──────────────────────┘           └─────────────────────────────┘
+
+```
+
