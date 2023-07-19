@@ -40,7 +40,7 @@ if os.name == MACOS:
 # Setup
 # ===============================================================================
 
-env = DemoEnvironment(GUI=True)
+env:DemoEnvironment = DemoEnvironment(GUI=True)
 observation, info = env.reset()
 keyboard_listener = KeyboardListener() if os.name != MACOS else None
 
@@ -54,7 +54,7 @@ for steps in range(50_000):
         else [1, 0, 0, 0.1]
     )
     observation, reward, terminated, truncated, info = env.step(action)
-    env.show_lidar_log()
+    #env.show_lidar_log()
 
     if terminated:
         print("Episode terminated")
