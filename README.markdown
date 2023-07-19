@@ -114,7 +114,7 @@ Quoting:
 "Gym did a lot of things very well, but OpenAI didn’t devote substantial resources to it beyond its initial release. The maintenance of Gym gradually decreased until Gym became wholly unmaintained in late 2020. In early 2021, OpenAI gave us control over the Gym repository."
 https://farama.org/Announcing-The-Farama-Foundation
 
-To unsure maintanance, Gymnasium was adopted.
+To ensure maintenance, Gymnasium was adopted.
 
 #### - Multiple Python Versions:
 https://martinfritz.medium.com/work-with-multiple-versions-of-python-on-windows-10-eed1e5f52f07
@@ -123,4 +123,96 @@ https://martinfritz.medium.com/work-with-multiple-versions-of-python-on-windows-
 install curses:
 Windows
 $ pip install windows-curses
+
+# Quick Start
+The module LoyalWingmen, inside the project LoyalWingmen, is made of folders, apps, assets, and modules.
+The apps folder aims to hold the applications, like training, testing, and optimization. The Demo_app.py is a demonstration file that shows a simple execution of a demo environment: two drones; the user can control one, and the other is static. 
+
+The demo_app.py shows the basic execution of the demo environment, which is composed of two drones. A user controls one, while the other remains static as a target. The episode ends when the user reaches the target. It utilizes a keyboard listener (KeyboardListener) to enable interaction with the environment through keyboard inputs.
+
+
+## Demo_app.py
+
+The demo_app is shown below in chunks.
+
+
+The code begins by importing the required modules (os, sys, DemoEnvironment, KeyboardListener).
+
+```python
+import os
+import sys
+
+sys.path.append("..")
+from modules.environments.demo_env import DemoEnvironment
+from modules.utils.keyboard_listener import KeyboardListener
+```
+
+Due to pynput (on KeyboardListener) incompatibility, demo_app.py is not able to run on macos properly. If you are using MacOS, the KeyboardListener will be deactivate.
+
+```
+
+
+# ===============================================================================
+# Veritifation
+# ===============================================================================
+
+MACOS = "posix"
+
+if os.name == MACOS:
+    print(os.name)
+    print(
+        "Demo_app.py is unable to run properly on MacOS due to pynput (on KeyboardListener) incompatibility"
+    )
+
+```
+
+In the Setup chunk, the demo environment (DemoEnvironment) with the GUI option enabled is set. It then initializes the environment by calling the reset() function to obtain the initial observation and environment information. The keyboard listener (KeyboardListener) is initialized unless the operating system is macOS, in which case it is set to None.
+
+```
+# ===============================================================================
+# Setup
+# ===============================================================================
+
+env:DemoEnvironment = DemoEnvironment(GUI=True)
+observation, info = env.reset()
+keyboard_listener = KeyboardListener() if os.name != MACOS else None
+
+```
+
+Following that, it enters the main execution loop with 50,000 iterations. In each iteration, it checks if the KeyboardListener is set and, if so, retrieves an action with a specified intensity.
+The action refers to a velocity vector, which is composed of the vector's direction, spherical coordinate angles (theta and phi), and intensity. 
+
+the spherical coordinate system used is based on physics convention:
+1. radial distance r: slant distance to the origin
+2. polar angle θ (theta): angle with respect to the positive polar axis
+3. azimuthal angle φ (phi): angle of rotation from the initial meridian plane
+
+As this is a recent update, keyboard_listener still returns directions in a cartesian format. Further updates should solve this.
+The spherical coordinate was chosen due to unitary constraint, which keeps the velocity vector unitary.
+
+The 'action' is then passed to the environment's step() function, which returns the new observation, reward, termination status, and other relevant information. The code also includes a comment about the show_lidar_log() function, which has been removed due to some limitations in its functionality.
+At the end of each iteration, it checks if the episode has terminated and prints a message if it has. The reset() function of the environment has been commented out to allow for a longer test without resetting the environment at each episode, giving more time to test and check.
+
+```
+# ===============================================================================
+# Execution
+# ===============================================================================
+for steps in range(50_000):
+    action = (
+        keyboard_listener.get_action(intensity=0.005)
+        if keyboard_listener is not None
+        else [math.pi/2, 0, 0.1]
+    )
+    observation, reward, terminated, truncated, info = env.step(action)
+    #env.show_lidar_log()
+
+    if terminated:
+        print("Episode terminated")
+
+        # I preferred to remove the reset to be able to make a long test
+        # env.reset()
+
+```
+
+That is the simplest code needed to execute an evironment.
 
