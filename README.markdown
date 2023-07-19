@@ -81,7 +81,7 @@ Docs of pybullet can be found here: https://github.com/bulletphysics/bullet3/tre
 ### Common installation issues
 
 #### - Not building Wheels
-wheels is not building due to lack of c/c++ interpreter. On Windows, this can be solved installing a pack for c++ desktop development in Visual Studio Community, as shown in step 4 in Windows Installation
+wheels are not building due to lack of c/c++ interpreter. On Windows, this can be solved installing a pack for c++ desktop development in Visual Studio Community, as shown in step 4 in Windows Installation
 Other reason is related with python version. versions like python@3.11 brings this problem. please, use python 3.8
 
 #### - Callback problem
@@ -92,7 +92,7 @@ Callbacks are installd with stable-baselines3[extra] (step 8)
 #### - "modules" module not recognized
 this error normally occurs when you try to execute any .py file inside apps folder. 
 
-the _app.py files need to access files in parent folder. I am not sure why this error happens, but the solution
+the _app.py files need to access files in the parent folder. I am not sure why this error happens, but the solution
 is to set sys with parents folder:
 (https://stackoverflow.com/questions/714063/importing-modules-from-parent-folder)
 
@@ -111,7 +111,7 @@ Please, see: https://pynput.readthedocs.io/en/latest/limitations.html
 ### Commom questions:
 #### - Why using Gymnasium
 Quoting:
-"Gym did a lot of things very well, but OpenAI didn’t devote substantial resources to it beyond its initial release. The maintenance of Gym gradually decreased until Gym became wholly unmaintained in late 2020. In early 2021, OpenAI gave us control over the Gym repository."
+"Gym did many things very well, but OpenAI didn’t devote substantial resources beyond its initial release. The maintenance of Gym gradually decreased until Gym became wholly unmaintained in late 2020. In early 2021, OpenAI gave us control over the Gym repository."
 https://farama.org/Announcing-The-Farama-Foundation
 
 To ensure maintenance, Gymnasium was adopted.
@@ -147,7 +147,7 @@ from modules.environments.demo_env import DemoEnvironment
 from modules.utils.keyboard_listener import KeyboardListener
 ```
 
-Due to pynput (on KeyboardListener) incompatibility, demo_app.py is not able to run on macos properly. If you are using MacOS, the KeyboardListener will be deactivate.
+Due to pynput (on KeyboardListener) incompatibility, demo_app.py cannot run on macos properly. If you are using MacOS, the KeyboardListener will be deactivate.
 
 ```python
 
@@ -180,9 +180,9 @@ keyboard_listener = KeyboardListener() if os.name != MACOS else None
 ```
 
 Following that, it enters the main execution loop with 50,000 iterations. In each iteration, it checks if the KeyboardListener is set and, if so, retrieves an action with a specified intensity.
-The action refers to a velocity vector, which is composed of the vector's direction, spherical coordinate angles (theta and phi), and intensity. 
+The action refers to a velocity vector composed of the vector's direction, spherical coordinate angles (theta and phi), and intensity. 
 
-the spherical coordinate system used is based on physics convention:
+The spherical coordinate system used is based on physics convention:
 1. radial distance r: slant distance to the origin
 2. polar angle θ (theta): angle with respect to the positive polar axis
 3. azimuthal angle φ (phi): angle of rotation from the initial meridian plane
@@ -214,5 +214,55 @@ for steps in range(50_000):
 
 ```
 
-That is the simplest code needed to execute an evironment.
+That is the simplest code needed to execute an environment.
 
+## Demo_Env.py
+
+Demo_Env.py, found in modules/environments, is a file that holds The DemoEnvironment class. The DemoEnvironment class implements a custom environment compatible with the Gymnasium library. The gymnasium is a framework for developing and interacting with reinforcement learning environments. It provides a standardized interface for reinforcement learning agents to interact with the environment by following predefined methods and conventions.
+
+In the context of Gymnasium, an environment is a Python class that implements the Gym interface, which includes the following key methods:
+
+`__init__(self, ...)`: This constructor method initializes the environment. It sets up the initial state, defines the action and observation spaces, and performs any necessary setup operations.
+
+`reset(self, ...)`: This method resets the environment to its initial state. It is called at the beginning of each episode. It returns the initial observation.
+
+`step(self, ...)`: This method advances the environment by one step. It takes an action as input, applies the action to the environment, updates the state, computes the reward, and determines if the episode is done. It returns the new observation, reward, and termination information.
+
+`render(self, ...)`: This method renders the current state of the environment for visualization or debugging purposes.
+
+`close(self)`: This method performs any necessary cleanup operations and releases any resources the environment uses.
+
+These methods define the core functionality of a Gymnasium environment and allow reinforcement learning agents to interact with it using a standardized interface. The Gymnasium library provides utility functions and classes to work with environments, such as wrappers for preprocessing observations, parallelizing environments, and evaluation tools.
+
+In the case of the DemoEnvironment class, it inherits from the Gymnasium Env Base class provided by Gymnasium, ensuring that it adheres to the Gym interface. By implementing the required methods, the DemoEnvironment class becomes compatible with Gymnasium and can be used with Gymnasium's utility functions and algorithms.
+
+Within the DemoEnvironment class, the methods mentioned above are implemented according to the specific requirements of the environment. For example, The` __init__` method sets up the environment by initializing various parameters, creating instances of drone factories, and performing the necessary PyBullet setup. The `reset` method resets the environment by resetting the simulation, performing housekeeping tasks, and returning the initial observation. The `step` method advances the environment by one simulation step. It takes an RL action, applies it to the drones, updates their kinematics, and returns the new observation, reward, and termination information. The `render` method is not implemented in the provided code but could be added to visualize the environment state. The `close` method terminates the environment by disconnecting from the PyBullet physics engine and performing cleanup operations. When implemented correctly, these methods enable seamless interaction between the DemoEnvironment class and reinforcement learning agents or algorithms that utilize the Gymnasium framework.
+
+
+Here's a breakdown of each function within the DemoEnvironment class:
+
+- `__init__(self, simulation_frequency, rl_frequency, GUI)`: This constructor method initializes the DemoEnvironment object. It sets up the PyBullet simulation environment, initializes various parameters and variables, and creates instances of drone factories (LoyalWingmanFactory and LoiteringMunitionFactory) used to create drones in the environment.
+
+- `setup_factories(self)`: This method initializes the drone factories (LoyalWingmanFactory and LoiteringMunitionFactory) by creating instances of them and assigning them to corresponding class attributes.
+
+- `setup_pybullet_DIRECT(self)` and `setup_pybulley_GUI(self)`: These methods set up the PyBullet physics engine in either direct mode (non-visual) or GUI mode (with a graphical interface).
+- `setup_Parameteres(self, simulation_frequency, rl_frequency, client_id)`: This method sets up various environment parameters such as simulation frequency, RL (Reinforcement Learning) frequency, time step, client ID for PyBullet, maximum distance, and error threshold.
+- `set_frequency(self, simulation_frequency, rl_frequency)`: This method allows changing the simulation and RL frequencies during runtime.
+- `get_parameteres(self)`: This method returns the environment parameters as an EnvironmentParameters object.
+- `apply_target_behavior(self, obstacle)`: This method applies a frozen behavior to the given obstacle (drone).
+- `reset(self, seed=1)`: This method resets the environment to its initial state. It is called at the beginning of each episode. It resets the simulation, performs housekeeping tasks, and returns the initial observation and information.
+- `step(self, rl_action)`: This method advances the environment by one simulation step. It takes an RL action as input, applies the action to the drones in the environment, updates their kinematics, performs simulation steps, computes the observation, reward, termination condition, and additional information, and returns them.
+- `close(self)`: This method terminates the environment and performs necessary cleanup operations, such as disconnecting from the PyBullet physics engine.
+- `getPyBulletClient(self)`: This method returns the PyBullet client ID associated with the environment.
+- `getDroneIds(self)`: This method returns an array of drone IDs in the environment.
+- `gen_random_position(self)`: This method generates a random position for the drones in the environment.
+- `_housekeeping(self)`: This method performs housekeeping tasks during environment setup and reset. It sets up PyBullet parameters, initializes drones using the drone factories, and configures the simulation environment.
+- `setup_drones(self, factory, quantity)`: This method uses the provided drone factory and quantity to set up drones in the environment. It generates random positions for the drones and creates and updates the drone objects.
+- `setup_loyalwingmen(self, quantity)`: This method sets up loyal wingmen drones in the environment using the setup_drones method. It returns an array of loyal wingmen drones.
+- `setup_loiteringmunition(self, quantity)`: This method sets up loitering munition drones in the environment using the setup_drones method. It returns an array of loitering munition drones.
+- `_actionSpace(self)`: This method defines the action space for the environment. It returns a spaces Box object representing the valid ranges and shape of an agent's action in the environment.
+- `_observationSpace(self)`: This method defines the observation space for the environment. It returns a space Box object representing the valid ranges and shapes of the observations received from the environment.
+- `_computeObs(self)`: This method computes the observation for the current environment state. It gathers information from the loyal wingmen and loitering munition drones and returns the observation.
+- `_computeReward(self)`: This method computes the reward for the current environment state. It calculates a reward value based on the distance between the loyal wingman drone and the loitering munition drone and applies penalties or bonuses depending on the distance.
+- `_computeDone(self)`: This method determines whether the current episode in the environment is over. It checks termination conditions, such as maximum distance exceeded or target reached, and returns a boolean indicating whether the episode is done.
+- `_computeInfo(self)`: This method computes additional information about the current environment state. It can provide extra information to the agent, such as debugging or performance metrics.
