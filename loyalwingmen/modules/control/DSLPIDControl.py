@@ -47,11 +47,11 @@ class DSLPIDControl(BaseControl):
         self.MAX_PWM = 65535
         if self.DRONE_MODEL == DroneModel.CF2X:
             self.MIXER_MATRIX = np.array(
-                [[0.5, -0.5, -1], [0.5, 0.5, 1], [-0.5, 0.5, -1], [-0.5, -0.5, 1]]
+                [[0.5, -0.5, -1], [0.5, 0.5, 1], [-0.5, 0.5, -1], [-0.5, -0.5, 1]], dtype=float
             )
         elif self.DRONE_MODEL == DroneModel.CF2P:
             self.MIXER_MATRIX = np.array(
-                [[0, -1, -1], [+1, 0, 1], [0, 1, -1], [-1, 0, 1]]
+                [[0, -1, -1], [+1, 0, 1], [0, 1, -1], [-1, 0, 1]], dtype=float
             )
         self.reset()
 
@@ -299,7 +299,7 @@ class DSLPIDControl(BaseControl):
             self.MAX_PWM,
         )
         if DIM in [1, 4]:
-            return np.repeat(pwm, 4 / DIM)
+            return np.repeat(pwm, int(4 / DIM))
         elif DIM == 2:
             return np.hstack([pwm, np.flip(pwm)])
         else:

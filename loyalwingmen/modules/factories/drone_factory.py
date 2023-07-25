@@ -26,8 +26,8 @@ class DroneFactory(IDroneFactory):
         self,
         environment_parameters: EnvironmentParameters,
         drone_model: DroneModel = DroneModel.CF2X,
-        initial_position: np.array = np.ones((3,)),
-        initial_angular_position: np.array = np.zeros((3,)),
+        initial_position: np.ndarray = np.ones((3,), dtype=np.float64),
+        initial_angular_position: np.ndarray = np.zeros((3,)),
         radius: float = 5,
         resolution: float = 1,
     ):
@@ -114,7 +114,7 @@ class DroneFactory(IDroneFactory):
         parameters: Parameters,
         environment_parameters: EnvironmentParameters,
         urdf_file_path: str,
-    ):
+    ) -> DSLPIDControl:
         return DSLPIDControl(
             model, parameters, environment_parameters, urdf_path=urdf_file_path
         )
@@ -204,10 +204,10 @@ class DroneFactory(IDroneFactory):
     def set_urdf_file_path(self, urdf_file_path: str):
         self.urdf_file_path = urdf_file_path
 
-    def set_initial_position(self, initial_position: np.array):
+    def set_initial_position(self, initial_position: np.ndarray):
         self.initial_position = initial_position
 
-    def set_initial_angular_position(self, initial_angular_position: np.array):
+    def set_initial_angular_position(self, initial_angular_position: np.ndarray):
         self.initial_angular_position = initial_angular_position
         self.initial_quaternion = p.getQuaternionFromEuler(initial_angular_position)
 
@@ -227,6 +227,7 @@ class DroneFactory(IDroneFactory):
         Kinematics,
         DSLPIDControl,
         EnvironmentParameters,
+        LiDAR
     ]:
         id = self.__load_urdf()
         model = self.__compute_drone_model()
@@ -265,8 +266,8 @@ class DroneFactory(IDroneFactory):
             id,
             model,
             parameters,
-            informations,
             kinematics,
+            informations,
             control,
             environment_parameters,
             lidar,

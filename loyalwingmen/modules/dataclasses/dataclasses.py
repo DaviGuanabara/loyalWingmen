@@ -5,11 +5,11 @@ from dataclasses import dataclass, field
 
 @dataclass(order=True)
 class Kinematics:
-    position: np.array = field(default_factory=lambda: np.zeros(3))
-    angular_position: np.array = field(default_factory=lambda: np.zeros(3))
-    quaternions: np.array = field(default_factory=lambda: np.zeros(4))
-    velocity: np.array = field(default_factory=lambda: np.zeros(3))
-    angular_velocity: np.array = field(default_factory=lambda: np.zeros(3))
+    position: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    angular_position: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    quaternions: np.ndarray = field(default_factory=lambda: np.zeros(4))
+    velocity: np.ndarray = field(default_factory=lambda: np.zeros(3))
+    angular_velocity: np.ndarray = field(default_factory=lambda: np.zeros(3))
 
 
 @dataclass(order=True)
@@ -17,8 +17,8 @@ class Parameters:
     M: float
     L: float
     THRUST2WEIGHT_RATIO: float
-    J: float
-    J_INV: float
+    J: np.ndarray
+    J_INV: np.ndarray
     KF: float
     KM: float
     COLLISION_H: float
@@ -27,7 +27,7 @@ class Parameters:
     MAX_SPEED_KMH: float
     GND_EFF_COEFF: float
     PROP_RADIUS: float
-    DRAG_COEFF: float
+    DRAG_COEFF: np.ndarray
     DW_COEFF_1: float
     DW_COEFF_2: float
     DW_COEFF_3: float

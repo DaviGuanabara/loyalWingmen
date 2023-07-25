@@ -5,7 +5,7 @@ import pybullet as p
 from modules.interfaces.drone_interface import IDrone
 
 from modules.models.lidar import LiDAR
-from modules.control import DSLPIDControl
+from modules.control.DSLPIDControl import DSLPIDControl
 from modules.dataclasses.dataclasses import (
     Parameters,
     Kinematics,
@@ -41,7 +41,7 @@ class Drone(IDrone):
     # Private
     # =================================================================================================================
 
-    def physics(self, rpm: np.array):
+    def physics(self, rpm: np.ndarray):
         """Base PyBullet physics implementation.
         Parameters
         ----------
@@ -112,9 +112,9 @@ class Drone(IDrone):
 
     def observation(
         self,
-        loyalwingmen: np.array = np.array([], dtype=IDrone),
-        loitering_munitions: np.array = np.array([], dtype=IDrone),
-        obstacles: np.array = np.array([]),
+        loyalwingmen: np.ndarray = np.array([], dtype=IDrone),
+        loitering_munitions: np.ndarray = np.array([], dtype=IDrone),
+        obstacles: np.ndarray = np.array([]),
     ):
         self.lidar.reset()
 

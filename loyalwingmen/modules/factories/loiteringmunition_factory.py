@@ -7,9 +7,7 @@ class LoiteringMunitionFactory(DroneFactory):
         super().__init__(environment_parameters)
 
     def create(self) -> Drone:
-        (
-            id,
-            model,
+        (id, model,
             parameters,
             informations,
             kinematics,
