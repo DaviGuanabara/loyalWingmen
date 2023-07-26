@@ -5,7 +5,7 @@ from typing import Dict, Text
 from abc import ABCMeta, abstractmethod
 # https://pypi.org/project/abcmeta/
 from modules.dataclasses.dataclasses import Parameters, Kinematics, Informations
-from modules.control import DSLPIDControl
+from modules.control.DSLPIDControl import DSLPIDControl
 from dataclasses import dataclass, field
 # from modules.environments.environment_models import EnvironmentParameters
 from modules.dataclasses.dataclasses import EnvironmentParameters
@@ -36,7 +36,7 @@ class IEnvironment(metaclass=ABCMeta):
         """Abstract method."""
 
     @abstractmethod
-    def __physics(self, rpm: np.array):
+    def __physics(self, rpm: np.ndarray):
         """Abstract method."""
 
     @abstractmethod

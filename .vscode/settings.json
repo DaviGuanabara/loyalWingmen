@@ -3,4 +3,5 @@
     },
     "python.formatting.provider": "none",
     "python.languageServer": "Pylance",
+    "python.analysis.typeCheckingMode": "basic",
 }

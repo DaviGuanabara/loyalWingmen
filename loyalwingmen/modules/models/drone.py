@@ -13,7 +13,14 @@ from modules.dataclasses.dataclasses import (
     EnvironmentParameters,
 )
 from modules.utils.enums import DroneModel
+from typing import List, TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from modules.factories.loyalwingman_factory import LoyalWingman
+    from modules.factories.loiteringmunition_factory import LoiteringMunition
+
+    #from LoyalWingmen import LoyalWingmen
+    #from LoiteringMunition import LoiteringMunition
 
 class Drone(IDrone):
     def __init__(
@@ -112,9 +119,9 @@ class Drone(IDrone):
 
     def observation(
         self,
-        loyalwingmen: np.ndarray = np.array([], dtype=IDrone),
-        loitering_munitions: np.ndarray = np.array([], dtype=IDrone),
-        obstacles: np.ndarray = np.array([]),
+        loyalwingmen: "List[LoyalWingman]" = [],
+        loitering_munitions: "List[LoiteringMunition]" = [],
+        obstacles: List = [],
     ):
         self.lidar.reset()
 

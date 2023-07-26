@@ -16,12 +16,12 @@ class LoiteringMunition(Drone):
     def apply_frozen_behavior(self):
         weigth = self.environment_parameters.G * self.parameters.M
         self.apply_force(np.array([0, 0, weigth]))
-        self.apply_velocity(velocity=[0, 0, 0], angular_velocity=[0, 0, 0])
+        self.apply_velocity(velocity=np.array([0, 0, 0]), angular_velocity=np.array([0, 0, 0]))
 
     def apply_constant_velocity_behavior(self):
         self.apply_frozen_behavior()
         self.apply_velocity(
-            velocity=[.1, .1, 0], angular_velocity=[0, 0, 0])
+            velocity=np.array([.1, .1, 0]), angular_velocity=np.array([0, 0, 0]))
 
     def apply_force(self, force):
         p.applyExternalForce(
@@ -35,8 +35,8 @@ class LoiteringMunition(Drone):
 
     def apply_velocity(
         self,
-        velocity: np.array,
-        angular_velocity: np.array,
+        velocity: np.ndarray,
+        angular_velocity: np.ndarray,
     ):
         p.resetBaseVelocity(
             self.id,

@@ -20,6 +20,7 @@ from modules.factories.loyalwingman_factory import LoyalWingmanFactory, LoyalWin
 
 from modules.dataclasses.dataclasses import EnvironmentParameters
 from modules.models.lidar import CoordinateConverter
+from typing import List
 
 
 class DemoEnvironment(gym.Env):
@@ -218,23 +219,23 @@ class DemoEnvironment(gym.Env):
 
     ################################################################################
 
-    def getDroneIds(self):
+    #def getDroneIds(self):
         """Return the Drone Ids.
         Returns
         -------
         ndarray:
             (NUM_DRONES,)-shaped array of ints containing the drones' ids.
         """
-        return self.DRONE_IDS
+        #return self.DRONE_IDS
 
     ################################################################################
 
-    def gen_random_position(self):
+    def gen_random_position(self) -> np.ndarray:
         x = random.choice([-1, 1]) * random.random() * 2
         y = random.choice([-1, 1]) * random.random() * 2
         z = random.choice([-1, 1]) * random.random() * 2
 
-        return [x, y, z]
+        return np.array([x, y, z])
 
     def _housekeeping(self):
         """Housekeeping function.
@@ -265,8 +266,8 @@ class DemoEnvironment(gym.Env):
         self.loyalwingmen = self.setup_loyalwingmen(1)
         self.loitering_munitions = self.setup_loiteringmunition(1)
 
-    def setup_drones(self, factory: DroneFactory, quantity: int = 1) -> np.array:
-        drones = np.array([], dtype=Drone)
+    def setup_drones(self, factory: DroneFactory, quantity: int = 1) -> List:
+        drones: List = []
 
         for _ in range(quantity):
             random_position = self.gen_random_position()
@@ -274,18 +275,18 @@ class DemoEnvironment(gym.Env):
             drone = factory.create()
             drone.update_kinematics()
 
-            drones = np.append(drones, drone)
+            drones.append(drone)
 
         return drones
 
-    def setup_loyalwingmen(self, quantity: int = 1) -> np.array:
-        drones: np.array = self.setup_drones(self.lwingman_factory, quantity)
-        drones.astype(LoyalWingman)
+    def setup_loyalwingmen(self, quantity: int = 1) -> List[LoyalWingman]:
+        drones: List[LoyalWingman] = self.setup_drones(self.lwingman_factory, quantity)
+        #drones.astype(LoyalWingman)
         return drones
 
-    def setup_loiteringmunition(self, quantity: int = 1) -> np.array:
-        drones: np.array = self.setup_drones(self.lmunition_factory, quantity)
-        drones.astype(LoiteringMunition)
+    def setup_loiteringmunition(self, quantity: int = 1) -> List[LoiteringMunition]:
+        drones: List[LoiteringMunition] = self.setup_drones(self.lmunition_factory, quantity)
+        #drones.astype(LoiteringMunition)
         return drones
 
     ################################################################################
@@ -402,14 +403,14 @@ class DemoEnvironment(gym.Env):
     # Normalization
     #####################################################################################################
 
-    def _normalizeVelocity(self, velocity: np.array):
+    def _normalizeVelocity(self, velocity: np.ndarray):
         MAX_Velocity = 5
         normalized_velocity = (
             np.clip(velocity, -MAX_Velocity, MAX_Velocity) / MAX_Velocity
         )
         return normalized_velocity
 
-    def _normalizePosition(self, position: np.array):
+    def _normalizePosition(self, position: np.ndarray):
         MAX_X_Y = 100
         MAX_Z = 100
 

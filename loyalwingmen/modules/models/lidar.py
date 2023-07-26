@@ -6,7 +6,7 @@ from gymnasium import spaces
 
 class CoordinateConverter:
     @staticmethod
-    def spherical_to_cartesian(spherical: np.array) -> np.array:
+    def spherical_to_cartesian(spherical: np.ndarray) -> np.ndarray:
         radius, theta, phi = spherical
         x = radius * np.sin(theta) * np.cos(phi)
         y = radius * np.sin(theta) * np.sin(phi)
@@ -14,7 +14,7 @@ class CoordinateConverter:
         return np.array([x, y, z])
 
     @staticmethod
-    def cartesian_to_spherical(cartesian: np.array) -> np.array:
+    def cartesian_to_spherical(cartesian: np.ndarray) -> np.ndarray:
         x, y, z = cartesian
         radius = np.sqrt(x**2 + y**2 + z**2)
         theta = np.arccos(z / radius)
@@ -53,11 +53,11 @@ class LiDAR:
 
         self.n_theta_points, self.n_phi_points = self.__count_points(
             radius, resolution)
-        self.sphere: np.array = self.__gen_sphere(
+        self.sphere: np.ndarray = self.__gen_sphere(
             self.n_theta_points, self.n_phi_points, self.channels
         )
 
-    def __get_flag(self, name):
+    def __get_flag(self, name: str) -> float:
         if name == "LOYAL_WINGMAN":
             return 0.3
 
@@ -117,7 +117,7 @@ class LiDAR:
         return sphere
 
     def reset(self):
-        self.sphere: np.array = self.__gen_sphere(
+        self.sphere: np.ndarray = self.__gen_sphere(
             self.n_theta_points, self.n_phi_points
         )
 
@@ -151,7 +151,7 @@ class LiDAR:
         self.sphere[DISTANCE][theta_point][phi_point] = normalized_distance
         self.sphere[FLAG][theta_point][phi_point] = flag
 
-    def __add_spherical(self, spherical: list, distance: float = 10, flag: int = 0):
+    def __add_spherical(self, spherical: np.ndarray, distance: np.float32 = np.float32(10), flag: float = 0):
         if distance > self.radius:
             return None
 
@@ -171,28 +171,28 @@ class LiDAR:
 
         self.__update_sphere(theta_point, phi_point, normalized_distance, flag)
 
-    def __add_cartesian(self, cartesian: list, distance: float = 10, flag: int = 0):
-        spherical: list = CoordinateConverter.cartesian_to_spherical(cartesian)
+    def __add_cartesian(self, cartesian: np.ndarray, distance: np.float32 = np.float32(10), flag: float = 0):
+        spherical: np.ndarray = CoordinateConverter.cartesian_to_spherical(cartesian)
         self.__add_spherical(spherical, distance, flag)
 
     def __add_end_position(
         self,
-        end_position: np.array,
-        current_position: np.array = [0, 0, 0],
-        flag: int = 0,
+        end_position: np.ndarray,
+        current_position: np.ndarray = np.array([0, 0, 0]),
+        flag: float = 0,
     ):
-        cartesian: list = end_position - current_position
-        distance = np.linalg.norm(end_position - current_position)
+        cartesian: np.ndarray = end_position - current_position
+        distance: np.float32 = np.linalg.norm(end_position - current_position)
 
         if distance > 0:
             self.__add_cartesian(cartesian, distance, flag)
 
     def add_position(
         self,
-        loitering_munition_position: np.array = np.array([]),
-        obstacle_position: np.array = np.array([]),
-        loyalwingman_position: np.array = np.array([]),
-        current_position: np.array = np.array([0, 0, 0]),
+        loitering_munition_position: np.ndarray = np.array([]),
+        obstacle_position: np.ndarray = np.array([]),
+        loyalwingman_position: np.ndarray = np.array([]),
+        current_position: np.ndarray = np.array([0, 0, 0]),
     ):
         if len(loitering_munition_position) > 0:
             self.__add_end_position(
@@ -214,7 +214,7 @@ class LiDAR:
                 self.__get_flag("LOYAL_WINGMAN"),
             )
 
-    def get_sphere(self) -> np.array:
+    def get_sphere(self) -> np.ndarray:
         return self.sphere
 
     # ============================================================================================================
@@ -229,7 +229,7 @@ class LiDAR:
 
         """
         # a workaround to work with gymnasium
-        sphere: np.array = self.sphere
+        sphere: np.ndarray = self.sphere
         return spaces.Box(
             low=0,
             high=1,

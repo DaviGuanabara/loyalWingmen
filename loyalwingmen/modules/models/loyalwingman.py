@@ -11,7 +11,7 @@ class LoyalWingman(Drone):
     # def __init__(self):
     #    super().__init__()
 
-    def __preprocessAction(self, action: np.array) -> np.array:
+    def __preprocessAction(self, action: np.ndarray) -> np.ndarray:
         """Pre-processes the velocty action into motors' RPMs.
         Parameters
         ----------
@@ -26,12 +26,12 @@ class LoyalWingman(Drone):
 
         speed_limit = self.informations.speed_limit
 
-        position: np.array = self.kinematics.position
-        quaternions: np.array = self.kinematics.quaternions
-        angular_position: np.array = self.kinematics.angular_position
+        position: np.ndarray = self.kinematics.position
+        quaternions: np.ndarray = self.kinematics.quaternions
+        angular_position: np.ndarray = self.kinematics.angular_position
 
-        velocity: np.array = self.kinematics.velocity
-        angular_velocity: np.array = self.kinematics.angular_velocity
+        velocity: np.ndarray = self.kinematics.velocity
+        angular_velocity: np.ndarray = self.kinematics.angular_velocity
 
         if np.linalg.norm(action[:3]) != 0:
             velocity_unitary_vector = action[:3] / np.linalg.norm(action[:3])

@@ -19,6 +19,10 @@ from stable_baselines3.common.vec_env import VecEnv
 class StorageForEvalCallback:
     best_mean_reward: float = -math.inf
 
+#TODO: self.storage.best_mean_reward = self.parent.best_mean_reward
+# Expression of type "tuple[CallbackList, StorageForEvalCallback | None]" cannot be assigned to return type "Tuple[CallbackList, StorageForEvalCallback]"
+#  Type "StorageForEvalCallback | None" cannot be assigned to type "StorageForEvalCallback"
+#    Type "None" cannot be assigned to type "StorageForEvalCallback"#
 
 class StoreDataOnBestCallback(BaseCallback):
     def __init__(self, storage: Optional[StorageForEvalCallback] = None, verbose: int = 0):

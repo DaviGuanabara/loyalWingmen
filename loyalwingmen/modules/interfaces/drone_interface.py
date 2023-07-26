@@ -5,7 +5,7 @@ from typing import Dict, Text
 from abc import ABCMeta, abstractmethod
 # https://pypi.org/project/abcmeta/
 from modules.dataclasses.dataclasses import Parameters, Kinematics, Informations, EnvironmentParameters
-from modules.control import DSLPIDControl
+from modules.control.DSLPIDControl import DSLPIDControl
 from dataclasses import dataclass, field
 from modules.utils.enums import DroneModel
 
@@ -20,7 +20,7 @@ class IDrone(metaclass=ABCMeta):
     # =================================================================================================================
 
     @abstractmethod
-    def physics(self, rpm: np.array):
+    def physics(self, rpm: np.ndarray):
         """Abstract method."""
 
     @abstractmethod
