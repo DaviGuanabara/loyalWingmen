@@ -247,3 +247,4 @@ class BaseControl(object):
                 float(s) for s in URDF_TREE[1][2][0].attrib["xyz"].split(" ")
             ]
             return COLLISION_SHAPE_OFFSETS[2]
+        return -1

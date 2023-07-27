@@ -24,6 +24,7 @@ class StorageForEvalCallback:
 #  Type "StorageForEvalCallback | None" cannot be assigned to type "StorageForEvalCallback"
 #    Type "None" cannot be assigned to type "StorageForEvalCallback"#
 
+#TODO repensar no StoreData: https://stable-baselines3.readthedocs.io/en/master/guide/examples.html#callbacks-evaluate-agent-performance
 class StoreDataOnBestCallback(BaseCallback):
     def __init__(self, storage: Optional[StorageForEvalCallback] = None, verbose: int = 0):
         assert storage is not None, "`StoreDataOnBestCallback` callback must be initialized with an `StorageForCallback`"

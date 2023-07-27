@@ -39,7 +39,7 @@ def main():
         save_freq=100_000,
     )
 
-    nn_t = [256, 512, 1024]
+    nn_t = [450, 247, 831]
     policy_kwargs = dict(
         features_extractor_class=CustomCNN,
         features_extractor_kwargs=dict(features_dim=128),
@@ -59,7 +59,7 @@ def main():
     )
 
     print(model.policy)
-    model.learn(total_timesteps=3_000_000, callback=callback_list)
+    model.learn(total_timesteps=1_000_000, callback=callback_list)
     model.save("demo_trained2_model")
 
 

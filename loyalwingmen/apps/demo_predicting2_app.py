@@ -25,11 +25,9 @@ observation, info = env.reset()
 for steps in range(50_000):
     action, _ = model.predict(observation)
     observation, reward, terminated, truncated, info = env.step(action)
-    print(observation)
-    # env.show_lidar_log()
 
     if terminated:
         print("Episode terminated")
         env.reset()
 
-        # I preferred to remove the reset to be able to make a long test
+

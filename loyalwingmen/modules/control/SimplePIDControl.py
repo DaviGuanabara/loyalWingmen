@@ -5,6 +5,9 @@ from modules.control.BaseControl import BaseControl
 from modules.utils.enums import DroneModel
 from modules.utils.utils import nnlsRPM
 
+from modules.control.BaseControl import BaseControl
+from modules.utils.enums import DroneModel
+from modules.dataclasses.dataclasses import Parameters, EnvironmentParameters
 
 class SimplePIDControl(BaseControl):
     """Generic PID control class without yaw control.
@@ -15,7 +18,8 @@ class SimplePIDControl(BaseControl):
 
     ################################################################################
 
-    def __init__(self, drone_model: DroneModel, g: float = 9.8):
+    #def __init__(self, drone_model: DroneModel, g: float = 9.8):
+    def __init__(self, drone_model: DroneModel, parameters: Parameters, environmentParameters: EnvironmentParameters, urdf_path: str):    
         """Common control classes __init__ method.
 
         Parameters
@@ -26,7 +30,8 @@ class SimplePIDControl(BaseControl):
             The gravitational acceleration in m/s^2.
 
         """
-        super().__init__(drone_model=drone_model, g=g)
+        super().__init__(drone_model, parameters, environmentParameters, urdf_path)
+        #super().__init__(drone_model=drone_model, g=g)
         if self.DRONE_MODEL != DroneModel.HB:
             print(
                 "[ERROR] in SimplePIDControl.__init__(), SimplePIDControl requires DroneModel.HB"
@@ -40,10 +45,13 @@ class SimplePIDControl(BaseControl):
         self.D_COEFF_TOR = np.array([0.3, 0.3, 0.5])
         self.MAX_ROLL_PITCH = np.pi / 6
         self.L = self._getURDFParameter("arm")
+        
         self.THRUST2WEIGHT_RATIO = self._getURDFParameter("thrust2weight")
         self.MAX_RPM = np.sqrt(
             (self.THRUST2WEIGHT_RATIO * self.GRAVITY) / (4 * self.KF)
         )
+        
+        
         self.MAX_THRUST = 4 * self.KF * self.MAX_RPM**2
         self.MAX_XY_TORQUE = self.L * self.KF * self.MAX_RPM**2
         self.MAX_Z_TORQUE = 2 * self.KM * self.MAX_RPM**2
