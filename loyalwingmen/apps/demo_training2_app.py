@@ -8,7 +8,7 @@ from stable_baselines3 import PPO
 from modules.environments.demo_env import DemoEnvironment
 from multiprocessing import cpu_count
 from stable_baselines3.common.vec_env import SubprocVecEnv
-from modules.factories.callback_factory import gen_eval_callback, callbacklist
+from modules.factories.callback_factory import callbacklist
 from modules.models.policy import CustomActorCriticPolicy, CustomCNN
 import torch.nn as nn
 import torch as th
@@ -31,7 +31,7 @@ def main():
 
     vectorized_environment = SubprocVecEnv(env_fns)
 
-    callback_list, storage_for_callback = callbacklist(
+    callback_list = callbacklist(
         vectorized_environment,
         log_path="./logs/",
         model_path="./models/",

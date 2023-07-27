@@ -37,7 +37,7 @@ for feature, importance in feature_importance.items():
     print(f"{feature}: {importance}")
 
 # Mostrando a árvore de decisão
-dot_data = export_graphviz(regressor, out_file=None, 
-                           feature_names=X.columns, filled=True, rounded=True, special_characters=True)  
+dot_data = export_graphviz(regressor, out_file=None,  # type: ignore
+                           feature_names=X.columns, filled=True, rounded=True, special_characters=True)   # type: ignore
 graph = graphviz.Source(dot_data)  
 graph.view()

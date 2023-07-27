@@ -9,7 +9,7 @@ import pybullet_data
 
 
 import gymnasium as gym
-from gymnasium import spaces
+from gymnasium import spaces, Env
 
 from modules.factories.drone_factory import DroneFactory, Drone
 from modules.factories.loiteringmunition_factory import (
@@ -23,7 +23,7 @@ from modules.models.lidar import CoordinateConverter
 from typing import List
 
 
-class DemoEnvironment(gym.Env):
+class DemoEnvironment(Env):
     """
     This class aims to demonstrate a environment with one Loyal Wingmen and one Loitering Munition,
     in a simplest way possible.
