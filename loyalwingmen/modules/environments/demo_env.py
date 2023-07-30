@@ -547,8 +547,10 @@ class DemoEnvironment(Env):
                 calc_reward += self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
                 distance = value * radius
                 if distance  < 1:
+                    #in case he hit the target
                     calc_reward += 100_000
-                
+        
+        # in case he lost the target        
         if  calc_reward == 0:
             calc_reward = -100_000       
             #print(f"Channel: {channel}, Theta: {theta}, Phi: {phi}, Value: {value}")
