@@ -22,8 +22,7 @@ from modules.factories.loyalwingman_factory import LoyalWingmanFactory, LoyalWin
 from modules.dataclasses.dataclasses import EnvironmentParameters
 from modules.models.lidar import CoordinateConverter
 from typing import List
-
-
+from modules.models.lidar import Channels
 class DemoEnvironment(Env):
     """
     This class aims to demonstrate a environment with one Loyal Wingmen and one Loitering Munition,
@@ -538,7 +537,7 @@ class DemoEnvironment(Env):
         elements_below_one = self.detectable_elements(lidar_observation=observation)
         for element in elements_below_one:
             channel, theta, phi, value = element
-            if channel == 0:
+            if channel == Channels.DISTANCE_CHANNEL.value:
                 return self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
                 
                 

@@ -4,7 +4,12 @@ from typing import Tuple
 import pybullet as p
 from gymnasium import spaces
 
+from enum import Enum
 
+class Channels(Enum):
+    DISTANCE_CHANNEL = 0
+    FLAG_CHANNEL = 1
+    
 class CoordinateConverter:
     @staticmethod
     def spherical_to_cartesian(spherical: np.ndarray) -> np.ndarray:
@@ -46,8 +51,6 @@ class LiDAR:
 
         #TODO: fazer um enun com os channels, e atualizar lá no demo.env
         self.channels: int = 2
-        self.DISTANCE_CHANNEL = 0
-        self.FLAG_CHANNEL = 1
         
         self.flag_size = 3
 
@@ -177,7 +180,7 @@ class LiDAR:
         #DISTANCE = 0
         #FLAG = 1
 
-        current_normalized_distance = self.sphere[self.DISTANCE_CHANNEL][theta_point][phi_point]
+        current_normalized_distance = self.sphere[Channels.DISTANCE_CHANNEL.value][theta_point][phi_point]
 
         if (
             current_normalized_distance > 0
@@ -185,8 +188,8 @@ class LiDAR:
         ):
             return None
 
-        self.sphere[self.DISTANCE_CHANNEL][theta_point][phi_point] = normalized_distance
-        self.sphere[self.FLAG_CHANNEL][theta_point][phi_point] = flag
+        self.sphere[Channels.DISTANCE_CHANNEL.value][theta_point][phi_point] = normalized_distance
+        self.sphere[Channels.DISTANCE_CHANNEL.FLAG_CHANNEL.value][theta_point][phi_point] = flag
 
     def __add_spherical(self, spherical: np.ndarray, distance: np.float32 = np.float32(10), flag: float = 0):
         radius = self.radius
@@ -227,10 +230,10 @@ class LiDAR:
                 
     def debug_sphere(self, current_position):
         #print(self.sphere[self.DISTANCE_CHANNEL])
-        for theta_point in range(len(self.sphere[self.DISTANCE_CHANNEL])):
-            for phi_point in range(len(self.sphere[self.DISTANCE_CHANNEL][theta_point])):
+        for theta_point in range(len(self.sphere[Channels.DISTANCE_CHANNEL.value])):
+            for phi_point in range(len(self.sphere[Channels.DISTANCE_CHANNEL.value][theta_point])):
                 
-                distance = self.sphere[self.DISTANCE_CHANNEL][theta_point][phi_point]
+                distance = self.sphere[Channels.DISTANCE_CHANNEL.value][theta_point][phi_point]
                 if distance < 1:
                     #print("distance:", distance)
                     end_position = self.convert_angle_point_to_cartesian(theta_point=theta_point, phi_point=phi_point, n_theta_points=self.n_theta_points, n_phi_points=self.n_phi_points, distance=distance, current_position=current_position)
