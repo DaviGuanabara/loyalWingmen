@@ -207,7 +207,7 @@ class DemoEnvironment(Env):
 
         observation = self._computeObs(self.loyalwingmen[0], self.loyalwingmen, self.loitering_munitions)
         reward = self._computeReward(observation, self.loyalwingmen[0].lidar.radius)
-        terminated = self._computeDone()
+        terminated = self._computeDone(observation, self.loyalwingmen[0].lidar.radius)
         info = self._computeInfo()
 
         self.observation = observation
@@ -515,8 +515,7 @@ class DemoEnvironment(Env):
         return below_one_list            
 
     def _computeReward(self, observation: np.ndarray, radius:float) -> float:
-        penalty = 0
-        bonus = 0
+        
 
         #drone_position = self.loyalwingmen[0].kinematics.position
         #target_position = self.loitering_munitions[0].kinematics.position
@@ -532,21 +531,32 @@ class DemoEnvironment(Env):
         #self.last_reward = (5) - 1 * distance + bonus - penalty
 
         #return self.last_reward
+        penalty = 0
+        bonus = 0
+        
+        
         min_value = 0
         max_value = 100
+        
+        calc_reward = min_value
+        
         elements_below_one = self.detectable_elements(lidar_observation=observation)
         for element in elements_below_one:
             channel, theta, phi, value = element
             if channel == Channels.DISTANCE_CHANNEL.value:
-                return self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
+                calc_reward += self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
+                distance = value * radius
+                if distance  < 1:
+                    calc_reward += 100_000
                 
-                
+        if  calc_reward == 0:
+            calc_reward = -100_000       
             #print(f"Channel: {channel}, Theta: {theta}, Phi: {phi}, Value: {value}")
     
         #self.loyalwingmen[0].observation()
-        return min_value
+        return calc_reward
         
-
+    """
     def _computeDone(self):
         drone_position = self.loyalwingmen[0].kinematics.position
         drone_velocity = self.loyalwingmen[0].kinematics.velocity
@@ -571,6 +581,29 @@ class DemoEnvironment(Env):
             return True
 
         return False
+        
+        """
+        
+    def _computeDone(self, observation: np.ndarray, radius:float):
+
+
+        current = time.time()
+
+        if current - self.RESET_TIME > 20:
+            return True
+        
+        elements_below_one = self.detectable_elements(lidar_observation=observation)
+        for element in elements_below_one:
+            channel, theta, phi, value = element
+            if channel == Channels.DISTANCE_CHANNEL.value:
+                distance = value * radius
+                if distance < 1:
+                    return True
+                if distance < radius:
+                    return False
+
+
+        return True    
 
     def _computeInfo(self):
         return {}
