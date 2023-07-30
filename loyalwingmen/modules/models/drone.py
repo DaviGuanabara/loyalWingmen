@@ -36,6 +36,8 @@ class Drone(IDrone):
     ):
         self.id: int = id
         self.client_id: int = environment_parameters.client_id
+        self.debug: bool = environment_parameters.debug
+        
         self.model = model
         self.parameters: Parameters = parameters
         self.kinematics: Kinematics = kinematics
@@ -43,6 +45,9 @@ class Drone(IDrone):
         self.control: DSLPIDControl = control
         self.environment_parameters: EnvironmentParameters = environment_parameters
         self.lidar: LiDAR = lidar
+        
+        if self.debug:
+            print("Drone created", "debug", environment_parameters.debug)
 
     # =================================================================================================================
     # Private
@@ -115,7 +120,8 @@ class Drone(IDrone):
         self.store_kinematics(kinematics)
 
     def set_lidar_parameters(self, radius: float = 5, resolution: float = 1):
-        self.lidar: LiDAR = LiDAR(radius, resolution)
+        #print(self.debug)
+        self.lidar: LiDAR = LiDAR(radius, resolution, client_id=self.client_id, debug=self.debug)
 
     def observation(
         self,

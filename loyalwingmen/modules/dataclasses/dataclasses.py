@@ -57,3 +57,4 @@ class EnvironmentParameters():
     client_id: int
     max_distance: float
     error: float
+    debug: bool = False

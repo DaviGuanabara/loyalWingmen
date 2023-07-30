@@ -31,11 +31,14 @@ class DroneFactory(IDroneFactory):
         radius: float = 5,
         resolution: float = 1,
     ):
+        self.client_id: int = environment_parameters.client_id
+        self.debug: bool = environment_parameters.debug
+        
         self.set_drone_model(drone_model)
         self.set_environment_parameters(environment_parameters)
         self.set_initial_position(initial_position)
         self.set_initial_angular_position(initial_angular_position)
-        self.set_LiDAR(radius, resolution)
+        self.set_LiDAR(radius, resolution, environment_parameters.debug)
 
     # =================================================================================================================
     # Private
@@ -56,7 +59,7 @@ class DroneFactory(IDroneFactory):
     def __compute_informations(self, parameters: Parameters):
         gravity_acceleration = self.environment_parameters.G
         KMH_TO_MS = 1000 / 3600
-        VELOCITY_LIMITER = 1  # 0.03
+        VELOCITY_LIMITER = 1 #0.03 #1
 
         L = parameters.L
         M = parameters.M
@@ -120,7 +123,9 @@ class DroneFactory(IDroneFactory):
         )
 
     def __compute_LiDAR(self, radius: float = 5, resolution: float = 1) -> LiDAR:
-        lidar: LiDAR = LiDAR(radius, resolution)
+        #print("LiDAR created in drone_factory.py", "debug", self.debug)
+        lidar: LiDAR = LiDAR(radius, resolution, client_id=self.client_id, debug=self.debug)
+        
         return lidar
 
     ################### Adjust ###############################
@@ -211,9 +216,10 @@ class DroneFactory(IDroneFactory):
         self.initial_angular_position = initial_angular_position
         self.initial_quaternion = p.getQuaternionFromEuler(initial_angular_position)
 
-    def set_LiDAR(self, radius: float = 5, resolution: float = 1):
+    def set_LiDAR(self, radius: float = 5, resolution: float = 1, debug: bool = False):
         self.radius = radius
         self.resolution = resolution
+        self.debug = debug
 
     ################### create ###############################
 

@@ -1,6 +1,7 @@
 import math
 import numpy as np
 from typing import Tuple
+import pybullet as p
 from gymnasium import spaces
 
 
@@ -30,14 +31,23 @@ class LiDAR:
     https://en.wikipedia.org/wiki/Spherical_coordinate_system
     """
 
-    def __init__(self, radius: float = 5, resolution: float = 1):
+    def __init__(self, radius: float = 5, resolution: float = 1, client_id: int = 0, debug: bool = False):
         """
         Params
         -------
         max_distance: float, the radius of the sphere
         resolution: number of sectors per m2
         """
+        self.client_id = client_id
+        self.debug = debug
+        
+        #print("in Lidar, debug:", self.debug)
+        self.debug_lines_id = []
+
         self.channels: int = 2
+        self.DISTANCE_CHANNEL = 0
+        self.FLAG_CHANNEL = 1
+        
         self.flag_size = 3
 
         self.radius = radius
@@ -56,18 +66,20 @@ class LiDAR:
         self.sphere: np.ndarray = self.__gen_sphere(
             self.n_theta_points, self.n_phi_points, self.channels
         )
-
+        
+        
     def __get_flag(self, name: str) -> float:
+        
+        if name == "LOITERING_MUNITION":
+            return 0
+        
         if name == "LOYAL_WINGMAN":
             return 0.3
 
-        if name == "LOITERING_MUNITION":
+        if name == "OBSTACLE":
             return 0.6
 
-        if name == "OBSTACLE":
-            return 0.9
-
-        return 0
+        return 1
 
     # ============================================================================================================
     # Setup Functions
@@ -109,10 +121,27 @@ class LiDAR:
         n_phi_points: int = math.ceil(phi_side / sector_side)
 
         return n_theta_points, n_phi_points
+    
+    def convert_angle_point_to_angles(self, theta_point, phi_point, n_theta_points, n_phi_points) -> Tuple[float, float]:
+        
+        theta_range: float = self.THETA_FINAL_RADIAN - self.THETA_INITIAL_RADIAN
+        phi_range: float = self.PHI_FINAL_RADIAN - self.PHI_INITIAL_RADIAN
+        
+        theta = (theta_point - 0) / (n_theta_points - 0) * theta_range + self.THETA_INITIAL_RADIAN
+        phi = (phi_point - 0) / (n_phi_points - 0) * phi_range + self.PHI_INITIAL_RADIAN
+        
+        
+        return theta, phi
+    
+    def convert_angle_point_to_cartesian(self, theta_point, phi_point, n_theta_points, n_phi_points, distance, current_position) -> np.ndarray:
+        theta, phi = self.convert_angle_point_to_angles(theta_point, phi_point, n_theta_points, n_phi_points)
+        cartesian_from_origin = CoordinateConverter.spherical_to_cartesian(np.array([distance * self.radius, theta, phi]))
+        return cartesian_from_origin + current_position
+  
 
     def __gen_sphere(self, n_theta_points, n_phi_points, n_channels: int = 2):
         # it is assumed the following shape: CxHxW (channels first)
-        sphere = np.zeros((n_channels, n_theta_points,
+        sphere = np.ones((n_channels, n_theta_points,
                           n_phi_points), dtype=np.float32)
         return sphere
 
@@ -120,6 +149,13 @@ class LiDAR:
         self.sphere: np.ndarray = self.__gen_sphere(
             self.n_theta_points, self.n_phi_points
         )
+        
+        if self.debug:
+            for line_id in self.debug_lines_id:
+                p.removeUserDebugItem(line_id, physicsClientId=self.client_id)
+            self.debug_lines_id = []
+            
+
 
     # ============================================================================================================
     # Matrix Functions
@@ -133,14 +169,14 @@ class LiDAR:
             % n_points
         )
 
-    def __normalize_distance(self, distance) -> float:
-        return distance / self.radius
+    def __normalize_distance(self, distance, radius) -> float:
+        return distance / radius
 
     def __update_sphere(self, theta_point, phi_point, normalized_distance, flag):
-        DISTANCE = 0
-        FLAG = 1
+        #DISTANCE = 0
+        #FLAG = 1
 
-        current_normalized_distance = self.sphere[DISTANCE][theta_point][phi_point]
+        current_normalized_distance = self.sphere[self.DISTANCE_CHANNEL][theta_point][phi_point]
 
         if (
             current_normalized_distance > 0
@@ -148,16 +184,17 @@ class LiDAR:
         ):
             return None
 
-        self.sphere[DISTANCE][theta_point][phi_point] = normalized_distance
-        self.sphere[FLAG][theta_point][phi_point] = flag
+        self.sphere[self.DISTANCE_CHANNEL][theta_point][phi_point] = normalized_distance
+        self.sphere[self.FLAG_CHANNEL][theta_point][phi_point] = flag
 
     def __add_spherical(self, spherical: np.ndarray, distance: np.float32 = np.float32(10), flag: float = 0):
-        if distance > self.radius:
+        radius = self.radius
+        if distance > radius:
             return None
 
         _, theta, phi = spherical[0], spherical[1], spherical[2]
 
-        normalized_distance = self.__normalize_distance(distance)
+        normalized_distance = self.__normalize_distance(distance, radius)
 
         theta_point = self.__normalize_angle(
             theta,
@@ -179,14 +216,29 @@ class LiDAR:
         self,
         end_position: np.ndarray,
         current_position: np.ndarray = np.array([0, 0, 0]),
-        flag: float = 0,
+        flag: float = 1,
     ):
         cartesian: np.ndarray = end_position - current_position
         distance: np.float32 = np.linalg.norm(end_position - current_position)
 
         if distance > 0:
             self.__add_cartesian(cartesian, distance, flag)
-
+                
+    def debug_sphere(self, current_position):
+        #print(self.sphere[self.DISTANCE_CHANNEL])
+        for theta_point in range(len(self.sphere[self.DISTANCE_CHANNEL])):
+            for phi_point in range(len(self.sphere[self.DISTANCE_CHANNEL][theta_point])):
+                
+                distance = self.sphere[self.DISTANCE_CHANNEL][theta_point][phi_point]
+                if distance < 1:
+                    #print("distance:", distance)
+                    end_position = self.convert_angle_point_to_cartesian(theta_point=theta_point, phi_point=phi_point, n_theta_points=self.n_theta_points, n_phi_points=self.n_phi_points, distance=distance, current_position=current_position)
+                    line_id = p.addUserDebugLine(lineFromXYZ = current_position, lineToXYZ = end_position, lineColorRGB = [1, 0, 0], lineWidth = 3, lifeTime = 0.1, physicsClientId=self.client_id)
+                    self.debug_lines_id.append(line_id)
+                    
+        return
+    
+    
     def add_position(
         self,
         loitering_munition_position: np.ndarray = np.array([]),
@@ -213,6 +265,9 @@ class LiDAR:
                 current_position,
                 self.__get_flag("LOYAL_WINGMAN"),
             )
+            
+        if self.debug:
+            self.debug_sphere(current_position)    
 
     def get_sphere(self) -> np.ndarray:
         return self.sphere

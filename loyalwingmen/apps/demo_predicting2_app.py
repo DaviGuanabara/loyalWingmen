@@ -19,7 +19,7 @@ from modules.environments.demo_env import DemoEnvironment
 
 model = PPO.load("demo_trained2_model")
 
-env = DemoEnvironment(GUI=True)
+env = DemoEnvironment(GUI=True, debug=True)
 observation, info = env.reset()
 
 for steps in range(50_000):

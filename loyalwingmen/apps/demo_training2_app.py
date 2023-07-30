@@ -2,6 +2,10 @@
 import sys
 sys.path.append("..")
 
+from datetime import datetime
+import os
+
+from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
 from stable_baselines3 import PPO
@@ -20,10 +24,46 @@ import math
 # Setup
 # ===============================================================================
 
+def create_output_folder(experiment_name: str):
+    # Obter a data atual
+    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Criar o nome da pasta com base na data atual
+    #folder_name = f"output/{experiment_name}"
+    folder_name = os.path.join("output", experiment_name)
+
+    # Criar a pasta se ainda não existir
+    os.makedirs(folder_name, exist_ok=True)
+
+    # Retornar o caminho completo para a pasta
+    return folder_name
+
 
 def main():
+    
+    
+
+    
+    
+    device = get_device(device='auto')
+    
+    if os.name == 'posix':
+        device = get_device(device='mps')
+        
+    if os.name == 'nt':
+        device = get_device(device='cuda')
+        
+            
+    output_folder = create_output_folder("demo_training2_app")
+    model_path = os.path.join(output_folder, f"models")
+    log_path = os.path.join(output_folder, f"logs")
+    
+    
     number_of_logical_cores = cpu_count()
     n_envs = number_of_logical_cores
+    
+    print("device", device)
+    print("cpu_count", number_of_logical_cores)
 
     env_fns = []
     for _ in range(n_envs):
@@ -33,8 +73,8 @@ def main():
 
     callback_list = callbacklist(
         vectorized_environment,
-        log_path="./logs/",
-        model_path="./models/",
+        log_path=log_path, #"/output/demo_training2_app/logs/",
+        model_path=model_path, #"/output/demo_training2_app/models/",
         n_envs=n_envs,
         save_freq=100_000,
     )
@@ -52,7 +92,7 @@ def main():
         CustomActorCriticPolicy,  # "CnnPolicy",
         vectorized_environment,
         verbose=0,
-        device="auto",
+        device=device,
         tensorboard_log="./logs/my_first_env/",
         policy_kwargs=policy_kwargs,
         learning_rate=math.pow(10, -7),

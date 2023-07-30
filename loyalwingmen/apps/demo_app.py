@@ -5,6 +5,9 @@ sys.path.append("..")
 from modules.environments.demo_env import DemoEnvironment
 from modules.utils.keyboard_listener import KeyboardListener
 
+import numpy as np
+import time
+
 
 """
 Demo.app is a file made to show a simple execution of an environment.
@@ -40,7 +43,7 @@ if os.name == MACOS:
 # Setup
 # ===============================================================================
 
-env:DemoEnvironment = DemoEnvironment(GUI=True)
+env:DemoEnvironment = DemoEnvironment(GUI=True, debug=True)
 observation, info = env.reset()
 keyboard_listener = KeyboardListener() if os.name != MACOS else None
 
@@ -51,13 +54,17 @@ for steps in range(50_000):
     action = (
         keyboard_listener.get_action(intensity=0.005)
         if keyboard_listener is not None
-        else [1, 0, 0, 0.1]
+        else np.array([.1, 0, 0])
     )
     observation, reward, terminated, truncated, info = env.step(action)
     #env.show_lidar_log()
+    
+    #time.sleep(.2)
 
     if terminated:
         print("Episode terminated")
+        break
+        
 
         # I preferred to remove the reset to be able to make a long test
         # env.reset()

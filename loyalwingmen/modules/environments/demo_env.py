@@ -38,16 +38,22 @@ class DemoEnvironment(Env):
         simulation_frequency: int = 240,
         rl_frequency: int = 60,
         GUI: bool = False,
+        debug: bool = False,
+        
     ):
         #### client #############################################
         if GUI:
             client_id = self.setup_pybulley_GUI()
+            #p.addUserDebugParameter("button",1,0,1)
+            self.debug = debug
+            
 
         else:
             client_id = self.setup_pybullet_DIRECT()
+            self.debug = False
 
         #### Constants #############################################
-        self.setup_Parameteres(simulation_frequency, rl_frequency, client_id)
+        self.setup_Parameteres(simulation_frequency, rl_frequency, client_id, debug)
 
         #### Options ###############################################
         self.RESET_TIME = time.time()
@@ -95,7 +101,7 @@ class DemoEnvironment(Env):
 
         return client_id
 
-    def setup_Parameteres(self, simulation_frequency, rl_frequency, client_id):
+    def setup_Parameteres(self, simulation_frequency, rl_frequency, client_id, debug):
         self.environment_parameters = EnvironmentParameters(
             G=9.8,
             NEIGHBOURHOOD_RADIUS=np.inf,
@@ -106,11 +112,13 @@ class DemoEnvironment(Env):
             client_id=client_id,
             max_distance=100,
             error=0.5,
+            debug=debug
         )
         
     def set_frequency(self, simulation_frequency, rl_frequency):
         self.environment_parameters.simulation_frequency = simulation_frequency
         self.environment_parameters.rl_frequency = rl_frequency
+        
 
             
 
@@ -143,9 +151,17 @@ class DemoEnvironment(Env):
         """Advances the environment by one simulation step.
         Parameters
         ----------
-        action : ndarray | dict[..]
+        rl_action : ndarray | dict[..]
             The input action for one or more drones, translated into RPMs by
             the specific implementation of `_preprocessAction()` in each subclass.
+            this action is a velocity vector that will be converted in unitary vector and intensity to be 
+            used in the PID Controller.
+            It was chosen to use a velocity vector because it is more intuitive to the user. Futhermore, uses no non-linear
+            function as arctan, arccos like in unitary spherical direction and intensity, which brings more stability to the
+            neural network learning.
+            Finally, the use of cartesian direction and intensity can be a problem because it not respect
+            the unitary constraint, meaning that the direction is not unitary.
+            
         Returns
         -------
         ndarray | dict[..]
@@ -162,13 +178,14 @@ class DemoEnvironment(Env):
             in each subclass for its format.
         """
 
-        theta, phi, intensity = np.pi * \
-            rl_action[0], np.pi * rl_action[1], 1 * rl_action[2]
-        radius = 1
-        spherical = np.array([radius, theta, phi])
-        cartesian = np.array(
-            CoordinateConverter.spherical_to_cartesian(spherical))
-        velocity_action = np.append(cartesian, intensity)
+        #theta, phi, intensity = np.pi * \
+        #    rl_action[0], np.pi * rl_action[1], 1 * rl_action[2]
+        #radius = 1
+        #spherical = np.array([radius, theta, phi])
+        #cartesian = np.array(
+        #    CoordinateConverter.spherical_to_cartesian(spherical))
+        #velocity_action = np.append(cartesian, intensity)
+        velocity_action = rl_action
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             # multiple drones not ready. TODO: setup multiple drones
@@ -314,13 +331,25 @@ class DemoEnvironment(Env):
             dtype=np.float32,
         )
         """
-
-        return spaces.Box(
+        
+        
+        #Direction in spherical coordinates and intensity
+        """_return spaces.Box(
             low=np.array([0, -1, 0]),
             high=np.array([1, 1, 1]),
             shape=(3,),
             dtype=np.float32,
         )
+        """
+        
+        #Velocity Vector that will be converted in direction and intensity
+        return spaces.Box(
+            low=np.array([-1, -1, -1]),
+            high=np.array([1, 1, 1]),
+            shape=(3,),
+            dtype=np.float32,
+        )
+        
 
     def _observationSpace(self):
         """Returns the observation space of the environment.

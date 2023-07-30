@@ -41,6 +41,8 @@ def callbacklist(
 
     if CallbackType.EVAL in callbacks_to_include:
         # Check if directories are writable
+        #print(log_path, model_path)
+        #print(log_path, model_path)
         assert os.access(log_path, os.W_OK), "log_path must be a writable directory"
         assert os.access(model_path, os.W_OK), "model_path must be a writable directory"
 
