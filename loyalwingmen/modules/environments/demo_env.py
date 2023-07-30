@@ -36,7 +36,7 @@ class DemoEnvironment(Env):
     def __init__(
         self,
         simulation_frequency: int = 240,
-        rl_frequency: int = 60,
+        rl_frequency: int = 15,
         GUI: bool = False,
         debug: bool = False,
         
