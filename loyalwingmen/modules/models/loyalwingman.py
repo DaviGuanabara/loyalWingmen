@@ -73,7 +73,7 @@ class LoyalWingman(Drone):
             cur_ang_vel=angular_velocity,
             target_pos=position,
             target_rpy=angular_position,
-            target_vel=speed_limit * action,
+            target_vel=5 * speed_limit * action,
         )
 
         return rpm
