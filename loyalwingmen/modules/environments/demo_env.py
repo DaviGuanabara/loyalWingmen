@@ -2,6 +2,7 @@ import time
 
 # import curses
 import random
+import math
 
 import numpy as np
 import pybullet as p
@@ -143,7 +144,8 @@ class DemoEnvironment(Env):
         #### Housekeeping ##########################################
 
         self._housekeeping()
-        return self._computeObs(), self._computeInfo()
+        observation = self._computeObs(self.loyalwingmen[0], self.loyalwingmen, self.loitering_munitions)
+        return observation, self._computeInfo()
 
     ################################################################################
 
@@ -204,8 +206,8 @@ class DemoEnvironment(Env):
 
             p.stepSimulation()
 
-        observation = self._computeObs()
-        reward = self._computeReward()
+        observation = self._computeObs(self.loyalwingmen[0], self.loyalwingmen, self.loitering_munitions)
+        reward = self._computeReward(observation, self.loyalwingmen[0].lidar.radius)
         terminated = self._computeDone()
         info = self._computeInfo()
 
@@ -369,36 +371,182 @@ class DemoEnvironment(Env):
 
     ################################################################################
 
-    def _computeObs(self):
-        lw: LoyalWingman = self.loyalwingmen[0]
-        lm: LoiteringMunition = self.loitering_munitions[0]
+    def _computeObs(self, current_lw, loyalwingmen, loitering_munitions):
+        #lw: LoyalWingman = self.loyalwingmen[0]
+        #lm: LoiteringMunition = self.loitering_munitions[0]
 
-        observation = lw.observation(
+        observation = current_lw.observation(
             loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions
         )
 
+        
         #print("Compute Obs")
         #print(observation.shape)
         return observation
+    
+    import math
 
-    def _computeReward(self):
+    def exponential_with_saturation(self, x, radius, plateau, growth_rate) -> float:
+        """
+        Exponential function with saturation that approaches zero when x is greater than radius,
+        and approaches the plateau value as x approaches 0.
+
+        Params
+        -------
+        x: float
+            The input value.
+        radius: float
+            The radius at which the function should approach zero.
+        plateau: float
+            The plateau value that the function approaches as x approaches 0.
+        growth_rate: float
+            The rate of growth, controlling how fast the function approaches the plateau.
+
+        Returns
+        -------
+        float
+            The value of the exponential function at the given x.
+        """
+
+        if x > radius:
+            return 0.0
+        else:
+            return plateau * (1 - math.exp(-growth_rate * (radius - x)))
+        
+    def rbf_function(self, x, max_value, min_value, sigma, radius, gamma):
+        """
+        Radial Basis Function (RBF) that satisfies the conditions y = plateau for x = 0,
+        and y = 0 for x >= radius.
+
+        Params
+        -------
+        x: float
+            The input value.
+        plateau: float
+            The value of y when x = 0.
+        sigma: float
+            Parameter that controls the smoothness of the function.
+        radius: float
+            The value of x when y = 0.
+        gamma: float
+            Parameter that controls the smoothness of the transition to zero.
+
+        Returns
+        -------
+        float
+            The value of the RBF function at the given x.
+        """
+        return max_value * math.exp(-((x - min_value) / sigma)**2) * math.exp(-((x - radius) / gamma)**2)
+
+    def inverted_sigmoid_decay_function(self, x, radius, steepness=1, min_value=0, max_value=100):
+        """
+        Inverted sigmoid decay function that satisfies the conditions min_value for x >= radius,
+        and max_value for x <= 0.
+        This function is differentiable.
+
+        Params
+        -------
+        x: float
+            The input value.
+        max_value: float
+            The value of y when x <= 0.
+        min_value: float
+            The value of y when x >= radius.
+        radius: float
+            The value of x when y reaches min_value. It is also the parameter used in LiDAR.
+            It aims to get the effect of out the LiDAR range, there is no reward impact.
+        steepness: float
+            Parameter that controls the steepness of the sigmoid decay.
+
+        Returns
+        -------
+        float
+            The value of the inverted sigmoid decay function at the given x.
+        """
+        return min_value + (max_value - min_value) * math.exp(-steepness * (x - radius))
+    
+    def linear_decay_function(self, x, radius, min_value=0, max_value=100):
+        """
+        Linear decay function that satisfies the conditions of outside LiDAR range, the 
+        reward is 0, therefore: min_value for x >= radius.
+        Max value happens when the target is hitted, therefore: max_value for x <= 0.
+        
+        It is differentiable when x >= 0 e x <= radius.
+        """
+        
+        if x >= radius:
+            return min_value
+        
+        else:
+            a = (-1 * (max_value - min_value) / (radius - 0)) 
+            b = max_value
+        
+        return  a * x + b
+        
+
+    def detectable_elements(self, lidar_observation: np.ndarray):
+        """
+        Find elements below one in a 3-dimensional Lidar observation and return a list of tuples.
+
+        This function iterates through a 3-dimensional Lidar observation represented as a nested list
+        and identifies the elements whose values are below 1. It returns a list of tuples, where each
+        tuple contains the channel, theta, phi indices, and the value of the element.
+
+        Params
+        -------
+        lidar_observation: list of lists of lists
+            The 3-dimensional Lidar observation.
+
+        Returns
+        -------
+        list
+            A list of tuples (channel, theta, phi, value) for elements below one.
+        """
+    
+        below_one_list = []
+
+        for channel in range(len(lidar_observation)):
+            
+            for theta in range(len(lidar_observation[channel])):
+                for phi in range(len(lidar_observation[channel][theta])):
+                    value = lidar_observation[channel][theta][phi]
+                    if value < 1:
+                        below_one_list.append((channel, theta, phi, value))
+        
+        return below_one_list            
+
+    def _computeReward(self, observation: np.ndarray, radius:float) -> float:
         penalty = 0
         bonus = 0
 
-        drone_position = self.loyalwingmen[0].kinematics.position
-        target_position = self.loitering_munitions[0].kinematics.position
-        distance = np.linalg.norm(target_position - drone_position)
+        #drone_position = self.loyalwingmen[0].kinematics.position
+        #target_position = self.loitering_munitions[0].kinematics.position
+        #distance = np.linalg.norm(target_position - drone_position)
 
-        if distance > self.environment_parameters.max_distance:
-            penalty += 100_000
+        #if distance > self.environment_parameters.max_distance:
+        #    penalty += 100_000
 
-        if distance < self.environment_parameters.error:
-            bonus += 10_000 * \
-                (self.environment_parameters.error - 1 * distance)
+        #if distance < self.environment_parameters.error:
+        #    bonus += 10_000 * \
+        #        (self.environment_parameters.error - 1 * distance)
 
-        self.last_reward = (5) - 1 * distance + bonus - penalty
+        #self.last_reward = (5) - 1 * distance + bonus - penalty
 
-        return self.last_reward
+        #return self.last_reward
+        min_value = 0
+        max_value = 100
+        elements_below_one = self.detectable_elements(lidar_observation=observation)
+        for element in elements_below_one:
+            channel, theta, phi, value = element
+            if channel == 0:
+                return self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
+                
+                
+            #print(f"Channel: {channel}, Theta: {theta}, Phi: {phi}, Value: {value}")
+    
+        #self.loyalwingmen[0].observation()
+        return min_value
+        
 
     def _computeDone(self):
         drone_position = self.loyalwingmen[0].kinematics.position

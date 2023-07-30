@@ -128,7 +128,7 @@ class Drone(IDrone):
         loyalwingmen: "List[LoyalWingman]" = [],
         loitering_munitions: "List[LoiteringMunition]" = [],
         obstacles: List = [],
-    ):
+    ) -> np.ndarray:
         self.lidar.reset()
 
         for lw in loyalwingmen:

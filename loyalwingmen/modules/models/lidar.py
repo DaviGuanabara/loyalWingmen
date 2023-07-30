@@ -44,6 +44,7 @@ class LiDAR:
         #print("in Lidar, debug:", self.debug)
         self.debug_lines_id = []
 
+        #TODO: fazer um enun com os channels, e atualizar lá no demo.env
         self.channels: int = 2
         self.DISTANCE_CHANNEL = 0
         self.FLAG_CHANNEL = 1
