@@ -225,9 +225,9 @@ def save_results_to_excel(results, output_folder, file_name):
 
 def objective(trial: Trial, output_folder: str, n_timesteps: int) -> float:
     
-    num_hiddens = trial.suggest_int('num_hiddens', 3, 8)
+    num_hiddens = trial.suggest_int('num_hiddens', 3, 4)
     hiddens = [trial.suggest_int(f'hiddens_{i}', 100, 1000) for i in range(num_hiddens)]
-    frequency = trial.suggest_int('frequency', 1, 8) * 15
+    frequency = trial.suggest_int('frequency', 1, 2) * 15
     exponent = trial.suggest_uniform('exponent', -10, -1)
     learning_rate = 10 ** exponent
 
