@@ -1,6 +1,6 @@
 import math
 import numpy as np
-from typing import Tuple
+from typing import Tuple, List
 import pybullet as p
 from gymnasium import spaces
 
@@ -50,7 +50,7 @@ class LiDAR:
         self.debug_lines_id = []
 
         #TODO: fazer um enun com os channels, e atualizar lá no demo.env
-        self.channels: int = 2
+        self.n_channels: int = 2
         
         self.flag_size = 3
 
@@ -68,7 +68,7 @@ class LiDAR:
         self.n_theta_points, self.n_phi_points = self.__count_points(
             radius, resolution)
         self.sphere: np.ndarray = self.__gen_sphere(
-            self.n_theta_points, self.n_phi_points, self.channels
+            self.n_theta_points, self.n_phi_points, self.n_channels
         )
         
         
@@ -295,6 +295,50 @@ class LiDAR:
             shape=sphere.shape,
             dtype=np.float32,
         )
+    
+    def get_features(self) -> List:
+        """
+        Find elements below one in a 3-dimensional Lidar observation and return a list of tuples.
+
+        This function iterates through a 3-dimensional Lidar observation represented as a nested list
+        and identifies the elements whose values are below 1. It returns a list of tuples, where each
+        tuple contains the channel, theta, phi indices, and the value of the element.
+
+        Params
+        -------
+        lidar_observation: list of lists of lists
+            The 3-dimensional Lidar observation.
+
+        Returns
+        -------
+        list
+            A list of tuples (channel, theta, phi, value) for elements below one.
+        """
+    
+        below_one_list = []
+
+        for channel in range(len(self.sphere)):
+            
+            for theta in range(len(self.sphere[channel])):
+                for phi in range(len(self.sphere[channel][theta])):
+                    value = self.sphere[channel][theta][phi]
+                    if value < 1:
+                        below_one_list.append((channel, theta, phi, value))
+        
+        return below_one_list
+    
+    def parameters(self) -> dict:
+        parameters = {}
+        
+        parameters["n_channels"] = self.n_channels
+        parameters["n_theta_points"] = self.n_theta_points
+        parameters["n_phi_points"] = self.n_phi_points
+        
+        parameters["radius"] = self.radius
+        parameters["resolution"] = self.resolution
+        
+        return parameters
+                
 
 
 # ============================================================================================================

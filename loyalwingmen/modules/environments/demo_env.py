@@ -12,7 +12,8 @@ import pybullet_data
 import gymnasium as gym
 from gymnasium import spaces, Env
 
-from modules.factories.drone_factory import DroneFactory, Drone
+from modules.models.drone import Drone, ObservationType, LidarObservationKwargsHints
+from modules.factories.drone_factory import DroneFactory
 from modules.factories.loiteringmunition_factory import (
     LoiteringMunitionFactory,
     LoiteringMunition,
@@ -67,12 +68,7 @@ class DemoEnvironment(Env):
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         loyalwingman: LoyalWingman = self.loyalwingmen[0]
-        self.observation_space = (
-            loyalwingman.lidar.observation_space()
-        )  # self._observationSpace()
-        #print(self.observation_space)
-        #### Demo Debug Setup ##################
-        # self.setup_demo_lidar_log()
+        self.observation_space = loyalwingman.observation_space()
 
     def setup_factories(self):
         env_p = self.environment_parameters
@@ -143,7 +139,7 @@ class DemoEnvironment(Env):
         #### Housekeeping ##########################################
 
         self._housekeeping()
-        observation = self._computeObs(self.loyalwingmen[0], self.loyalwingmen, self.loitering_munitions)
+        observation = self._computeObs()
         return observation, self._computeInfo()
 
     ################################################################################
@@ -205,9 +201,9 @@ class DemoEnvironment(Env):
 
             p.stepSimulation()
 
-        observation = self._computeObs(self.loyalwingmen[0], self.loyalwingmen, self.loitering_munitions)
-        reward = self._computeReward(observation, self.loyalwingmen[0].lidar.radius)
-        terminated = self._computeDone(observation, self.loyalwingmen[0].lidar.radius)
+        observation = self._computeObs()
+        reward = self._computeReward()
+        terminated = self._computeDone()
         info = self._computeInfo()
 
         self.observation = observation
@@ -370,18 +366,24 @@ class DemoEnvironment(Env):
 
     ################################################################################
 
-    def _computeObs(self, current_lw, loyalwingmen, loitering_munitions):
+    def _computeObs(self) -> np.ndarray:
         #lw: LoyalWingman = self.loyalwingmen[0]
         #lm: LoiteringMunition = self.loitering_munitions[0]
-
-        observation = current_lw.observation(
-            loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions
-        )
-
         
-        #print("Compute Obs")
-        #print(observation.shape)
-        return observation
+        lw: LoyalWingman = self.loyalwingmen[0]
+        lm: LoiteringMunition = self.loitering_munitions[0]
+        
+        kwargs = lw.get_observation_kwargs_hints()
+        
+        if type(kwargs) is LidarObservationKwargsHints:
+            kwargs.loyalwingmen = self.loyalwingmen
+            kwargs.loitering_munitions = self.loitering_munitions
+            kwargs.obstacles = []
+
+
+        #TODO: kwargs problem.
+        # TypeError: lidar_observation() got an unexpected keyword argument 'kwargs'
+        return lw.observation(kwargs=kwargs)
     
     import math
 
@@ -482,55 +484,13 @@ class DemoEnvironment(Env):
         
         return  a * x + b
         
+      
 
-    def detectable_elements(self, lidar_observation: np.ndarray):
-        """
-        Find elements below one in a 3-dimensional Lidar observation and return a list of tuples.
-
-        This function iterates through a 3-dimensional Lidar observation represented as a nested list
-        and identifies the elements whose values are below 1. It returns a list of tuples, where each
-        tuple contains the channel, theta, phi indices, and the value of the element.
-
-        Params
-        -------
-        lidar_observation: list of lists of lists
-            The 3-dimensional Lidar observation.
-
-        Returns
-        -------
-        list
-            A list of tuples (channel, theta, phi, value) for elements below one.
-        """
-    
-        below_one_list = []
-
-        for channel in range(len(lidar_observation)):
-            
-            for theta in range(len(lidar_observation[channel])):
-                for phi in range(len(lidar_observation[channel][theta])):
-                    value = lidar_observation[channel][theta][phi]
-                    if value < 1:
-                        below_one_list.append((channel, theta, phi, value))
+    def _computeReward(self) -> float:
         
-        return below_one_list            
-
-    def _computeReward(self, observation: np.ndarray, radius:float) -> float:
+        lw: LoyalWingman = self.loyalwingmen[0]
+        radius = lw.observation_parameters()["radius"]
         
-
-        #drone_position = self.loyalwingmen[0].kinematics.position
-        #target_position = self.loitering_munitions[0].kinematics.position
-        #distance = np.linalg.norm(target_position - drone_position)
-
-        #if distance > self.environment_parameters.max_distance:
-        #    penalty += 100_000
-
-        #if distance < self.environment_parameters.error:
-        #    bonus += 10_000 * \
-        #        (self.environment_parameters.error - 1 * distance)
-
-        #self.last_reward = (5) - 1 * distance + bonus - penalty
-
-        #return self.last_reward
         penalty = 0
         bonus = 0
         
@@ -540,22 +500,21 @@ class DemoEnvironment(Env):
         
         calc_reward = min_value
         
-        elements_below_one = self.detectable_elements(lidar_observation=observation)
-        for element in elements_below_one:
-            channel, theta, phi, value = element
-            if channel == Channels.DISTANCE_CHANNEL.value:
-                calc_reward += self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
-                distance = value * radius
-                if distance  < 1:
-                    #in case he hit the target
-                    calc_reward += 100_000
+        if lw.observation_type == ObservationType.LIDAR:
+            elements_below_one = lw.get_observation_features()
+            for element in elements_below_one:
+                channel, theta, phi, value = element
+                if channel == Channels.DISTANCE_CHANNEL.value:
+                    calc_reward += self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
+                    distance = value * radius
+                    if distance  < 1:
+                        #in case he hit the target
+                        calc_reward += 100_000
         
-        # in case he lost the target        
-        if  calc_reward == 0:
-            calc_reward = -100_000       
-            #print(f"Channel: {channel}, Theta: {theta}, Phi: {phi}, Value: {value}")
-    
-        #self.loyalwingmen[0].observation()
+            # in case he lost the target        
+            if  calc_reward == 0:
+                calc_reward = -100_000       
+
         return calc_reward
         
     """
@@ -586,16 +545,20 @@ class DemoEnvironment(Env):
         
         """
         
-    def _computeDone(self, observation: np.ndarray, radius:float):
+    def _computeDone(self):
 
-
+        lw: LoyalWingman = self.loyalwingmen[0]
+        radius = lw.observation_parameters()["radius"]
+        features = lw.get_observation_features()
+        
         current = time.time()
 
         if current - self.RESET_TIME > 20:
             return True
         
-        elements_below_one = self.detectable_elements(lidar_observation=observation)
-        for element in elements_below_one:
+        
+        
+        for element in features:
             channel, theta, phi, value = element
             if channel == Channels.DISTANCE_CHANNEL.value:
                 distance = value * radius

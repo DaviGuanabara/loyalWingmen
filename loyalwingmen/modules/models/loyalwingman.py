@@ -1,7 +1,7 @@
 import numpy as np
 import pybullet as p
-from modules.models.drone import Drone
-
+from modules.models.drone import Drone, ObservationType
+from dataclasses import dataclass, field, fields
 
 class LoyalWingman(Drone):
 
@@ -89,3 +89,4 @@ class LoyalWingman(Drone):
         else:    
             rpm = self.__preprocessAction(action)
             self.physics(rpm)
+      

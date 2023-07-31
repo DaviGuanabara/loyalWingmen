@@ -12,15 +12,30 @@ from modules.dataclasses.dataclasses import (
     Informations,
     EnvironmentParameters,
 )
+from dataclasses import dataclass, field
 from modules.utils.enums import DroneModel
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Union, Optional
 
+from enum import Enum
+
+
+    
 if TYPE_CHECKING:
     from modules.factories.loyalwingman_factory import LoyalWingman
     from modules.factories.loiteringmunition_factory import LoiteringMunition
 
     #from LoyalWingmen import LoyalWingmen
     #from LoiteringMunition import LoiteringMunition
+    
+@dataclass
+class LidarObservationKwargsHints:
+    loyalwingmen: List["LoyalWingman"] = field(default_factory=list)
+    loitering_munitions: List["LoiteringMunition"] = field(default_factory=list)
+    obstacles: List = field(default_factory=list)
+
+class ObservationType(Enum):
+    LIDAR = 1
+    OTHER_SOURCE = 2    
 
 class Drone(IDrone):
     def __init__(
@@ -32,7 +47,7 @@ class Drone(IDrone):
         informations: Informations,
         control: DSLPIDControl,
         environment_parameters: EnvironmentParameters,
-        lidar: LiDAR,
+        lidar: Union[None, LiDAR] = None,
     ):
         self.id: int = id
         self.client_id: int = environment_parameters.client_id
@@ -44,7 +59,13 @@ class Drone(IDrone):
         self.informations: Informations = informations
         self.control: DSLPIDControl = control
         self.environment_parameters: EnvironmentParameters = environment_parameters
-        self.lidar: LiDAR = lidar
+        
+        if lidar is not None:
+            self.lidar: LiDAR = lidar
+            self.observation_type: ObservationType = ObservationType.LIDAR
+            
+        else :
+            self.observation_type: ObservationType = ObservationType.OTHER_SOURCE    
         
         if self.debug:
             print("Drone created", "debug", environment_parameters.debug)
@@ -119,16 +140,59 @@ class Drone(IDrone):
         kinematics = self.collect_kinematics()
         self.store_kinematics(kinematics)
 
-    def set_lidar_parameters(self, radius: float = 5, resolution: float = 1):
+    #def set_lidar_parameters(self, radius: float = 5, resolution: float = 1):
         #print(self.debug)
-        self.lidar: LiDAR = LiDAR(radius, resolution, client_id=self.client_id, debug=self.debug)
+    #    self.lidar: LiDAR = LiDAR(radius, resolution, client_id=self.client_id, debug=self.debug)
 
-    def observation(
+    
+
+    def observation_space(self):
+            if ObservationType.LIDAR == self.observation_type:
+                return self.lidar.observation_space()
+            
+            else:
+                return self.kinematics.observation_space()
+            
+    def observation(self, *args, **kwargs) -> np.ndarray:
+        
+        """
+        Return the observation of the environment.
+
+        Parameters
+        ----------
+        *args, **kwargs
+            Any additional arguments are passed to lidar_observation when self.observation_type == ObservationType.LIDAR is True.
+            
+        If self.observation_type == ObservationType.LIDAR,
+        then the following parameters are passed to lidar_observation:
+            loyalwingmen: List["LoyalWingman"] = [],
+            loitering_munitions: List["LoiteringMunition"] = [],
+            obstacles: List = [],
+            
+        Otherwise, the following parameters are passed to default_observation:
+            None        
+
+        Returns
+        -------
+        np.ndarray
+            The observation array.
+        """
+        
+        
+        if self.observation_type == ObservationType.LIDAR:
+            return self.lidar_observation(*args, **kwargs)
+        else:
+            return self.default_observation()
+
+    def lidar_observation(
         self,
-        loyalwingmen: "List[LoyalWingman]" = [],
-        loitering_munitions: "List[LoiteringMunition]" = [],
+        loyalwingmen: List["LoyalWingman"] = [],
+        loitering_munitions: List["LoiteringMunition"] = [],
         obstacles: List = [],
     ) -> np.ndarray:
+        
+        #kwargs hints - object not interable. So, i cannot use this approach.
+        #TODO. Fix kward hints, using args.
         self.lidar.reset()
 
         for lw in loyalwingmen:
@@ -150,3 +214,41 @@ class Drone(IDrone):
             )
 
         return self.lidar.get_sphere()
+
+    def default_observation(self) -> np.ndarray:
+        return self.kinematics.observation()
+
+    
+    
+    def get_observation_kwargs_hints(self) -> Optional[Union[LidarObservationKwargsHints, None]]:
+        """
+        Get the kwargs hints for the observation function.
+
+        Returns
+        -------
+        ObservationKwargsHints
+            A dataclass with kwargs hints for the observation function.
+        """
+        hints = None
+        if self.observation_type == ObservationType.LIDAR:
+            hints = LidarObservationKwargsHints()
+            hints.loyalwingmen = []
+            hints.loitering_munitions = []
+            hints.obstacles = []
+        # Add more hints for other observation types if needed.
+        return hints
+    
+    def get_observation_features(self) -> List:
+        
+        if self.observation_type == ObservationType.LIDAR:
+            return self.lidar.get_features()
+        
+        return []
+    
+    def observation_parameters(self) -> dict:
+        parameters = {}
+        if self.observation_type == ObservationType.LIDAR:
+            parameters = self.lidar.parameters()
+            return parameters
+        
+        return parameters

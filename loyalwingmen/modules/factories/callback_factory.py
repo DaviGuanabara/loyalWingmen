@@ -21,12 +21,37 @@ from enum import Enum
 from typing import List
 from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.vec_env import VecEnv
-
+import threading
 
 class CallbackType(Enum):
     EVAL = "eval"
     CHECKPOINT = "checkpoint"
     PROGRESSBAR = "progressbar"
+
+
+# Create a mutex to ensure mutual exclusion during directory creation
+mutex = threading.Lock()
+
+def create_directories_if_not_exist(path: str) -> bool:
+    with mutex:
+        try:
+            # Try to create the directories if they don't exist
+            os.makedirs(path, exist_ok=True)
+            return True
+        except OSError as e:
+            # Handle exceptions if an error occurs while creating directories
+            print(f"Error creating directories at {path}: {e}")
+            return False
+
+def check_directories(path: str, path_name: str) -> bool:
+   
+    # Check if the paths are writable directories
+    try:
+        assert os.access(path, os.W_OK), path_name + " must be a writable directory"
+        return True
+    except AssertionError as e:
+        print(f"Error checking write access: {e}")
+        return False
 
 
 def callbacklist(
@@ -40,11 +65,11 @@ def callbacklist(
     list_callbacks = []
 
     if CallbackType.EVAL in callbacks_to_include:
-        # Check if directories are writable
-        #print(log_path, model_path)
-        #print(log_path, model_path)
-        assert os.access(log_path, os.W_OK), "log_path must be a writable directory"
-        assert os.access(model_path, os.W_OK), "model_path must be a writable directory"
+        create_directories_if_not_exist(log_path)
+        create_directories_if_not_exist(model_path)
+        
+        check_directories(log_path, "log_path")
+        check_directories(model_path, "model_path")
 
         # Check if eval_freq is valid
         assert isinstance(save_freq, int) and save_freq > 0, "save_freq must be a positive integer"
