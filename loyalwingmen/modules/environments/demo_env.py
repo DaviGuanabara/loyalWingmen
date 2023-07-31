@@ -182,6 +182,8 @@ class DemoEnvironment(Env):
         #cartesian = np.array(
         #    CoordinateConverter.spherical_to_cartesian(spherical))
         #velocity_action = np.append(cartesian, intensity)
+        self.current_timestep += 1
+        
         velocity_action = rl_action
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
@@ -258,6 +260,7 @@ class DemoEnvironment(Env):
         """
 
         #### Set PyBullet's parameters #############################
+        
         p.setGravity(
             0,
             0,
@@ -279,6 +282,8 @@ class DemoEnvironment(Env):
 
         self.loyalwingmen = self.setup_loyalwingmen(1)
         self.loitering_munitions = self.setup_loiteringmunition(1)
+        
+        self.current_timestep = 0
 
     def setup_drones(self, factory: DroneFactory, quantity: int = 1) -> List:
         drones: List = []
@@ -479,36 +484,39 @@ class DemoEnvironment(Env):
         
       
 
+ 
+
     def _computeReward(self) -> float:
-        
+        # Constantes
+        MIN_VALUE = 0
+        MAX_VALUE = 100
+        TARGET_HIT_REWARD = 100_000
+        TARGET_LOST_PENALTY = -100_000
+
         lw: LoyalWingman = self.loyalwingmen[0]
         radius = lw.observation_parameters()["radius"]
-        
-        penalty = 0
+
+        penalty = -self.current_timestep
         bonus = 0
-        
-        
-        min_value = 0
-        max_value = 100
-        
-        calc_reward = min_value
-        
-        
-        elements_below_one = lw.get_observation_features()
-        for element in elements_below_one:
+
+        calc_reward = MIN_VALUE
+
+        for element in lw.get_observation_features():
             channel, theta, phi, value = element
             if channel == Channels.DISTANCE_CHANNEL.value:
-                calc_reward += self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
-                distance = value * radius
-                if distance  < 1:
-                    #in case he hit the target
-                    calc_reward += 100_000
-        
-            # in case he lost the target        
-            if  calc_reward == 0:
-                calc_reward = -100_000       
+                # Calcula a recompensa usando uma função de decaimento linear
+                calc_reward += self.linear_decay_function(value, radius, min_value=MIN_VALUE, max_value=MAX_VALUE)
 
-        return calc_reward
+                distance = value * radius
+                if distance < 1:
+                    # Em caso de acerto no alvo
+                    calc_reward += TARGET_HIT_REWARD
+
+        # Caso tenha perdido o alvo
+        if calc_reward == 0:
+            penalty = - TARGET_LOST_PENALTY
+
+        return calc_reward + bonus + penalty 
         
     """
     def _computeDone(self):
@@ -546,7 +554,7 @@ class DemoEnvironment(Env):
         
         current = time.time()
 
-        if current - self.RESET_TIME > 20:
+        if current - self.RESET_TIME > 20: #em sewgundos
             return True
         
         
