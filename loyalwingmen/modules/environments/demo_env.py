@@ -12,7 +12,7 @@ import pybullet_data
 import gymnasium as gym
 from gymnasium import spaces, Env
 
-from modules.models.drone import Drone, ObservationType, LidarObservationKwargsHints
+
 from modules.factories.drone_factory import DroneFactory
 from modules.factories.loiteringmunition_factory import (
     LoiteringMunitionFactory,
@@ -372,18 +372,11 @@ class DemoEnvironment(Env):
         
         lw: LoyalWingman = self.loyalwingmen[0]
         lm: LoiteringMunition = self.loitering_munitions[0]
-        
-        kwargs = lw.get_observation_kwargs_hints()
-        
-        if type(kwargs) is LidarObservationKwargsHints:
-            kwargs.loyalwingmen = self.loyalwingmen
-            kwargs.loitering_munitions = self.loitering_munitions
-            kwargs.obstacles = []
 
 
         #TODO: kwargs problem.
         # TypeError: lidar_observation() got an unexpected keyword argument 'kwargs'
-        return lw.observation(kwargs=kwargs)
+        return lw.observation(loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions, obstacles=[])
     
     import math
 
@@ -500,16 +493,16 @@ class DemoEnvironment(Env):
         
         calc_reward = min_value
         
-        if lw.observation_type == ObservationType.LIDAR:
-            elements_below_one = lw.get_observation_features()
-            for element in elements_below_one:
-                channel, theta, phi, value = element
-                if channel == Channels.DISTANCE_CHANNEL.value:
-                    calc_reward += self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
-                    distance = value * radius
-                    if distance  < 1:
-                        #in case he hit the target
-                        calc_reward += 100_000
+        
+        elements_below_one = lw.get_observation_features()
+        for element in elements_below_one:
+            channel, theta, phi, value = element
+            if channel == Channels.DISTANCE_CHANNEL.value:
+                calc_reward += self.linear_decay_function(value, radius, min_value=min_value, max_value=max_value)
+                distance = value * radius
+                if distance  < 1:
+                    #in case he hit the target
+                    calc_reward += 100_000
         
             # in case he lost the target        
             if  calc_reward == 0:

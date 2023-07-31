@@ -27,11 +27,7 @@ if TYPE_CHECKING:
     #from LoyalWingmen import LoyalWingmen
     #from LoiteringMunition import LoiteringMunition
     
-@dataclass
-class LidarObservationKwargsHints:
-    loyalwingmen: List["LoyalWingman"] = field(default_factory=list)
-    loitering_munitions: List["LoiteringMunition"] = field(default_factory=list)
-    obstacles: List = field(default_factory=list)
+
 
 class ObservationType(Enum):
     LIDAR = 1
@@ -218,26 +214,6 @@ class Drone(IDrone):
     def default_observation(self) -> np.ndarray:
         return self.kinematics.observation()
 
-    
-    
-    def get_observation_kwargs_hints(self) -> Optional[Union[LidarObservationKwargsHints, None]]:
-        """
-        Get the kwargs hints for the observation function.
-
-        Returns
-        -------
-        ObservationKwargsHints
-            A dataclass with kwargs hints for the observation function.
-        """
-        hints = None
-        if self.observation_type == ObservationType.LIDAR:
-            hints = LidarObservationKwargsHints()
-            hints.loyalwingmen = []
-            hints.loitering_munitions = []
-            hints.obstacles = []
-        # Add more hints for other observation types if needed.
-        return hints
-    
     def get_observation_features(self) -> List:
         
         if self.observation_type == ObservationType.LIDAR:
