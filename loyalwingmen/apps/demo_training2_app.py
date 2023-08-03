@@ -79,7 +79,7 @@ def main():
         save_freq=100_000,
     )
 
-    nn_t = [450, 247, 831]
+    nn_t = [589, 323, 473]
     policy_kwargs = dict(
         features_extractor_class=CustomCNN,
         features_extractor_kwargs=dict(features_dim=128),
@@ -95,7 +95,7 @@ def main():
         device=device,
         tensorboard_log="./logs/my_first_env/",
         policy_kwargs=policy_kwargs,
-        learning_rate=math.pow(10, -7),
+        learning_rate=3 * math.pow(10, -4),
     )
 
     print(model.policy)

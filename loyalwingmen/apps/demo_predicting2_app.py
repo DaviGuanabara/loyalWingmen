@@ -25,6 +25,7 @@ observation, info = env.reset()
 for steps in range(50_000):
     action, _ = model.predict(observation)
     observation, reward, terminated, truncated, info = env.step(action)
+    print(reward)
 
     if terminated:
         print("Episode terminated")

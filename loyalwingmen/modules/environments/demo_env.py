@@ -496,7 +496,7 @@ class DemoEnvironment(Env):
         lw: LoyalWingman = self.loyalwingmen[0]
         radius = lw.observation_parameters()["radius"]
 
-        penalty = -self.current_timestep
+        penalty = self.current_timestep
         bonus = 0
 
         calc_reward = MIN_VALUE
