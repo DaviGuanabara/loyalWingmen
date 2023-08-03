@@ -491,7 +491,7 @@ class DemoEnvironment(Env):
         MIN_VALUE = 0
         MAX_VALUE = 100
         TARGET_HIT_REWARD = 100_000
-        TARGET_LOST_PENALTY = -100_000
+        TARGET_LOST_PENALTY = 100_000
 
         lw: LoyalWingman = self.loyalwingmen[0]
         radius = lw.observation_parameters()["radius"]
@@ -514,9 +514,9 @@ class DemoEnvironment(Env):
 
         # Caso tenha perdido o alvo
         if calc_reward == 0:
-            penalty = - TARGET_LOST_PENALTY
+            penalty += TARGET_LOST_PENALTY
 
-        return calc_reward + bonus + penalty 
+        return calc_reward + bonus - penalty 
         
     """
     def _computeDone(self):

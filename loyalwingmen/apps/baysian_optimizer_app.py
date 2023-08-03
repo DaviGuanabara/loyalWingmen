@@ -223,12 +223,12 @@ def save_results_to_excel(results, output_folder, file_name):
 
 
 
-def objective(trial: Trial, output_folder: str, n_timesteps: int) -> float:
+def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str) -> float:
     
     num_hiddens = trial.suggest_int('num_hiddens', 3, 4)
     hiddens = [trial.suggest_int(f'hiddens_{i}', 100, 1000) for i in range(num_hiddens)]
     frequency = trial.suggest_int('frequency', 1, 2) * 15
-    exponent = trial.suggest_uniform('exponent', -10, -1)
+    exponent = trial.suggest_float('exponent', -10, -1)
     learning_rate = 10 ** exponent
 
     
@@ -241,7 +241,7 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int) -> float:
 
     # Salvar os resultados na planilha
     result = (hiddens, frequency, learning_rate, avg_score)
-    save_results_to_excel([result], output_folder, 'simulation_results.xlsx')
+    save_results_to_excel([result], output_folder, f'simulation_results_{study_name}_.xlsx')
 
     return avg_score
 
@@ -258,11 +258,12 @@ def main():
     
     n_timesteps = 1_000_000
     experiment_name = "Optimizer_baysian_app"
+    study_name = "no_physics"
     # Criar a pasta de saída
     output_folder = create_output_folder(experiment_name)
 
-    study = optuna.create_study(direction='maximize', sampler=TPESampler())
-    study.optimize(lambda trial: objective(trial, output_folder, n_timesteps), n_trials=100)
+    study = optuna.create_study(direction='maximize', sampler=TPESampler(), study_name=study_name, storage=f'sqlite:///{output_folder}/optimizer.db')
+    study.optimize(lambda trial: objective(trial, output_folder, n_timesteps, study_name), n_trials=100)
 
     results = []
     for trial in study.trials:
