@@ -38,8 +38,10 @@ class OutputManager:
         return folder_name
 
     @staticmethod
-    def save_results_to_excel(output_folder: str, file_name: str , results: List[Tuple[List[int], int, float, float]]):
+    def save_results_to_excel(output_folder: str, file_name: str , results: List[Tuple[List[int], int, float, float]], headers = ['hiddens', 'frequency', 'learning_rate', 'value']):
+        
         file_path = os.path.join(output_folder, file_name)
+        new_file = False
 
         if os.path.isfile(file_path):
             # Caso o arquivo exista, carregamos o workbook do arquivo para adicionar os resultados
@@ -52,8 +54,13 @@ class OutputManager:
             # Se não houver planilha ativa, criamos uma nova planilha e a definimos como ativa
             workbook.create_sheet()
             workbook.active = 0  # Definir a primeira planilha como ativa
+            new_file = True
 
         sheet: Worksheet = workbook.active # type: ignore
+        
+        if new_file:
+            # Se o arquivo for novo, adicionamos os cabeçalhos
+            sheet.append(headers)
 
         for result in results:
             hiddens_str = ', '.join(str(x) for x in result[0])

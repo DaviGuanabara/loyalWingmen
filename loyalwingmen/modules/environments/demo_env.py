@@ -579,9 +579,7 @@ class DemoEnvironment(Env):
 
     def _normalizeVelocity(self, velocity: np.ndarray):
         MAX_Velocity = 5
-        normalized_velocity = (
-            np.clip(velocity, -MAX_Velocity, MAX_Velocity) / MAX_Velocity
-        )
+        normalized_velocity = (np.clip(velocity, -MAX_Velocity, MAX_Velocity) / MAX_Velocity)
         return normalized_velocity
 
     def _normalizePosition(self, position: np.ndarray):
