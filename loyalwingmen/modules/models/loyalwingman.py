@@ -82,11 +82,46 @@ class LoyalWingman(Drone):
     # Public
     # =================================================================================================================
 
-    def apply_velocity_action(self, action, only_velocity=True):
+    def apply_velocity_action(self, velocity, only_velocity=True):
         if only_velocity:
-            p.resetBaseVelocity(self.id, linearVelocity=action)
-            #(self.id, action)
+            
+            p.resetBaseVelocity(self.id, linearVelocity=velocity, angularVelocity=[0, 0, 0], physicsClientId=self.client_id)
+            weigth = self.environment_parameters.G * self.parameters.M
+            self.apply_force(np.array([0, 0, weigth]))
+            self.apply_velocity(velocity=velocity, angular_velocity=np.array([0, 0, 0]))
+            
         else:    
-            rpm = self.__preprocessAction(action)
+            rpm = self.__preprocessAction(velocity)
             self.physics(rpm)
-      
+    
+    def apply_frozen_behavior(self):
+        weigth = self.environment_parameters.G * self.parameters.M
+        self.apply_force(np.array([0, 0, weigth]))
+        self.apply_velocity(velocity=np.array([0, 0, 0]), angular_velocity=np.array([0, 0, 0]))
+
+    def apply_constant_velocity_behavior(self):
+        self.apply_frozen_behavior()
+        self.apply_velocity(
+            velocity=np.array([.1, .1, 0]), angular_velocity=np.array([0, 0, 0]))
+
+    def apply_force(self, force):
+        p.applyExternalForce(
+            self.id,
+            -1,
+            forceObj=force,
+            posObj=[0, 0, 0],
+            flags=p.LINK_FRAME,
+            physicsClientId=self.environment_parameters.client_id,
+        )
+    
+    def apply_velocity(
+        self,
+        velocity: np.ndarray,
+        angular_velocity: np.ndarray,
+    ):
+        p.resetBaseVelocity(
+            self.id,
+            velocity,
+            angular_velocity,
+            physicsClientId=self.environment_parameters.client_id,
+        )

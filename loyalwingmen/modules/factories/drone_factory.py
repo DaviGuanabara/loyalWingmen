@@ -122,7 +122,7 @@ class DroneFactory(IDroneFactory):
             model, parameters, environment_parameters, urdf_path=urdf_file_path
         )
 
-    def __compute_LiDAR(self, radius: float = 5, resolution: float = 1) -> LiDAR:
+    def __compute_LiDAR(self, radius: float = 5, resolution: float = 2) -> LiDAR:
         #print("LiDAR created in drone_factory.py", "debug", self.debug)
         lidar: LiDAR = LiDAR(radius, resolution, client_id=self.client_id, debug=self.debug)
         

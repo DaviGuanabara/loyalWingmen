@@ -4,6 +4,9 @@ import time
 import random
 import math
 
+from pynput.keyboard import Key, KeyCode
+from collections import defaultdict
+
 import numpy as np
 import pybullet as p
 import pybullet_data
@@ -464,7 +467,8 @@ class DemoEnvironment(Env):
         """
         return min_value + (max_value - min_value) * math.exp(-steepness * (x - radius))
     
-    def linear_decay_function(self, x, radius, min_value=0, max_value=100):
+    @staticmethod
+    def linear_decay_function(x, min_value=0, max_value=100):
         """
         Linear decay function that satisfies the conditions of outside LiDAR range, the 
         reward is 0, therefore: min_value for x >= radius.
@@ -473,12 +477,9 @@ class DemoEnvironment(Env):
         It is differentiable when x >= 0 e x <= radius.
         """
         
-        if x >= radius:
-            return min_value
-        
-        else:
-            a = (-1 * (max_value - min_value) / (radius - 0)) 
-            b = max_value
+
+        a = (-1 * (max_value - min_value)) 
+        b = max_value
         
         return  a * x + b
         
@@ -500,12 +501,12 @@ class DemoEnvironment(Env):
         bonus = 0
 
         calc_reward = MIN_VALUE
-
+        distance = 0
         for element in lw.get_observation_features():
             channel, theta, phi, value = element
             if channel == Channels.DISTANCE_CHANNEL.value:
                 
-                calc_reward += self.linear_decay_function(value, radius, min_value=MIN_VALUE, max_value=MAX_VALUE)
+                calc_reward += self.linear_decay_function(value, min_value=MIN_VALUE, max_value=MAX_VALUE)
 
                 distance = value * radius
                 if distance < 1:
@@ -515,6 +516,7 @@ class DemoEnvironment(Env):
         if calc_reward == MIN_VALUE:
             penalty += TARGET_LOST_PENALTY
 
+        print(lw.get_observation_features()[0], calc_reward + bonus - penalty, calc_reward, bonus, penalty, distance)
         return calc_reward + bonus - penalty 
         
     """
@@ -561,9 +563,13 @@ class DemoEnvironment(Env):
         for element in features:
             channel, theta, phi, value = element
             if channel == Channels.DISTANCE_CHANNEL.value:
-                distance = value * radius
-                if distance < 1:
+                
+                
+                if value < 0.1: #se chegar a 10% de distancia do alvo
                     return True
+                
+                distance = value * radius
+                
                 if distance < radius:
                     return False
 
@@ -602,6 +608,24 @@ class DemoEnvironment(Env):
             np.clip(distance, -MAX_DISTANCE, MAX_DISTANCE) / MAX_DISTANCE
         )
         return normalized_distance
+
+    
+
+    def get_keymap(self):
+        keycode = KeyCode()
+        default_action = [0, 0, 0]  # Modify this to your actual default action
+
+        key_map = defaultdict(lambda: default_action)
+        key_map.update({
+            Key.up: [0, 1, 0],
+            Key.down: [0, -1, 0],
+            Key.left: [-1, 0, 0],
+            Key.right: [1, 0, 0],
+            keycode.from_char("w"): [0, 0, 1],
+            keycode.from_char("s"): [0, 0, -1],
+        })
+        
+        return key_map
 
     #####################################################################################################
     # Log

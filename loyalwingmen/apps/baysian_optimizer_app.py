@@ -26,14 +26,14 @@ from typing import Optional, Union
 
 class OutputManager:
     BASE_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
-    APPS_OUTPUT_DIR = os.path.join(BASE_DIR, "apps_output")
-    LOG_DIR = os.path.join(APPS_OUTPUT_DIR, "logs")
-    MODEL_DIR = os.path.join(APPS_OUTPUT_DIR, "models")
+    OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
+    LOG_DIR = os.path.join(OUTPUT_DIR, "logs")
+    MODEL_DIR = os.path.join(OUTPUT_DIR, "models")
 
     @staticmethod
     def create_output_folder(experiment_name: str):
         current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        folder_name = os.path.join(OutputManager.APPS_OUTPUT_DIR, experiment_name, current_time)
+        folder_name = os.path.join(OutputManager.OUTPUT_DIR, experiment_name, current_time)
         os.makedirs(folder_name, exist_ok=True)
         return folder_name
 

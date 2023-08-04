@@ -1,68 +1,30 @@
+from typing import Optional, Dict, Union
 from pynput import keyboard
-
-from pynput.keyboard import KeyCode
+from pynput.keyboard import Key, KeyCode
 
 
 class KeyboardListener:
-    def __init__(self):
-        self.collect_events()
-        self.key = keyboard.Key.end  # self.k = "{0}".format("0")
-        self.keycode = KeyCode()
-
-    def on_press(self, key):
-        try:
-            # print("alphanumeric key {0} pressed".format(key.char))
-            self.key = key  # self.k = "{0}".format(key.char)
-        except AttributeError:
-            # print("special key {0} pressed".format(key))
-            self.key = key  # self.k = "{0}".format(key)
-
-    def on_release(self, key):
-        # print("{0} released".format(key))
-        if key == keyboard.Key.esc:
-            # Stop listener
-            return False
-
-        self.key = keyboard.Key.end  # key  # = "{0}".format("0")
-
-    def collect_events(self):
-        # Collect events until released
-        # with keyboard.Listener(
-        #    on_press=self.on_press, on_release=self.on_release
-        # ) as listener:
-        # listener.join()
-
-        # ...or, in a non-blocking fashion:
-        listener = keyboard.Listener(
+    def __init__(self, keymap: Dict[Union[Key, KeyCode], list]):
+        self.key_map = keymap
+        self.key: Optional[Union[Key, KeyCode]] = None
+        self.listener = keyboard.Listener(
             on_press=self.on_press, on_release=self.on_release)
-        listener.start()
+        self.listener.start()
 
-    def get_action(self, intensity=0.005):
-        if self.key == keyboard.Key.up:
-            return [0, 1, 0, intensity]
-
-        if self.key == keyboard.Key.down:
-            return [0, -1, 0, intensity]
-
-        if self.key == keyboard.Key.left:
-            return [-1, 0, 0, intensity]
-
-        if self.key == keyboard.Key.right:
-            return [1, 0, 0, intensity]
-
-        if self.key == self.keycode.from_char("w"):
-            return [0, 0, 1, intensity]
-
-        if self.key == self.keycode.from_char("s"):
-            return [0, 0, -1, intensity]
-
+    def on_press(self, key: Union[Key, KeyCode, None]):
+        if key in self.key_map:
+            self.key = key
         else:
-            return [0, 0, 0, intensity]
+            self.key = None
 
-        # return self.k
+    def on_release(self, key: Union[Key, KeyCode, None]):
+        self.key = None
+        if key == keyboard.Key.esc:
+            self.listener.stop()
 
-
-# kl = KeyboardListener()
-# while True:
-#    k = kl.get_action()
-#    print(k)
+    def get_action(self) -> list:
+        if self.key is not None:
+            action = self.key_map[self.key]
+        else:
+            action = [0, 0, 0]
+        return action

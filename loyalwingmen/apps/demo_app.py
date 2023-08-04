@@ -45,21 +45,23 @@ if os.name == MACOS:
 
 env:DemoEnvironment = DemoEnvironment(GUI=True, debug=True)
 observation, info = env.reset()
-keyboard_listener = KeyboardListener() if os.name != MACOS else None
 
+keyboard_listener = KeyboardListener(env.get_keymap()) if os.name != MACOS else None
+
+if keyboard_listener is None:
+    print("KeyboardListener is not working on MacOS")
 # ===============================================================================
 # Execution
 # ===============================================================================
 for steps in range(50_000):
     action = (
-        keyboard_listener.get_action(intensity=0.005)
+        keyboard_listener.get_action()
         if keyboard_listener is not None
         else np.array([.1, 0, 0])
     )
-    observation, reward, terminated, truncated, info = env.step(action)
-    #env.show_lidar_log()
     
-    #time.sleep(.2)
+    observation, reward, terminated, truncated, info = env.step(action)
+    #print(f"action: {action}, reward: {reward}, terminated: {terminated}, truncated: {truncated}, info: {info}")
 
     if terminated:
         print("Episode terminated")
