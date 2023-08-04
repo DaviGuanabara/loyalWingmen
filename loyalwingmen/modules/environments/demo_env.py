@@ -490,13 +490,13 @@ class DemoEnvironment(Env):
         # Constantes
         MIN_VALUE = 0
         MAX_VALUE = 100
-        TARGET_HIT_REWARD = 100_000
+        TARGET_HIT_BONUS = 100_000
         TARGET_LOST_PENALTY = 100_000
 
         lw: LoyalWingman = self.loyalwingmen[0]
         radius = lw.observation_parameters()["radius"]
 
-        penalty = self.current_timestep
+        penalty = 0 #self.current_timestep
         bonus = 0
 
         calc_reward = MIN_VALUE
@@ -504,16 +504,15 @@ class DemoEnvironment(Env):
         for element in lw.get_observation_features():
             channel, theta, phi, value = element
             if channel == Channels.DISTANCE_CHANNEL.value:
-                # Calcula a recompensa usando uma função de decaimento linear
+                
                 calc_reward += self.linear_decay_function(value, radius, min_value=MIN_VALUE, max_value=MAX_VALUE)
 
                 distance = value * radius
                 if distance < 1:
-                    # Em caso de acerto no alvo
-                    calc_reward += TARGET_HIT_REWARD
+                    bonus += TARGET_HIT_BONUS
 
         # Caso tenha perdido o alvo
-        if calc_reward == 0:
+        if calc_reward == MIN_VALUE:
             penalty += TARGET_LOST_PENALTY
 
         return calc_reward + bonus - penalty 

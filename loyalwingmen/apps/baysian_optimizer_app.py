@@ -23,6 +23,49 @@ from gymnasium import Env
 from gymnasium import spaces, Env
 from typing import Optional, Union
 
+
+class OutputManager:
+    BASE_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+    APPS_OUTPUT_DIR = os.path.join(BASE_DIR, "apps_output")
+    LOG_DIR = os.path.join(APPS_OUTPUT_DIR, "logs")
+    MODEL_DIR = os.path.join(APPS_OUTPUT_DIR, "models")
+
+    @staticmethod
+    def create_output_folder(experiment_name: str):
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        folder_name = os.path.join(OutputManager.APPS_OUTPUT_DIR, experiment_name, current_time)
+        os.makedirs(folder_name, exist_ok=True)
+        return folder_name
+
+    @staticmethod
+    def save_results_to_excel(output_folder: str, file_name: str , results: List[Tuple[List[int], int, float, float]]):
+        file_path = os.path.join(output_folder, file_name)
+
+        if os.path.isfile(file_path):
+            # Caso o arquivo exista, carregamos o workbook do arquivo para adicionar os resultados
+            workbook = load_workbook(file_path)
+        else:
+            # Caso o arquivo não exista, criamos um novo workbook
+            workbook = Workbook()
+
+        if workbook.active is None:
+            # Se não houver planilha ativa, criamos uma nova planilha e a definimos como ativa
+            workbook.create_sheet()
+            workbook.active = 0  # Definir a primeira planilha como ativa
+
+        sheet: Worksheet = workbook.active # type: ignore
+
+        for result in results:
+            hiddens_str = ', '.join(str(x) for x in result[0])
+            sheet.append([hiddens_str, result[1], result[2], result[3]])
+
+        try:
+            workbook.save(file_path)
+        except PermissionError:
+            logging.error(f"Não foi possível salvar o arquivo '{file_name}'. Permissão negada.")
+        except Exception as e:
+            logging.error(f"Erro ocorrido ao salvar os resultados: {e}")
+
 # Ignorar o aviso específico
 #warnings.filterwarnings("ignore", message="WARN: Box bound precision lowered by casting to float32")
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -33,20 +76,24 @@ warnings.filterwarnings("ignore", category=UserWarning)
 # Configurando o logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
+# Configurando o logger
+"""
 def create_output_folder(experiment_name: str):
     # Obter a data atual
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Criar o nome da pasta com base na data atual
-    #folder_name = f"output/{experiment_name}"
-    folder_name = os.path.join("output", experiment_name)
+    # Obter o diretório pai do diretório atual
+    parent_directory = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+
+    # Criar o nome da pasta com base na data atual e o experiment_name no diretório pai
+    folder_name = os.path.join(parent_directory, "apps_output", experiment_name)
 
     # Criar a pasta se ainda não existir
     os.makedirs(folder_name, exist_ok=True)
 
     # Retornar o caminho completo para a pasta
     return folder_name
+"""
 
 
 def create_vectorized_environment(n_envs: int, frequency: int) -> VecMonitor:
@@ -107,8 +154,11 @@ def save_model(model: PPO, hiddens: list, frequency: int, learning_rate: float, 
     model_path = os.path.join(model_dir, "my_model")
     model.save(model_path)
     logging.info(f"Model saved at: {model_path}")
+    
 
-def evaluate_with_dynamic_episodes(model, env, max_episodes=500, target_std=0.1, tolerance=0.01, deterministic=True):
+    
+    
+def evaluate_with_dynamic_episodes(model, env, max_episodes=200, target_std=20_000, tolerance=10_000, deterministic=True):
     """
     Evaluate the performance of a reinforcement learning model on a given environment with dynamically adjusted
     evaluation episodes.
@@ -128,25 +178,44 @@ def evaluate_with_dynamic_episodes(model, env, max_episodes=500, target_std=0.1,
                used for evaluation.
 
     """
-    num_episodes = 10  # Start with a small number of episodes
-    avg_rewards, std_devs = evaluate_policy(model, env, n_eval_episodes=num_episodes, deterministic=deterministic)
-    avg_reward = sum(avg_rewards) / len(avg_rewards) if isinstance(avg_rewards, list) else avg_rewards
-    std_dev: float = sum(std_devs) / len(std_devs) if isinstance(std_devs, list) else std_devs
-    
-    # Continue evaluating until the standard deviation is below the target threshold or the maximum episodes is reached
-    while std_dev > target_std and num_episodes < max_episodes:
-        num_episodes *= 2  # Double the number of episodes
-        avg_rewards, std_devs = evaluate_policy(model, env, n_eval_episodes=num_episodes, deterministic=deterministic)
-        avg_reward = sum(avg_rewards) / len(avg_rewards) if isinstance(avg_rewards, list) else avg_rewards
-        std_dev: float = sum(std_devs) / len(std_devs) if isinstance(std_devs, list) else std_devs
+    print("Evaluating the model's performance...")
 
-        # Check for convergence within the specified tolerance
+    # Começar com um número maior de episódios para uma avaliação inicial abrangente
+    n_eval_episodes = 50
+    num_episodes = n_eval_episodes
+    all_rewards = []
+
+    while num_episodes < max_episodes:
+        print(f"Running {n_eval_episodes} evaluation episodes...")
+        episode_rewards, episode_lengths = evaluate_policy(model, env, render=False, n_eval_episodes=n_eval_episodes, return_episode_rewards=True, deterministic=deterministic)
+        all_rewards.extend(episode_rewards if isinstance(episode_rewards, list) else [episode_rewards])
+        std_dev = np.std(all_rewards)
+        num_episodes += n_eval_episodes
+        print(f"conclusion: {num_episodes} episodes, std_dev: {std_dev}")
+        #print("num_episodes:", num_episodes, "std_dev:", std_dev)
+        
+        # Verificar a convergência dentro da tolerância especificada
         if abs(std_dev - target_std) < tolerance:
+            print("Performance converged within tolerance.")
             break
+        else:
+            print("Performance not converged yet. Running more evaluation episodes...")
 
-    return avg_reward, std_dev, num_episodes
+    if num_episodes >= max_episodes:
+        print("Maximum number of evaluation episodes reached.")
+        
+
+    avg_reward = sum(all_rewards) / len(all_rewards)
+    std_dev = np.std(all_rewards)
+    
+    print(f"Average reward: {avg_reward:.2f} +/- {std_dev:.2f} over {len(all_rewards)} episodes")
+    return avg_reward, std_dev, len(all_rewards)
+
+
+    
 
 def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: float, num_evaluations: int, output_folder: str, n_timesteps: int) -> float:
+    print(f"Running simulation with hiddens={hiddens}, frequency={frequency}, learning_rate={learning_rate}")
     number_of_logical_cores = os.cpu_count()
     n_envs: int = number_of_logical_cores if number_of_logical_cores is not None else 1
 
@@ -177,7 +246,7 @@ def generate_random_parameters() -> Tuple[list, int, float]:
 
 
 
-
+"""	
 def save_results_to_excel(results, output_folder, file_name):
     # Construir o caminho completo do arquivo
     file_path = os.path.join(output_folder, file_name)
@@ -218,7 +287,7 @@ def save_results_to_excel(results, output_folder, file_name):
     #for result in results:
     #    sheet.append(result)
 
-
+"""
 
 
 
@@ -238,10 +307,13 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: st
     print("Learning Rate: ", learning_rate)
 
     avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, num_evaluations=100, output_folder=output_folder, n_timesteps=n_timesteps)
-
+    print(avg_score)
     # Salvar os resultados na planilha
     result = (hiddens, frequency, learning_rate, avg_score)
-    save_results_to_excel([result], output_folder, f'simulation_results_{study_name}_.xlsx')
+    print("saving results")
+    file_name = f"results_{study_name}.xlsx"
+    OutputManager.save_results_to_excel(output_folder, file_name, [result])
+    print("results saved")
 
     return avg_score
 
@@ -260,7 +332,7 @@ def main():
     experiment_name = "Optimizer_baysian_app"
     study_name = "no_physics"
     # Criar a pasta de saída
-    output_folder = create_output_folder(experiment_name)
+    output_folder = OutputManager.create_output_folder(experiment_name)
 
     study = optuna.create_study(direction='maximize', sampler=TPESampler(), study_name=study_name, storage=f'sqlite:///{output_folder}/optimizer.db')
     study.optimize(lambda trial: objective(trial, output_folder, n_timesteps, study_name), n_trials=100)
