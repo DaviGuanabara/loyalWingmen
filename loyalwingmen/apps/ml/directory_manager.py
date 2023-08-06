@@ -1,0 +1,103 @@
+import os
+import sys
+sys.path.append("..")
+import logging
+
+from scipy.stats import randint, uniform
+from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
+from stable_baselines3.common.evaluation import evaluate_policy
+from modules.environments.demo_env import DemoEnvironment
+from modules.models.policy import CustomActorCriticPolicy, CustomCNN
+from modules.factories.callback_factory import callbacklist, CallbackType
+from typing import List, Tuple
+from datetime import datetime
+
+from openpyxl import load_workbook, Workbook
+from openpyxl.worksheet.worksheet import Worksheet
+import numpy as np
+from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.vec_env import VecEnv
+from typing import Tuple
+
+
+class DirectoryManager:
+
+    @staticmethod
+    def find_base_dir(current_path: str, target_dir: str = "loyalwingmen", debug: bool = True) -> str:
+        if debug:
+            logging.basicConfig(level=logging.DEBUG)
+
+        iterations = 0
+        max_iterations = 5
+
+        while iterations < max_iterations:
+            current_path, base_dir = os.path.split(current_path)
+
+            logging.debug(f"Current path: {current_path}")
+            logging.debug(f"Base dir: {base_dir}")
+
+            if base_dir == target_dir:
+                path = os.path.join(current_path, base_dir)
+                logging.debug(f"path: {os.path.join(current_path, base_dir)}")
+                return path
+
+            has_reached_root = True if not current_path or current_path == os.path.sep else False
+            has_reached_max_interations = iterations == max_iterations - 1
+            if has_reached_root or has_reached_max_interations:
+                script_directory = os.path.dirname(os.path.abspath(__file__))
+                return script_directory
+
+            iterations += 1
+
+        # This line should not be reached, but it's here as a safety measure
+        logging.warning("Unexpected termination of loop.")
+        return ""
+
+
+
+    @staticmethod
+    def get_base_dir() -> str:
+        path = os.path.abspath(__file__)
+        base_dir = DirectoryManager.find_base_dir(path)
+        if not base_dir:
+            logging.error("Could not find base dir")
+        
+        return base_dir
+
+    @staticmethod
+    def get_output_dir() -> str:
+        base_dir = DirectoryManager.get_base_dir()
+        logging.debug(f"(get_output_dir) base_dir: {base_dir}")
+        
+        outputs_dir = os.path.join(base_dir, "outputs")
+        
+        if not os.path.exists(outputs_dir):
+            os.makedirs(outputs_dir)
+
+        logging.debug(f"(get_output_dir) outputs_dir: {outputs_dir}")
+        return outputs_dir
+
+    @staticmethod
+    def get_logs_dir() -> str:
+        outputs_dir = DirectoryManager.get_output_dir()
+        log_dir = os.makedirs(os.path.join(outputs_dir, "logs"), exist_ok=True)
+        logging.debug(f"(get_logs_dir) outputs_dir: {outputs_dir}")
+        return log_dir if log_dir else ""
+
+    @staticmethod
+    def get_models_dir() -> str:
+        output_dir = DirectoryManager.get_output_dir()
+        logging.debug(f"(get_models_dir) outputs_dir: {output_dir}")
+        models_dir = os.makedirs(os.path.join(output_dir, "models"), exist_ok=True)
+        return models_dir if models_dir else ""
+
+    @staticmethod
+    def create_output_folder(experiment_name: str, output_dir: str = "") -> str:
+        output_dir = DirectoryManager.get_output_dir() if not output_dir else output_dir
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        folder_name = os.path.join(output_dir, experiment_name, current_time)
+        os.makedirs(folder_name, exist_ok=True)
+        return folder_name
+    
+

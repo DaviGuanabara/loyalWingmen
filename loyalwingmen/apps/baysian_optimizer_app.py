@@ -22,201 +22,17 @@ import warnings
 from gymnasium import Env
 from gymnasium import spaces, Env
 from typing import Optional, Union
+from ml.pipeline import ReinforcementLearningPipeline
+from ml.directory_manager import DirectoryManager
 
 
-class OutputManager:
-    BASE_DIR = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
-    OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
-    LOG_DIR = os.path.join(OUTPUT_DIR, "logs")
-    MODEL_DIR = os.path.join(OUTPUT_DIR, "models")
-
-    @staticmethod
-    def create_output_folder(experiment_name: str):
-        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        folder_name = os.path.join(OutputManager.OUTPUT_DIR, experiment_name, current_time)
-        os.makedirs(folder_name, exist_ok=True)
-        return folder_name
-
-    @staticmethod
-    def save_results_to_excel(output_folder: str, file_name: str , results: List[Tuple[List[int], int, float, float]], headers = ['hiddens', 'frequency', 'learning_rate', 'value']):
-        
-        file_path = os.path.join(output_folder, file_name)
-        new_file = False
-
-        if os.path.isfile(file_path):
-            # Caso o arquivo exista, carregamos o workbook do arquivo para adicionar os resultados
-            workbook = load_workbook(file_path)
-        else:
-            # Caso o arquivo não exista, criamos um novo workbook
-            workbook = Workbook()
-
-        if workbook.active is None:
-            # Se não houver planilha ativa, criamos uma nova planilha e a definimos como ativa
-            workbook.create_sheet()
-            workbook.active = 0  # Definir a primeira planilha como ativa
-            new_file = True
-
-        sheet: Worksheet = workbook.active # type: ignore
-        
-        if new_file:
-            # Se o arquivo for novo, adicionamos os cabeçalhos
-            sheet.append(headers)
-
-        for result in results:
-            hiddens_str = ', '.join(str(x) for x in result[0])
-            sheet.append([hiddens_str, result[1], result[2], result[3]])
-
-        try:
-            workbook.save(file_path)
-        except PermissionError:
-            logging.error(f"Não foi possível salvar o arquivo '{file_name}'. Permissão negada.")
-        except Exception as e:
-            logging.error(f"Erro ocorrido ao salvar os resultados: {e}")
-
-# Ignorar o aviso específico
 #warnings.filterwarnings("ignore", message="WARN: Box bound precision lowered by casting to float32")
 warnings.filterwarnings("ignore", category=UserWarning)
-
-# Seu código aqui
-
-
-# Configurando o logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Configurando o logger
-"""
-def create_output_folder(experiment_name: str):
-    # Obter a data atual
-    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    # Obter o diretório pai do diretório atual
-    parent_directory = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
-
-    # Criar o nome da pasta com base na data atual e o experiment_name no diretório pai
-    folder_name = os.path.join(parent_directory, "apps_output", experiment_name)
-
-    # Criar a pasta se ainda não existir
-    os.makedirs(folder_name, exist_ok=True)
-
-    # Retornar o caminho completo para a pasta
-    return folder_name
-"""
-
-
-def create_vectorized_environment(n_envs: int, frequency: int) -> VecMonitor:
-    
-    #TODO: type hint problem. but thats not a problem at al.
-
-    env_fns = [lambda: DemoEnvironment(rl_frequency=frequency) for _ in range(n_envs)]
-    vectorized_environment = SubprocVecEnv(env_fns) # type: ignore
-    vectorized_environment = VecMonitor(vectorized_environment)
-    return vectorized_environment
-
-def create_callback_list(n_envs: int, vectorized_environment: VecMonitor, model_dir: str, log_dir: str, callbacks_to_include: List[CallbackType] = [CallbackType.EVAL, CallbackType.CHECKPOINT, CallbackType.PROGRESSBAR]):
-    
-    #log_path = "./logs/"
-    #model_path = "./models/"
-    save_freq = 100_000
-    callback_list = callbacklist(
-        vectorized_environment,
-        log_path=log_dir,
-        model_path=model_dir,
-        n_envs=n_envs,
-        save_freq=save_freq,
-        callbacks_to_include=callbacks_to_include
-    )
-    return callback_list
-
-def create_policy_kwargs(hiddens: list, learning_rate: float) -> dict:
-    policy_kwargs = dict(
-        features_extractor_class=CustomCNN,
-        features_extractor_kwargs=dict(features_dim=128),
-        normalize_images=False,
-        net_arch=dict(pi=hiddens, vf=hiddens)
-    )
-    return policy_kwargs
-
-def create_model(vectorized_environment: VecMonitor, policy_kwargs: dict, learning_rate: float) -> PPO:
-    tensorboard_log = "./logs/my_first_env/"
-    model = PPO(
-        CustomActorCriticPolicy,
-        vectorized_environment,
-        verbose=0,
-        device="auto",
-        tensorboard_log=tensorboard_log,
-        policy_kwargs=policy_kwargs,
-        learning_rate=learning_rate,
-    )
-    return model
-
-def train_model(model: PPO, callback_list, n_timesteps: int = 1_000_000) -> PPO:
-    model.learn(total_timesteps=n_timesteps, callback=callback_list)
-    return model
-
-def save_model(model: PPO, hiddens: list, frequency: int, learning_rate: float, output_folder: str):
-    folder_name = f"model_{hiddens}_{frequency}_{learning_rate}"
-    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-    model_dir = os.path.join(output_folder, f"models_{folder_name}_{current_time}")
-    os.makedirs(model_dir, exist_ok=True)
-    model_path = os.path.join(model_dir, "my_model")
-    model.save(model_path)
-    logging.info(f"Model saved at: {model_path}")
-    
-
     
     
-def evaluate_with_dynamic_episodes(model, env, max_episodes=200, target_std=20_000, tolerance=10_000, deterministic=True):
-    """
-    Evaluate the performance of a reinforcement learning model on a given environment with dynamically adjusted
-    evaluation episodes.
 
-    Args:
-        model (BaseAlgorithm): The trained reinforcement learning agent model to be evaluated.
-        env (gym.Env): The evaluation environment compatible with Stable Baselines3.
-        max_episodes (int, optional): The maximum number of evaluation episodes to run. Defaults to 500.
-        target_std (float, optional): The target standard deviation of rewards for performance convergence.
-                                      Defaults to 0.1.
-        tolerance (float, optional): The tolerance level for considering performance convergence. Defaults to 0.01.
-        deterministic (bool, optional): If True, the agent will use deterministic actions during evaluation.
-                                        Defaults to True.
-
-    Returns:
-        tuple: A tuple containing the average reward, standard deviation of rewards, and the final number of episodes
-               used for evaluation.
-
-    """
-    print("Evaluating the model's performance...")
-
-    # Começar com um número maior de episódios para uma avaliação inicial abrangente
-    n_eval_episodes = 50
-    num_episodes = n_eval_episodes
-    all_rewards = []
-
-    while num_episodes < max_episodes:
-        print(f"Running {n_eval_episodes} evaluation episodes...")
-        episode_rewards, episode_lengths = evaluate_policy(model, env, render=False, n_eval_episodes=n_eval_episodes, return_episode_rewards=True, deterministic=deterministic)
-        all_rewards.extend(episode_rewards if isinstance(episode_rewards, list) else [episode_rewards])
-        std_dev = np.std(all_rewards)
-        num_episodes += n_eval_episodes
-        print(f"conclusion: {num_episodes} episodes, std_dev: {std_dev}")
-        #print("num_episodes:", num_episodes, "std_dev:", std_dev)
-        
-        # Verificar a convergência dentro da tolerância especificada
-        if abs(std_dev - target_std) < tolerance:
-            print("Performance converged within tolerance.")
-            break
-        else:
-            print("Performance not converged yet. Running more evaluation episodes...")
-
-    if num_episodes >= max_episodes:
-        print("Maximum number of evaluation episodes reached.")
-        
-
-    avg_reward = sum(all_rewards) / len(all_rewards)
-    std_dev = np.std(all_rewards)
-    
-    print(f"Average reward: {avg_reward:.2f} +/- {std_dev:.2f} over {len(all_rewards)} episodes")
-    return avg_reward, std_dev, len(all_rewards)
 
 
     
@@ -226,19 +42,22 @@ def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: fl
     number_of_logical_cores = os.cpu_count()
     n_envs: int = number_of_logical_cores if number_of_logical_cores is not None else 1
 
-    vectorized_environment: VecMonitor = create_vectorized_environment(n_envs, frequency)
+    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(n_envs, frequency)
 
     model_dir = os.path.join(output_folder, 'models')
     log_dir = os.path.join(output_folder, 'logs')
-    callback_list= create_callback_list(n_envs, vectorized_environment, model_dir=model_dir, log_dir=log_dir, callbacks_to_include=[CallbackType.PROGRESSBAR])
-    policy_kwargs = create_policy_kwargs(hiddens, learning_rate)
-    model = create_model(vectorized_environment, policy_kwargs, learning_rate)
+    callback_list= ReinforcementLearningPipeline.create_callback_list(n_envs, vectorized_environment, model_dir=model_dir, log_dir=log_dir, callbacks_to_include=[CallbackType.PROGRESSBAR])
+    policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens, learning_rate)
+    model = ReinforcementLearningPipeline.create_model(vectorized_environment, policy_kwargs, learning_rate)
 
     logging.info(model.policy)
-    model = train_model(model, callback_list, n_timesteps)
-    save_model(model, hiddens, frequency, learning_rate, output_folder)
+    model = ReinforcementLearningPipeline.train_model(model, callback_list, n_timesteps)
     
-    avg_reward, std_dev, num_episodes = evaluate_with_dynamic_episodes(model, vectorized_environment)
+    avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment)
+    ReinforcementLearningPipeline.save_model(model, hiddens, frequency, learning_rate, avg_reward, std_dev, output_folder)
+    
+     
+    #evaluate_with_dynamic_episodes(model, vectorized_environment)
     logging.info(f"Avg score: {avg_reward}")
     return avg_reward
 
@@ -249,52 +68,6 @@ def generate_random_parameters() -> Tuple[list, int, float]:
     frequency = (randint(1, 8).rvs() * 15)
     learning_rate = uniform(0.00000000001, 0.1).rvs() 
     return hiddens, frequency, learning_rate
-
-
-
-
-"""	
-def save_results_to_excel(results, output_folder, file_name):
-    # Construir o caminho completo do arquivo
-    file_path = os.path.join(output_folder, file_name)
-
-    # Verificar se o diretório de saída existe
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-    # Verificar se o arquivo existe
-    if not os.path.isfile(file_path):
-        # Se o arquivo não existe, criar uma nova planilha
-        workbook = Workbook()
-        #TODO: possible cast error (_WorkBookChild | None to Worksheet)
-        sheet: Worksheet = workbook.active # type: ignore
-        
-        # Definir os cabeçalhos das colunas
-        sheet.append(['hiddens', 'frequency', 'learning_rate', 'score'])    
-    else:
-        # Carregar a planilha existente
-        workbook = load_workbook(file_path)
-        # Obter a planilha ativa
-        #TODO: possible cast error (_WorkBookChild | None to Worksheet)
-        sheet: Worksheet = workbook.active  # type: ignore
-        
-    for result in results:
-        hiddens_str = ', '.join(str(x) for x in result[0])
-        sheet.append([hiddens_str, result[1], result[2], result[3]])
-
-    try:
-        # Salvar as alterações no arquivo
-        workbook.save(file_path)
-    except PermissionError:
-        print(f"Não foi possível salvar o arquivo '{file_name}'. Permissão negada.")
-    except Exception as e:
-        print(f"Erro ocorrido ao salvar os resultados: {e}")    
-
-    # Adicionar os novos resultados
-    #for result in results:
-    #    sheet.append(result)
-
-"""
 
 
 
@@ -312,6 +85,7 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: st
     print("Hiddens: ", hiddens)
     print("Frequency: ", frequency)
     print("Learning Rate: ", learning_rate)
+    
 
     avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, num_evaluations=100, output_folder=output_folder, n_timesteps=n_timesteps)
     print(avg_score)
@@ -319,7 +93,7 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: st
     result = (hiddens, frequency, learning_rate, avg_score)
     print("saving results")
     file_name = f"results_{study_name}.xlsx"
-    OutputManager.save_results_to_excel(output_folder, file_name, [result])
+    ReinforcementLearningPipeline.save_results_to_excel(output_folder, file_name, [result])
     print("results saved")
 
     return avg_score
@@ -339,7 +113,7 @@ def main():
     experiment_name = "Optimizer_baysian_app"
     study_name = "no_physics"
     # Criar a pasta de saída
-    output_folder = OutputManager.create_output_folder(experiment_name)
+    output_folder = DirectoryManager.create_output_folder(experiment_name)
 
     study = optuna.create_study(direction='maximize', sampler=TPESampler(), study_name=study_name, storage=f'sqlite:///{output_folder}/optimizer.db')
     study.optimize(lambda trial: objective(trial, output_folder, n_timesteps, study_name), n_trials=100)
@@ -349,10 +123,7 @@ def main():
         hiddens = [trial.params[f'hiddens_{i}'] for i in range(trial.params['num_hiddens'])]
         results.append((hiddens, trial.params['frequency'], trial.params['learning_rate'], trial.value))
 
-    #save_results_to_excel(results)
     print_best_parameters(results)
 
 if __name__ == "__main__":
     main()
-
-#375, 103, 702, 296	105	0,000424858	8506,027344

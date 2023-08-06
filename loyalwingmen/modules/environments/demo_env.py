@@ -40,7 +40,7 @@ class DemoEnvironment(Env):
     def __init__(
         self,
         simulation_frequency: int = 240,
-        rl_frequency: int = 15,
+        rl_frequency: int = 15,#30,
         GUI: bool = False,
         debug: bool = False,
         
@@ -516,7 +516,7 @@ class DemoEnvironment(Env):
         if calc_reward == MIN_VALUE:
             penalty += TARGET_LOST_PENALTY
 
-        print(lw.get_observation_features()[0], calc_reward + bonus - penalty, calc_reward, bonus, penalty, distance)
+        #print(lw.get_observation_features()[0], calc_reward + bonus - penalty, calc_reward, bonus, penalty, distance)
         return calc_reward + bonus - penalty 
         
     """
