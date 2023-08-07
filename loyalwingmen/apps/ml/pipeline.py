@@ -19,7 +19,7 @@ import numpy as np
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv
 from typing import Tuple
-from directory_manager import DirectoryManager
+from ml.directory_manager import DirectoryManager
 
 
 class ReinforcementLearningPipeline:

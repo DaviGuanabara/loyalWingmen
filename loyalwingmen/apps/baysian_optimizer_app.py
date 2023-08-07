@@ -22,8 +22,8 @@ import warnings
 from gymnasium import Env
 from gymnasium import spaces, Env
 from typing import Optional, Union
-from ml.pipeline import ReinforcementLearningPipeline
-from ml.directory_manager import DirectoryManager
+from apps.ml.pipeline import ReinforcementLearningPipeline
+from apps.ml.directory_manager import DirectoryManager
 
 
 #warnings.filterwarnings("ignore", message="WARN: Box bound precision lowered by casting to float32")
