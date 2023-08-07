@@ -16,6 +16,12 @@ from gymnasium import spaces
 from stable_baselines3 import PPO
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
+import torch
+import torch.nn as nn
+from gymnasium import spaces
+import numpy as np
+from typing import Tuple
+
 
 class CustomCNN(BaseFeaturesExtractor):
     """
@@ -160,3 +166,50 @@ class CustomActorCriticPolicy(ActorCriticPolicy):
 
     def __str__(self):
         return f"CustomActorCriticPolicy (hidden layers: {self.hiddens})"
+    
+    
+
+#TODO: Add Observation_Space. Add ObservationType.
+class MixObservationNN(nn.Module):
+    def __init__(self, matrix_input_shape: Tuple[int, int, int], tuple_input_shape: Tuple[int, ...], features_dim: int = 256):
+        super(MixObservationNN, self).__init__()
+
+        # Feature extractor for the matrix observation (using Conv2d layers)
+        self.matrix_feature_extractor = nn.Sequential(
+            nn.Conv2d(in_channels=matrix_input_shape[0], out_channels=32, kernel_size=8, stride=4, padding=0),
+            nn.ReLU(),
+            nn.Conv2d(in_channels=32, out_channels=64, kernel_size=2, stride=2, padding=0),
+            nn.ReLU(),
+            nn.Flatten()
+        )
+
+        # Feature extractor for the tuple observation (using fully connected layers)
+        self.tuple_feature_extractor = nn.Sequential(
+            nn.Linear(int(np.prod(tuple_input_shape)), 128),
+            nn.ReLU(),
+            nn.Linear(128, 64),
+            nn.ReLU()
+        )
+        # Compute shape by doing one forward pass for the matrix feature extractor
+        with torch.no_grad():
+            n_flatten_matrix = self.matrix_feature_extractor(
+                torch.rand(1, *matrix_input_shape)).shape[1]
+
+        # Compute shape by doing one forward pass for the tuple feature extractor
+        with torch.no_grad():
+            n_flatten_tuple = self.tuple_feature_extractor(
+                torch.rand(1, *tuple_input_shape)).shape[1]
+
+        # Concatenate both feature extractors and pass through a linear layer
+        self.concatenated_dim = n_flatten_matrix + n_flatten_tuple
+        self.final_layer = nn.Sequential(
+            nn.Linear(self.concatenated_dim, features_dim),
+            nn.ReLU()
+        )
+
+    def forward(self, matrix_obs: torch.Tensor, tuple_obs: torch.Tensor) -> torch.Tensor:
+        matrix_features = self.matrix_feature_extractor(matrix_obs)
+        tuple_features = self.tuple_feature_extractor(tuple_obs.flatten(start_dim=1))
+        concatenated_features = torch.cat((matrix_features, tuple_features), dim=1)
+        return self.final_layer(concatenated_features)
+    

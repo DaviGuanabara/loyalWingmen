@@ -491,8 +491,9 @@ class DemoEnvironment(Env):
         # Constantes
         MIN_VALUE = 0
         MAX_VALUE = 100
-        TARGET_HIT_BONUS = 100_000
-        TARGET_LOST_PENALTY = 100_000
+        TARGET_HIT_BONUS = 1_000_000
+        TARGET_LOST_PENALTY = 1_000_000
+        TIME_OUT_PENALTY = 500_000
 
         lw: LoyalWingman = self.loyalwingmen[0]
         radius = lw.observation_parameters()["radius"]
@@ -515,6 +516,12 @@ class DemoEnvironment(Env):
         # Caso tenha perdido o alvo
         if calc_reward == MIN_VALUE:
             penalty += TARGET_LOST_PENALTY
+            
+        current = time.time()
+        #TODO: Unir a condição de timeout com o timeout do computeDone
+        # TIME_OUT_PENALTY
+        if current - self.RESET_TIME > 20: #em sewgundos
+            penalty += TIME_OUT_PENALTY  
 
         #print(lw.get_observation_features()[0], calc_reward + bonus - penalty, calc_reward, bonus, penalty, distance)
         return calc_reward + bonus - penalty 
