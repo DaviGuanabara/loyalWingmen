@@ -2,7 +2,7 @@ import time
 import os
 import sys
 from stable_baselines3 import PPO
-from modules.factories.callback_factory import gen_eval_callback, callbacklist
+from modules.factories.callback_factory import callbacklist
 from modules.utils.Logger import Logger
 from modules.utils.utils import sync, str2bool
 import torch

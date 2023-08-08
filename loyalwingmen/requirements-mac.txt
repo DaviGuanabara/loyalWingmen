@@ -22,3 +22,4 @@ optuna==3.2.0
 graphviz==0.20.1
 prompt_toolkit==3.0.39
 wcwidth==0.2.6
+pytest==7.4.0
