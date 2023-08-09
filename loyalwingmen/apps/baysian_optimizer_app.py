@@ -24,7 +24,9 @@ from gymnasium import spaces, Env
 from typing import Optional, Union
 from apps.ml.pipeline import ReinforcementLearningPipeline
 from apps.ml.directory_manager import DirectoryManager
-
+import torch as th
+from torch import backends
+from sys import platform
 
 #warnings.filterwarnings("ignore", message="WARN: Box bound precision lowered by casting to float32")
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -37,17 +39,13 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
     
 
-def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: float, num_evaluations: int, output_folder: str, n_timesteps: int) -> float:
+def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: float, n_timesteps: int, models_dir: str, logs_dir: str) -> float:
     print(f"Running simulation with hiddens={hiddens}, frequency={frequency}, learning_rate={learning_rate}")
     number_of_logical_cores = os.cpu_count()
     n_envs: int = number_of_logical_cores if number_of_logical_cores is not None else 1
-
+    #n_envs = int(n_envs / 2)
     vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(n_envs, frequency)
     
-    #TODO não colocar o models dir nem o logs dir aqui. Ver uma forma melhor para gerenciar isso.
-    #TODO: criar todas as pastas antes de ser necessário
-    models_dir = DirectoryManager.get_models_dir(app_name=os.path.basename(__file__))
-    logs_dir = DirectoryManager.get_logs_dir(app_name=os.path.basename(__file__))
     
     callback_list= ReinforcementLearningPipeline.create_callback_list(n_envs, vectorized_environment, model_dir=models_dir, log_dir=logs_dir, callbacks_to_include=[CallbackType.PROGRESSBAR])
     policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens, learning_rate)
@@ -59,9 +57,6 @@ def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: fl
     avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment)
     ReinforcementLearningPipeline.save_model(model, hiddens, frequency, learning_rate, avg_reward, std_dev, models_dir)
     
-     
-    #evaluate_with_dynamic_episodes(model, vectorized_environment)
-    logging.info(f"Avg score: {avg_reward}")
     return avg_reward
 
 def generate_random_parameters() -> Tuple[list, int, float]:
@@ -79,47 +74,85 @@ def suggest_parameters(trial: Trial) -> Tuple[list, int, float]:
     frequency = trial.suggest_int('frequency', 1, 2) * 15
     exponent = trial.suggest_float('exponent', -10, -1)
     learning_rate = 10 ** exponent
-    logging.info(f"[suggest_parameters] PARAMETERS: Hiddens {hiddens} Frequency {frequency} Learning Rate {learning_rate}")
+    
+    logging.info(
+        f"[suggest_parameters] Suggested Parameters:\n"
+        f"  - Hiddens: {', '.join(map(str, hiddens))}\n"
+        f"  - Frequency: {frequency}\n"
+        f"  - Learning Rate: {learning_rate:.10f}"
+    )
+    
     return hiddens, frequency, learning_rate
 
 
-def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str) -> float:
-    
+def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str, models_dir: str, logs_dir:str) -> float:
     
     hiddens, frequency, learning_rate = suggest_parameters(trial)
+    
+    avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, models_dir=models_dir, logs_dir=logs_dir, n_timesteps=n_timesteps)
+    logging.info(f"Avg score: {avg_score}")
 
-
-    avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, num_evaluations=100, output_folder=output_folder, n_timesteps=n_timesteps)
-    print(avg_score)
-    # Salvar os resultados na planilha
+    print("saving results...")
     result = (hiddens, frequency, learning_rate, avg_score)
-    print("saving results")
-    file_name = f"results_{study_name}.xlsx"
-    ReinforcementLearningPipeline.save_results_to_excel(output_folder, file_name, [result])
+    ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", [result])
     print("results saved")
 
     return avg_score
 
 def print_best_parameters(results: List[Tuple[List[int], int, float, float]]):
-    results = sorted(results, key=lambda x: x[-1], reverse=True)
-    print("Best score: %.4f" % results[0][-1])
-    print("Best parameters:")
-    print("Hiddens: %s" % ', '.join(map(str, results[0][0])))
-    print("Frequency: %.4f" % results[0][1])
-    print("Learning rate: %.10f" % results[0][2])
+    if not results:
+        logging.warning("No results to display.")
+        return
 
+    # Sort results by the last element (score) in descending order
+    results.sort(key=lambda x: x[-1], reverse=True)
+
+    best_result = results[0]
+    hiddens, frequency, learning_rate, score = best_result
+
+    logging.info(
+        f"Best parameters:\n"
+        f"  - Score: {score:.4f}\n"
+        f"  - Hiddens: {', '.join(map(str, hiddens))}\n"
+        f"  - Frequency: {frequency:.4f}\n"
+        f"  - Learning rate: {learning_rate:.10f}"
+    )
+
+def get_os_name() -> str:
+    if platform == "linux" or platform == "linux2":
+        return "linux"
+    elif platform == "darwin":
+        return "macos"
+    elif platform == "win32":
+        return "windows"
+    
+    return "unknown"
+        
+        
+def check_gpu():
+    os_name = get_os_name()
+    device_name = th.cuda.get_device_name(0)
+     
+    if device_name == "windows" and th.cuda.is_available():
+        device_name = th.cuda.get_device_name(0)
+        print(f"Operating System: {os_name}\nGPU Available: Yes\nGPU Device: {device_name}")
+    else:
+        print(f"Operating System: {os_name}\nGPU Available: No\nNote: CUDA is not supported on this system or the necessary drivers are not installed.")
+ 
 def main():
     
+    check_gpu()
+    app_name = os.path.basename(__file__)
+    
+    output_folder = DirectoryManager.get_outputs_dir(app_name=app_name)
+    models_dir = DirectoryManager.get_models_dir(app_name=app_name)
+    logs_dir = DirectoryManager.get_logs_dir(app_name=app_name)
     
     n_timesteps = 1_000_000
-    app_name = os.path.basename(__file__) #"Optimizer_baysian_app"
     study_name = "no_physics"
-    # Criar a pasta de saída
-   
-    output_folder = DirectoryManager.get_outputs_dir(app_name=app_name)
 
     study = optuna.create_study(direction='maximize', sampler=TPESampler(), study_name=study_name)
-    study.optimize(lambda trial: objective(trial, output_folder, n_timesteps, study_name), n_trials=100)
+    study.optimize(lambda trial: objective(trial, output_folder, n_timesteps, study_name, models_dir=models_dir, logs_dir=logs_dir), n_trials=100)
 
     results = []
     for trial in study.trials:
