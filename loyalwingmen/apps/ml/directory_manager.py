@@ -19,7 +19,7 @@ import numpy as np
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv
 from typing import Tuple
-
+import re
 
 class DirectoryManager:
 
@@ -57,47 +57,40 @@ class DirectoryManager:
 
 
     @staticmethod
-    def get_base_dir() -> str:
+    def get_base_dir(debug: bool = False) -> str:
         path = os.path.abspath(__file__)
         base_dir = DirectoryManager.find_base_dir(path)
-        if not base_dir:
-            logging.error("Could not find base dir")
+        logging.error("Could not find base dir") if not base_dir and debug else None
         
         return base_dir
 
     @staticmethod
-    def get_output_dir() -> str:
+    def get_outputs_dir(app_name: str, debug: bool = False) -> str:
         base_dir = DirectoryManager.get_base_dir()
-        logging.debug(f"(get_output_dir) base_dir: {base_dir}")
-        
-        outputs_dir = os.path.join(base_dir, "outputs")
-        
-        if not os.path.exists(outputs_dir):
-            os.makedirs(outputs_dir)
+        outputs_dir = os.path.join(base_dir, "outputs", app_name)
+        logging.debug(f"(get_outputs_dir) outputs_dir: {outputs_dir}") if debug else None
 
-        logging.debug(f"(get_output_dir) outputs_dir: {outputs_dir}")
+        DirectoryManager.create_directory(outputs_dir)
+              
         return outputs_dir
 
     @staticmethod
-    def get_logs_dir() -> str:
-        outputs_dir = DirectoryManager.get_output_dir()
-        log_dir = os.makedirs(os.path.join(outputs_dir, "logs"), exist_ok=True)
-        logging.debug(f"(get_logs_dir) outputs_dir: {outputs_dir}")
-        return log_dir if log_dir else ""
+    def get_logs_dir(app_name: str, debug: bool = False) -> str:
+        outputs_dir = DirectoryManager.get_outputs_dir(app_name, debug)
+        logs_dir = os.path.join(outputs_dir, "logs")
+        DirectoryManager.create_directory(logs_dir) 
+        return logs_dir
 
     @staticmethod
-    def get_models_dir() -> str:
-        output_dir = DirectoryManager.get_output_dir()
-        logging.debug(f"(get_models_dir) outputs_dir: {output_dir}")
-        models_dir = os.makedirs(os.path.join(output_dir, "models"), exist_ok=True)
-        return models_dir if models_dir else ""
-
-    @staticmethod
-    def create_output_folder(experiment_name: str, output_dir: str = "") -> str:
-        output_dir = DirectoryManager.get_output_dir() if not output_dir else output_dir
-        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        folder_name = os.path.join(output_dir, experiment_name, current_time)
-        os.makedirs(folder_name, exist_ok=True)
-        return folder_name
+    def get_models_dir(app_name: str, debug: bool = False) -> str:
+        outputs_dir = DirectoryManager.get_outputs_dir(app_name, debug)
+        models_dir = os.path.join(outputs_dir, "logs")
+        DirectoryManager.create_directory(models_dir) 
+        return models_dir
     
-
+    @staticmethod
+    def create_directory(directory_path: str) -> str:
+        if not os.path.exists(directory_path):
+            os.makedirs(directory_path)
+        return directory_path
+    

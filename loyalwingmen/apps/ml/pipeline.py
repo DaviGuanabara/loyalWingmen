@@ -19,7 +19,8 @@ import numpy as np
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv
 from typing import Tuple
-from ml.directory_manager import DirectoryManager
+from apps.ml.directory_manager import DirectoryManager
+import re
 
 
 class ReinforcementLearningPipeline:
@@ -76,15 +77,33 @@ class ReinforcementLearningPipeline:
         return model
 
     @staticmethod
-    def save_model(model: BaseAlgorithm, hidden_layers: List[int], rl_frequency: int, learning_rate: float, avg_reward: float, reward_std_dev: float, model_name: str = "my_model", debug: bool = False):
-        base_models_dir = DirectoryManager.get_models_dir()
+    def save_model(model: BaseAlgorithm, hidden_layers: List[int], rl_frequency: int, learning_rate: float, avg_reward: float, reward_std_dev: float, models_dir: str, model_name: str = "my_model", debug: bool = False):
+        
         model_folder_name = f"{model.__class__.__name__}-h{hidden_layers}-f{rl_frequency}-lr{learning_rate}-r{avg_reward}-sd{reward_std_dev}"
-        specific_model_dir = os.path.join(base_models_dir, model_folder_name)
+        specific_model_dir = os.path.join(models_dir, model_folder_name)
         os.makedirs(specific_model_dir, exist_ok=True)
         model_path = os.path.join(specific_model_dir, model_name)
         model.save(model_path)
         if debug:
             logging.info(f"Model saved at: {model_path}")
+            
+    @staticmethod
+    def extract_folder_info(folder_name: str):
+        pattern = r'(?P<model_name>\w+)-h\[(?P<hidden_layers>[\d, ]+)\]-f(?P<rl_frequency>\d+)-lr(?P<learning_rate>\d+\.\d+e?[-+]?\d*)-r(?P<avg_reward>\d+\.?\d*)-sd(?P<reward_std_dev>\d+\.?\d*)'
+        match = re.match(pattern, folder_name)
+        print(match)
+
+        if match:
+            info = match.groupdict()
+            info["hidden_layers"] = list(map(int, info["hidden_layers"].split(', ')))  # Convert to a list of integers
+            info["rl_frequency"] = int(info["rl_frequency"])  # Convert to an integer
+            info["learning_rate"] = float(info["learning_rate"])  # Convert to a float
+            info["avg_reward"] = float(info["avg_reward"])  # Convert to a float
+            info["reward_std_dev"] = float(info["reward_std_dev"])  # Convert to a float
+            return info
+        else:
+            return None
+     
 
         
     @staticmethod

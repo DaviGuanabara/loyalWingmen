@@ -488,100 +488,23 @@ class DemoEnvironment(Env):
  
 
     def _computeReward(self) -> float:
-        # Constantes
-        MIN_VALUE = 0
-        MAX_VALUE = 100
-        TARGET_HIT_BONUS = 1_000_000
-        TARGET_LOST_PENALTY = 1_000_000
-        TIME_OUT_PENALTY = 500_000
 
         lw: LoyalWingman = self.loyalwingmen[0]
-        radius = lw.observation_parameters()["radius"]
 
-        penalty = 0 #self.current_timestep
-        bonus = 0
-
-        calc_reward = MIN_VALUE
-        distance = 0
-        for element in lw.get_observation_features():
-            channel, theta, phi, value = element
-            if channel == Channels.DISTANCE_CHANNEL.value:
-                
-                calc_reward += self.linear_decay_function(value, min_value=MIN_VALUE, max_value=MAX_VALUE)
-
-                distance = value * radius
-                if distance < 1:
-                    bonus += TARGET_HIT_BONUS
-
-        # Caso tenha perdido o alvo
-        if calc_reward == MIN_VALUE:
-            penalty += TARGET_LOST_PENALTY
-            
-        current = time.time()
-        #TODO: Unir a condição de timeout com o timeout do computeDone
-        # TIME_OUT_PENALTY
-        if current - self.RESET_TIME > 20: #em sewgundos
-            penalty += TIME_OUT_PENALTY  
-
-        #print(lw.get_observation_features()[0], calc_reward + bonus - penalty, calc_reward, bonus, penalty, distance)
-        return calc_reward + bonus - penalty 
-        
-    """
-    def _computeDone(self):
-        drone_position = self.loyalwingmen[0].kinematics.position
-        drone_velocity = self.loyalwingmen[0].kinematics.velocity
-
-        target_position = self.loitering_munitions[0].kinematics.position
-        target_velocity = self.loitering_munitions[0].kinematics.velocity
-
-        distance = np.linalg.norm(target_position - drone_position)
-
-        current = time.time()
-
-        if current - self.RESET_TIME > 20:
-            return True
-
-        if (
-            np.linalg.norm(
-                drone_position) > self.environment_parameters.max_distance
-            or np.linalg.norm(target_position)
-            > self.environment_parameters.max_distance
-            or distance < self.environment_parameters.error
-        ):
-            return True
-
-        return False
-        
-        """
-        
-    def _computeDone(self):
-
-        lw: LoyalWingman = self.loyalwingmen[0]
-        radius = lw.observation_parameters()["radius"]
         features = lw.get_observation_features()
+        filtered = filter(lambda feature: feature[0] == Channels.DISTANCE_CHANNEL.value, features)
+        values = [x[3] for x in filtered]
         
+        return sum(self.linear_decay_function(x=value) for value in values)
+        
+    
+    def _computeDone(self):
         current = time.time()
 
-        if current - self.RESET_TIME > 20: #em sewgundos
+        if current - self.RESET_TIME > 10: 
             return True
         
-        
-        
-        for element in features:
-            channel, theta, phi, value = element
-            if channel == Channels.DISTANCE_CHANNEL.value:
-                
-                
-                if value < 0.1: #se chegar a 10% de distancia do alvo
-                    return True
-                
-                distance = value * radius
-                
-                if distance < radius:
-                    return False
-
-
-        return True    
+        return False    
 
     def _computeInfo(self):
         return {}

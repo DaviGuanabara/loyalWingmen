@@ -43,10 +43,13 @@ def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: fl
     n_envs: int = number_of_logical_cores if number_of_logical_cores is not None else 1
 
     vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(n_envs, frequency)
-
-    model_dir = os.path.join(output_folder, 'models')
-    log_dir = os.path.join(output_folder, 'logs')
-    callback_list= ReinforcementLearningPipeline.create_callback_list(n_envs, vectorized_environment, model_dir=model_dir, log_dir=log_dir, callbacks_to_include=[CallbackType.PROGRESSBAR])
+    
+    #TODO não colocar o models dir nem o logs dir aqui. Ver uma forma melhor para gerenciar isso.
+    #TODO: criar todas as pastas antes de ser necessário
+    models_dir = DirectoryManager.get_models_dir(app_name=os.path.basename(__file__))
+    logs_dir = DirectoryManager.get_logs_dir(app_name=os.path.basename(__file__))
+    
+    callback_list= ReinforcementLearningPipeline.create_callback_list(n_envs, vectorized_environment, model_dir=models_dir, log_dir=logs_dir, callbacks_to_include=[CallbackType.PROGRESSBAR])
     policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens, learning_rate)
     model = ReinforcementLearningPipeline.create_model(vectorized_environment, policy_kwargs, learning_rate)
 
@@ -54,7 +57,7 @@ def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: fl
     model = ReinforcementLearningPipeline.train_model(model, callback_list, n_timesteps)
     
     avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment)
-    ReinforcementLearningPipeline.save_model(model, hiddens, frequency, learning_rate, avg_reward, std_dev, output_folder)
+    ReinforcementLearningPipeline.save_model(model, hiddens, frequency, learning_rate, avg_reward, std_dev, models_dir)
     
      
     #evaluate_with_dynamic_episodes(model, vectorized_environment)
@@ -70,22 +73,21 @@ def generate_random_parameters() -> Tuple[list, int, float]:
     return hiddens, frequency, learning_rate
 
 
-
-
-def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str) -> float:
-    
+def suggest_parameters(trial: Trial) -> Tuple[list, int, float]:
     num_hiddens = trial.suggest_int('num_hiddens', 3, 4)
     hiddens = [trial.suggest_int(f'hiddens_{i}', 100, 1000) for i in range(num_hiddens)]
     frequency = trial.suggest_int('frequency', 1, 2) * 15
     exponent = trial.suggest_float('exponent', -10, -1)
     learning_rate = 10 ** exponent
+    logging.info(f"[suggest_parameters] PARAMETERS: Hiddens {hiddens} Frequency {frequency} Learning Rate {learning_rate}")
+    return hiddens, frequency, learning_rate
 
+
+def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str) -> float:
     
-    print("Parameters:")
-    print("Hiddens: ", hiddens)
-    print("Frequency: ", frequency)
-    print("Learning Rate: ", learning_rate)
     
+    hiddens, frequency, learning_rate = suggest_parameters(trial)
+
 
     avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, num_evaluations=100, output_folder=output_folder, n_timesteps=n_timesteps)
     print(avg_score)
@@ -110,12 +112,13 @@ def main():
     
     
     n_timesteps = 1_000_000
-    experiment_name = "Optimizer_baysian_app"
+    app_name = os.path.basename(__file__) #"Optimizer_baysian_app"
     study_name = "no_physics"
     # Criar a pasta de saída
-    output_folder = DirectoryManager.create_output_folder(experiment_name)
+   
+    output_folder = DirectoryManager.get_outputs_dir(app_name=app_name)
 
-    study = optuna.create_study(direction='maximize', sampler=TPESampler(), study_name=study_name, storage=f'sqlite:///{output_folder}/optimizer.db')
+    study = optuna.create_study(direction='maximize', sampler=TPESampler(), study_name=study_name)
     study.optimize(lambda trial: objective(trial, output_folder, n_timesteps, study_name), n_trials=100)
 
     results = []

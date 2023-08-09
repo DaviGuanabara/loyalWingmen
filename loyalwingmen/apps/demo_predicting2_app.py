@@ -17,13 +17,15 @@ import logging
 from prompt_toolkit.shortcuts import checkboxlist_dialog
 from stable_baselines3 import PPO
 from modules.environments.demo_env import DemoEnvironment
+#from ml.pipeline
 
 def describe_folder(folder_name: str) -> str:
-    parts = folder_name.split('_')
-    model_type, hidden, frequency, learning_rate, other_info = parts[1:6]
-    frequency = frequency.strip('[]').split(',')
-    description = f"Type: {model_type}, Hidden: {hidden}, Frequency: {frequency}, learning_rate: {float(learning_rate)}, other_info: {other_info}"
-    return description
+    #parts = folder_name.split('_')
+    
+    #model_type, hidden, frequency, learning_rate, other_info = parts[1:6]
+    #frequency = frequency.strip('[]').split(',')
+    #description = f"Type: {model_type}, Hidden: {hidden}, Frequency: {frequency}, learning_rate: {float(learning_rate)}, other_info: {other_info}"
+    return folder_name #description
 
 def get_output_dir() -> str:
     base_dir = DirectoryManager.get_base_dir()
@@ -65,14 +67,15 @@ def select_model(names: List[str]) -> str:
 
     return selected_name[0] if selected_name else ""
 
-def load_and_run_model(selected_zip: str):
+def load_and_run_model(selected_zip: str, frequency: int = 15):
     if not selected_zip:
         print("No model selected.")
         return
     
     print("Selected model:", selected_zip)
     model = PPO.load(selected_zip)
-    env = DemoEnvironment(GUI=True, debug=True)
+    env = DemoEnvironment(GUI=True, rl_frequency=frequency, debug=True)
+    
     observation, info = env.reset()
 
     for steps in range(50_000):
