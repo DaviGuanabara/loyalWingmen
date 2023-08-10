@@ -49,12 +49,12 @@ def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: fl
     
     callback_list= ReinforcementLearningPipeline.create_callback_list(n_envs, vectorized_environment, model_dir=models_dir, log_dir=logs_dir, callbacks_to_include=[CallbackType.PROGRESSBAR])
     policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens, learning_rate)
-    model = ReinforcementLearningPipeline.create_model(vectorized_environment, policy_kwargs, learning_rate)
+    model = ReinforcementLearningPipeline.create_ppo_model(vectorized_environment, policy_kwargs, learning_rate)
 
     logging.info(model.policy)
     model = ReinforcementLearningPipeline.train_model(model, callback_list, n_timesteps)
     
-    avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment)
+    avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment, n_eval_episodes= 300)
     ReinforcementLearningPipeline.save_model(model, hiddens, frequency, learning_rate, avg_reward, std_dev, models_dir)
     
     return avg_reward
@@ -89,7 +89,7 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: st
     
     hiddens, frequency, learning_rate = suggest_parameters(trial)
     
-    avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, models_dir=models_dir, logs_dir=logs_dir, n_timesteps=n_timesteps)
+    avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, n_timesteps=n_timesteps, models_dir=models_dir, logs_dir=logs_dir)
     logging.info(f"Avg score: {avg_score}")
 
     print("saving results...")
@@ -132,12 +132,15 @@ def get_os_name() -> str:
 def check_gpu():
     os_name = get_os_name()
     device_name = th.cuda.get_device_name(0)
-     
-    if device_name == "windows" and th.cuda.is_available():
+    
+    if os_name == "windows" and th.cuda.is_available():
         device_name = th.cuda.get_device_name(0)
-        print(f"Operating System: {os_name}\nGPU Available: Yes\nGPU Device: {device_name}")
+        logging.info(f"Operating System: {os_name}\nGPU Available: Yes\nGPU Device: {device_name}")
     else:
-        print(f"Operating System: {os_name}\nGPU Available: No\nNote: CUDA is not supported on this system or the necessary drivers are not installed.")
+        logging.info(f"Operating System: {os_name}\nGPU Available: No\n Note: CUDA is not supported on this system or the necessary drivers are not installed.")
+        if os_name == "windows":
+            raise Exception("Fix CUDA support on Windows")
+        
  
 def main():
     
@@ -148,7 +151,7 @@ def main():
     models_dir = DirectoryManager.get_models_dir(app_name=app_name)
     logs_dir = DirectoryManager.get_logs_dir(app_name=app_name)
     
-    n_timesteps = 1_000_000
+    n_timesteps = 2_000_000
     study_name = "no_physics"
 
     study = optuna.create_study(direction='maximize', sampler=TPESampler(), study_name=study_name)

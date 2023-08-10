@@ -21,6 +21,7 @@ from stable_baselines3.common.vec_env import VecEnv
 from typing import Tuple
 from apps.ml.directory_manager import DirectoryManager
 import re
+import platform
 
 
 class ReinforcementLearningPipeline:
@@ -56,19 +57,36 @@ class ReinforcementLearningPipeline:
             net_arch=dict(pi=hiddens, vf=hiddens)
         )
         return policy_kwargs
+    
+    @staticmethod
+    def get_os_name() -> str:
+        
+        if platform.system() == "linux" or platform.system() == "linux2":
+            return "linux"
+        elif platform.system() == "posix":
+            return "macos"
+        elif platform.system() == 'Windows':
+            return "windows"
+    
+        return "unknown"
 
     @staticmethod
-    def create_model(vectorized_environment: VecMonitor, policy_kwargs: dict, learning_rate: float) -> PPO:
+    def create_ppo_model(vectorized_environment: VecMonitor, policy_kwargs: dict, learning_rate: float) -> PPO:
         tensorboard_log = "./logs/my_first_env/"
+        device = "cuda" if ReinforcementLearningPipeline.get_os_name() == "windows" else "cpu"
+        device = "mps" if ReinforcementLearningPipeline.get_os_name() == "macos" else device
+        logging.info("Device suggested:", device)
         model = PPO(
             CustomActorCriticPolicy,
             vectorized_environment,
             verbose=0,
-            device="auto",
+            device=device,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             learning_rate=learning_rate,
         )
+        
+        logging.info("Device loaded:", model.policy.device)
         return model
 
     @staticmethod

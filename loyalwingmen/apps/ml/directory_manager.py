@@ -84,7 +84,7 @@ class DirectoryManager:
     @staticmethod
     def get_models_dir(app_name: str, debug: bool = False) -> str:
         outputs_dir = DirectoryManager.get_outputs_dir(app_name, debug)
-        models_dir = os.path.join(outputs_dir, "logs")
+        models_dir = os.path.join(outputs_dir, "models")
         DirectoryManager.create_directory(models_dir) 
         return models_dir
     

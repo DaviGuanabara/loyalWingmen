@@ -119,6 +119,11 @@ class DemoEnvironment(Env):
         self.environment_parameters.rl_frequency = rl_frequency
         
 
+    def manage_debug_text(self, text: str, position: list = [0, 0, 0], debug_text_id=None):
+        if debug_text_id is not None:
+            p.removeUserDebugItem(debug_text_id)
+
+        return p.addUserDebugText(str(text), position)
             
 
     def get_parameteres(self):
@@ -440,7 +445,7 @@ class DemoEnvironment(Env):
         """
         return max_value * math.exp(-((x - min_value) / sigma)**2) * math.exp(-((x - radius) / gamma)**2)
 
-    def inverted_sigmoid_decay_function(self, x, radius, steepness=1, min_value=0, max_value=100):
+    def inverted_sigmoid_decay_function(self, x, radius=5, steepness=1, min_value=0, max_value=100):
         """
         Inverted sigmoid decay function that satisfies the conditions min_value for x >= radius,
         and max_value for x <= 0.
@@ -484,7 +489,9 @@ class DemoEnvironment(Env):
         return  a * x + b
         
       
-
+    @staticmethod
+    def exp_decay(current_distance) -> int:
+        return int(1000 * math.exp(-current_distance))
  
 
     def _computeReward(self) -> float:
@@ -495,7 +502,7 @@ class DemoEnvironment(Env):
         filtered = filter(lambda feature: feature[0] == Channels.DISTANCE_CHANNEL.value, features)
         values = [x[3] for x in filtered]
         
-        return sum(self.linear_decay_function(x=value) for value in values)
+        return sum(self.exp_decay(value) for value in values)
         
     
     def _computeDone(self):
