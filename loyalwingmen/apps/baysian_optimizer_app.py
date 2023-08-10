@@ -33,31 +33,26 @@ warnings.filterwarnings("ignore", category=UserWarning)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     
+
+def rl_pipeline(suggested_parameters: Tuple[int, int, int, int, float], n_timesteps: int, models_dir: str, logs_dir: str, n_eval_episodes: int = 100) -> Tuple[float, float, float]:
     
-
-
-
+    hidden_1, hidden_2, hidden_3, frequency, learning_rate = suggested_parameters
+    hiddens = list((hidden_1, hidden_2, hidden_3))
     
-
-def cross_validation_simulation(hiddens: list, frequency: int, learning_rate: float, n_timesteps: int, models_dir: str, logs_dir: str) -> float:
-    print(f"Running simulation with hiddens={hiddens}, frequency={frequency}, learning_rate={learning_rate}")
     number_of_logical_cores = os.cpu_count()
     n_envs: int = number_of_logical_cores if number_of_logical_cores is not None else 1
-    #n_envs = int(n_envs / 2)
     vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(n_envs, frequency)
-    
-    
-    callback_list= ReinforcementLearningPipeline.create_callback_list(n_envs, vectorized_environment, model_dir=models_dir, log_dir=logs_dir, callbacks_to_include=[CallbackType.PROGRESSBAR])
+    callback_list = ReinforcementLearningPipeline.create_callback_list(vectorized_environment, model_dir=models_dir, log_dir=logs_dir, callbacks_to_include=[CallbackType.EVAL, CallbackType.PROGRESSBAR], n_eval_episodes=n_eval_episodes)
     policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens, learning_rate)
     model = ReinforcementLearningPipeline.create_ppo_model(vectorized_environment, policy_kwargs, learning_rate)
 
     logging.info(model.policy)
     model = ReinforcementLearningPipeline.train_model(model, callback_list, n_timesteps)
     
-    avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment, n_eval_episodes= 300)
+    avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment, n_eval_episodes=n_eval_episodes)
     ReinforcementLearningPipeline.save_model(model, hiddens, frequency, learning_rate, avg_reward, std_dev, models_dir)
     
-    return avg_reward
+    return avg_reward, std_dev, num_episodes
 
 def generate_random_parameters() -> Tuple[list, int, float]:
     hidden_dist = randint(10, 1000)
@@ -68,33 +63,46 @@ def generate_random_parameters() -> Tuple[list, int, float]:
     return hiddens, frequency, learning_rate
 
 
-def suggest_parameters(trial: Trial) -> Tuple[list, int, float]:
-    num_hiddens = trial.suggest_int('num_hiddens', 3, 4)
-    hiddens = [trial.suggest_int(f'hiddens_{i}', 100, 1000) for i in range(num_hiddens)]
-    frequency = trial.suggest_int('frequency', 1, 2) * 15
-    exponent = trial.suggest_float('exponent', -10, -1)
+def suggest_parameters(trial: Trial) -> Tuple[int, int, int, int, float]:
+    #num_hiddens = trial.suggest_int('num_hiddens', 3, 4)
+    #num_hiddens = trial.suggest_int('num_hiddens', 3, 3)
+    #num_hiddens = 3
+    #hiddens = [trial.suggest_int(f'hiddens_{i}', 1, 4) * 128 for i in range(num_hiddens)]
+    #hiddens = [trial.suggest_categorical(f'hiddens_{i}', [128, 256, 512]) for i in range(num_hiddens)]
+    
+    hidden_1 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
+    hidden_2 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
+    hidden_3 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
+
+    #frequency = trial.suggest_int('frequency', 1, 2) * 15
+    #frequency = trial.suggest_categorical('frequency', [15, 30])
+    frequency = 15
+    exponent = trial.suggest_int('exponent', -10, -1)
     learning_rate = 10 ** exponent
     
     logging.info(
-        f"[suggest_parameters] Suggested Parameters:\n"
-        f"  - Hiddens: {', '.join(map(str, hiddens))}\n"
+        f"Suggested Parameters:\n"
+        f"  - Hiddens: {', '.join(map(str, [hidden_1, hidden_2, hidden_3]))}\n"
         f"  - Frequency: {frequency}\n"
         f"  - Learning Rate: {learning_rate:.10f}"
     )
     
-    return hiddens, frequency, learning_rate
+    
+    return hidden_1, hidden_2, hidden_3, frequency, learning_rate
 
 
 def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str, models_dir: str, logs_dir:str) -> float:
     
-    hiddens, frequency, learning_rate = suggest_parameters(trial)
+    #hidden_1, hidden_2, hidden_3, frequency, learning_rate = suggest_parameters(trial)
+    suggested_parameters = suggest_parameters(trial)
     
-    avg_score = cross_validation_simulation(hiddens, frequency, learning_rate, n_timesteps=n_timesteps, models_dir=models_dir, logs_dir=logs_dir)
+    avg_score, std_deviation, n_episodes = rl_pipeline(suggested_parameters, n_timesteps=n_timesteps, models_dir=models_dir, logs_dir=logs_dir)
     logging.info(f"Avg score: {avg_score}")
 
     print("saving results...")
-    result = (hiddens, frequency, learning_rate, avg_score)
-    ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", [result])
+    result = list(suggested_parameters)
+
+    ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", result, headers = ["hidden_1", "hidden_2", "hidden_3", 'frequency', 'learning_rate', 'value', 'std_deviation'])
     print("results saved")
 
     return avg_score
@@ -151,9 +159,14 @@ def main():
     models_dir = DirectoryManager.get_models_dir(app_name=app_name)
     logs_dir = DirectoryManager.get_logs_dir(app_name=app_name)
     
-    n_timesteps = 2_000_000
+    n_timesteps = 500_000
     study_name = "no_physics"
+    
+    
+    #vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(n_envs, frequency)
 
+    
+    
     study = optuna.create_study(direction='maximize', sampler=TPESampler(), study_name=study_name)
     study.optimize(lambda trial: objective(trial, output_folder, n_timesteps, study_name, models_dir=models_dir, logs_dir=logs_dir), n_trials=100)
 

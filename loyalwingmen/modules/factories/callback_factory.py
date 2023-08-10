@@ -24,6 +24,7 @@ from stable_baselines3.common.vec_env import VecEnv
 import threading
 
 class CallbackType(Enum):
+
     EVAL = "eval"
     CHECKPOINT = "checkpoint"
     PROGRESSBAR = "progressbar"
@@ -58,9 +59,9 @@ def callbacklist(
     env: VecEnv, 
     log_path: str = "./logs/",
     model_path: str = "./models/",
-    n_envs: int = 1,
-    save_freq: int = 10000,
-    callbacks_to_include: List[CallbackType] = [CallbackType.EVAL, CallbackType.CHECKPOINT, CallbackType.PROGRESSBAR]
+    save_freq: int = 10_000,
+    callbacks_to_include: List[CallbackType] = [CallbackType.EVAL, CallbackType.CHECKPOINT, CallbackType.PROGRESSBAR],
+    n_eval_episodes: int = 10,
 ) -> CallbackList:
     list_callbacks = []
 
@@ -81,11 +82,13 @@ def callbacklist(
         eval_callback = EvalCallback(
             env,
             best_model_save_path=model_path,
+            n_eval_episodes=n_eval_episodes,
             log_path=log_path,
             eval_freq=save_freq,
             deterministic=True,
             render=False,
             callback_after_eval=stop_train_callback,
+            verbose=0
         )
 
         list_callbacks.append(eval_callback)
@@ -94,11 +97,6 @@ def callbacklist(
         # Check if save_path is writable
         assert os.access(model_path, os.W_OK), "model_path must be a writable directory"
 
-        # Check if save_freq and n_envs are valid
-        assert isinstance(save_freq, int) and save_freq > 0, "save_freq must be a positive integer"
-        assert isinstance(n_envs, int) and n_envs > 0, "n_envs must be a positive integer"
-
-        save_freq = max(save_freq // n_envs, 1)
         checkpoint_callback = CheckpointCallback(save_freq=save_freq, save_path=model_path)
 
         list_callbacks.append(checkpoint_callback)

@@ -28,23 +28,22 @@ class ReinforcementLearningPipeline:
     @staticmethod
     def create_vectorized_environment(n_envs: int, frequency: int) -> VecMonitor:
         
-        # TODO: type hint problem.
         env_fns = [lambda: DemoEnvironment(rl_frequency=frequency) for _ in range(n_envs)]
-        vectorized_environment = SubprocVecEnv(env_fns)  # type: ignore
-        vectorized_environment = VecMonitor(vectorized_environment)
-        return vectorized_environment
+        
+        vectorized_environment = SubprocVecEnv(env_fns) # type: ignore
+        return VecMonitor(vectorized_environment)
     
     @staticmethod
-    def create_callback_list(n_envs: int, vectorized_environment: VecMonitor, model_dir: str, log_dir: str, callbacks_to_include: List[CallbackType] = [CallbackType.EVAL, CallbackType.CHECKPOINT, CallbackType.PROGRESSBAR]):
+    def create_callback_list(vectorized_environment: VecMonitor, model_dir: str, log_dir: str, callbacks_to_include: List[CallbackType] = [CallbackType.EVAL, CallbackType.CHECKPOINT, CallbackType.PROGRESSBAR], n_eval_episodes: int = 10):
     
         save_freq = 100_000
         callback_list = callbacklist(
             vectorized_environment,
             log_path=log_dir,
             model_path=model_dir,
-            n_envs=n_envs,
             save_freq=save_freq,
-            callbacks_to_include=callbacks_to_include
+            callbacks_to_include=callbacks_to_include,
+            n_eval_episodes=n_eval_episodes,
         )
         return callback_list
 
@@ -206,38 +205,48 @@ class ReinforcementLearningPipeline:
         return avg_reward, std_dev, len(all_rewards)
     
     @staticmethod
-    def save_results_to_excel(output_folder: str, file_name: str , results: List[Tuple[List[int], int, float, float]], headers = ['hiddens', 'frequency', 'learning_rate', 'value']):
+    def load_or_create_workbook(file_path: str) -> Workbook:
         
-        file_path = os.path.join(output_folder, file_name)
         if os.path.isfile(file_path):
             try:
                 # If the file exists, we load the workbook from the file to add the results
                 workbook = load_workbook(file_path)
             except Exception as e:
                 logging.error(f"Error occurred when trying to load the workbook: {e}")
-                return  # or handle the error in another appropriate way
+                raise e
         else:
             # If the file does not exist, we create a new workbook
             workbook = Workbook()      
 
         if workbook.active is None:
-            # Se não houver planilha ativa, criamos uma nova planilha e a definimos como ativa
             workbook.create_sheet()
-            workbook.active = 0  # Definir a primeira planilha como ativa
-
-        sheet: Worksheet = workbook.active # type: ignore
+            workbook.active = 0 
         
-        if sheet.max_row == 1 and sheet['A1'].value is None:
-            # If the sheet is empty, we add the headers
-            sheet.append(headers)
-
-        for result in results:
-            hiddens_str = ', '.join(str(x) for x in result[0])
-            sheet.append([hiddens_str, result[1], result[2], result[3]])
-
+        return workbook
+    
+    @staticmethod
+    def save_workbook(workbook: Workbook, file_path: str, file_name: str):
         try:
             workbook.save(file_path)
         except PermissionError:
             logging.error(f"Não foi possível salvar o arquivo '{file_name}'. Permissão negada.")
         except Exception as e:
-            logging.error(f"Erro ocorrido ao salvar os resultados: {e}")
+            logging.error(f"Erro ocorrido ao salvar os resultados: {e}")    
+    
+    @staticmethod
+    def save_results_to_excel(output_folder: str, file_name: str , results: List, headers = ['hidden_1', 'frequency', 'learning_rate', 'value']):
+        file_path = os.path.join(output_folder, file_name)
+        workbook: Workbook = ReinforcementLearningPipeline.load_or_create_workbook(file_path)
+        sheet: Worksheet = workbook.active # type: ignore
+        
+        if sheet.max_row == 1 and sheet['A1'].value is None:
+
+            sheet.append(headers)
+
+        other_values:list = results[0:len(headers)] 
+        while len(other_values) < len(headers):
+            other_values.append("NaN")
+
+        sheet.append(other_values)
+
+        ReinforcementLearningPipeline.save_workbook(workbook, file_path, file_name)
