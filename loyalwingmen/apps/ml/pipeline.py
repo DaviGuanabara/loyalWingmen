@@ -75,7 +75,7 @@ class ReinforcementLearningPipeline:
         tensorboard_log = "./logs/my_first_env/"
         device = "cuda" if ReinforcementLearningPipeline.get_os_name() == "windows" else "cpu"
         device = "mps" if ReinforcementLearningPipeline.get_os_name() == "macos" else device
-        logging.info("Device suggested:", device)
+        logging.info(f"Device suggested:{device}" )
         model = PPO(
             CustomActorCriticPolicy,
             vectorized_environment,
@@ -86,7 +86,7 @@ class ReinforcementLearningPipeline:
             learning_rate=learning_rate,
         )
         
-        logging.info("Device loaded:", model.policy.device)
+        logging.info(f"Device loaded:{model.policy.device}")
         return model
 
     @staticmethod
