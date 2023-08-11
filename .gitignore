@@ -214,3 +214,8 @@ loyalwingmen/outputs/Optimizer_baysian_app/20230804_181154/optimizer.db
 loyalwingmen/outputs/Optimizer_baysian_app/20230804_181449/optimizer.db
 loyalwingmen/outputs/Optimizer_baysian_app/20230804_181938/optimizer.db
 *.3
+loyalwingmen/apps/logs/my_first_env/PPO_14/events.out.tfevents.1691704685.Davi-PC.35344.5
+loyalwingmen/apps/logs/my_first_env/PPO_15/events.out.tfevents.1691706535.Davi-PC.35344.6
+loyalwingmen/apps/logs/my_first_env/PPO_16/events.out.tfevents.1691708380.Davi-PC.35344.7
+loyalwingmen/apps/logs/my_first_env/PPO_17/events.out.tfevents.1691710253.Davi-PC.35344.8
+loyalwingmen/apps/logs/my_first_env/PPO_18/events.out.tfevents.1691712096.Davi-PC.35344.9
