@@ -75,7 +75,6 @@ def main():
         vectorized_environment,
         log_path=log_path, #"/output/demo_training2_app/logs/",
         model_path=model_path, #"/output/demo_training2_app/models/",
-        n_envs=n_envs,
         save_freq=100_000,
     )
 
