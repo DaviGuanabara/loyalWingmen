@@ -148,7 +148,7 @@ class DroneFactory(IDroneFactory):
         gravity_acceleration = self.environment_parameters.G
         KMH_TO_MS = 1000 / 3600
         VELOCITY_LIMITER = 1
-        VELOCITY_AMPLIFICATION = 15 #speed_amplification
+        VELOCITY_AMPLIFICATION = 60 #speed_amplification
         
         L = parameters.L
         M = parameters.M
