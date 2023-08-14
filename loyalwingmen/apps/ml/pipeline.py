@@ -26,8 +26,8 @@ import platform
 
 class ReinforcementLearningPipeline:
     @staticmethod
-    def create_vectorized_environment(n_envs: int, frequency: int) -> VecMonitor:
-        
+    def create_vectorized_environment(frequency: int, n_envs: int = os.cpu_count() or 1) -> VecMonitor:
+            
         env_fns = [lambda: DemoEnvironment(rl_frequency=frequency) for _ in range(n_envs)]
         
         vectorized_environment = SubprocVecEnv(env_fns) # type: ignore
@@ -48,12 +48,12 @@ class ReinforcementLearningPipeline:
         return callback_list
 
     @staticmethod
-    def create_policy_kwargs(hiddens: list, learning_rate: float) -> dict:
+    def create_policy_kwargs(hiddens: list) -> dict:
         policy_kwargs = dict(
             features_extractor_class=CustomCNN,
             features_extractor_kwargs=dict(features_dim=128),
             normalize_images=False,
-            net_arch=dict(pi=hiddens, vf=hiddens)
+            net_arch=dict(pi=hiddens, vf=hiddens),
         )
         return policy_kwargs
     
@@ -71,6 +71,12 @@ class ReinforcementLearningPipeline:
 
     @staticmethod
     def create_ppo_model(vectorized_environment: VecMonitor, policy_kwargs: dict, learning_rate: float) -> PPO:
+        """
+        Creates a PPO model with the given parameters
+        CustomActorCriticPolicy is used as the policy. It receives the CustomNetwork as MLP
+        the feature extractor, CustomCNN, is set in policy_kwargs and do not normalize images.
+        the learning rate is set in policy_kwargs
+        """
         tensorboard_log = "./logs/my_first_env/"
         device = "cuda" if ReinforcementLearningPipeline.get_os_name() == "windows" else "cpu"
         device = "mps" if ReinforcementLearningPipeline.get_os_name() == "macos" else device
@@ -85,21 +91,51 @@ class ReinforcementLearningPipeline:
             learning_rate=learning_rate,
         )
         
-        logging.info(f"Device loaded:{model.policy.device}")
+
+        ReinforcementLearningPipeline.log_optimizer_learning_rate(model)
         return model
 
+    @staticmethod
+    def log_optimizer_learning_rate(model):
+        optimizer_learning_rate = None
+
+        if hasattr(model.policy, 'optimizer'):
+            optimizer = model.policy.optimizer
+            for param_group in optimizer.param_groups:
+                if 'lr' in param_group:
+                    optimizer_learning_rate = param_group['lr']
+                    break
+                elif 'learning_rate' in param_group:
+                    optimizer_learning_rate = param_group['learning_rate']
+                    break
+                elif 'eta' in param_group:
+                    optimizer_learning_rate = param_group['eta']
+                    break
+
+        if optimizer_learning_rate is not None:
+            logging.info("Model's optimizer learning rate: %.2e", optimizer_learning_rate)
+        else:
+            logging.info("Model's optimizer learning rate not found.")
+    
     @staticmethod
     def train_model(model: BaseAlgorithm, callback_list, n_timesteps: int = 1_000_000) -> BaseAlgorithm:
         model.learn(total_timesteps=n_timesteps, callback=callback_list)
         return model
 
     @staticmethod
-    def save_model(model: BaseAlgorithm, hidden_layers: List[int], rl_frequency: int, learning_rate: float, avg_reward: float, reward_std_dev: float, models_dir: str, model_name: str = "my_model", debug: bool = False):
-        
-        model_folder_name = f"{model.__class__.__name__}-h{hidden_layers}-f{rl_frequency}-lr{learning_rate}-r{avg_reward}-sd{reward_std_dev}"
+    def gen_specific_model_folder_path(hidden_layers: List[int], rl_frequency: int, learning_rate: float, models_dir: str) -> str:
+        model_folder_name = f"h{hidden_layers}-f{rl_frequency}-lr{learning_rate}"
         specific_model_dir = os.path.join(models_dir, model_folder_name)
         os.makedirs(specific_model_dir, exist_ok=True)
-        model_path = os.path.join(specific_model_dir, model_name)
+        return specific_model_dir
+    
+    #TODO change save_model input to a dictionary. it can be a kwarg
+    @staticmethod
+    def save_model(model: BaseAlgorithm, hidden_layers: List[int], rl_frequency: int, learning_rate: float, avg_reward: float, reward_std_dev: float, models_dir: str, debug: bool = False):
+        
+        specific_model_dir = ReinforcementLearningPipeline.gen_specific_model_folder_path(hidden_layers, rl_frequency, learning_rate, models_dir)
+        
+        model_path = os.path.join(specific_model_dir, f"m{model.__class__.__name__}-r{avg_reward}-sd{reward_std_dev}.zip")
         model.save(model_path)
         if debug:
             logging.info(f"Model saved at: {model_path}")

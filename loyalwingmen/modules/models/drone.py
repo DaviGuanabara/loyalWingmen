@@ -30,8 +30,11 @@ if TYPE_CHECKING:
 
 
 class ObservationType(Enum):
+    OTHER_SOURCE = 0
     LIDAR = 1
-    OTHER_SOURCE = 2    
+    KINEMATICS = 2
+    MIXED_LIDAR_KINEMATICS = 3
+    
 
 class Drone(IDrone):
     def __init__(
@@ -44,6 +47,7 @@ class Drone(IDrone):
         control: DSLPIDControl,
         environment_parameters: EnvironmentParameters,
         lidar: Union[None, LiDAR] = None,
+        observation_type: ObservationType = ObservationType.LIDAR,
     ):
         self.id: int = id
         self.client_id: int = environment_parameters.client_id
@@ -55,17 +59,27 @@ class Drone(IDrone):
         self.informations: Informations = informations
         self.control: DSLPIDControl = control
         self.environment_parameters: EnvironmentParameters = environment_parameters
-        
-        if lidar is not None:
-            self.lidar: LiDAR = lidar
-            self.observation_type: ObservationType = ObservationType.LIDAR
-            
-        else :
-            self.observation_type: ObservationType = ObservationType.OTHER_SOURCE    
+
+        self.setup_observation(observation_type, lidar)
         
         if self.debug:
             print("Drone created", "debug", environment_parameters.debug)
+            
+    
+    def setup_observation(self, observation_type: ObservationType, lidar: Optional[LiDAR] = None):
+        
+        self.observation_type = observation_type
+        
+        if observation_type == ObservationType.LIDAR and lidar is not None:
+            self.lidar: LiDAR = lidar
+            self.OBSERVATION_TYPE = observation_type
+            return
+        
+        if observation_type == ObservationType.MIXED_LIDAR_KINEMATICS:
+            self.observation_type = ObservationType.KINEMATICS
+            return            
 
+        
     # =================================================================================================================
     # Private
     # =================================================================================================================

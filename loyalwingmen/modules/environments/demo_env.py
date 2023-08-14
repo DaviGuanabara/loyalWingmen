@@ -148,11 +148,13 @@ class DemoEnvironment(Env):
 
         self._housekeeping()
         observation = self._computeObs()
+        
+        self.last_distance: float = -1
         return observation, self._computeInfo()
 
     ################################################################################
 
-    def step(self, rl_action):
+    def step(self, rl_action: list):
         """Advances the environment by one simulation step.
         Parameters
         ----------
@@ -192,7 +194,7 @@ class DemoEnvironment(Env):
         #velocity_action = np.append(cartesian, intensity)
         self.current_timestep += 1
         
-        velocity_action = rl_action
+        velocity_action: np.ndarray = np.array(rl_action)
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             # multiple drones not ready. TODO: setup multiple drones
@@ -293,26 +295,26 @@ class DemoEnvironment(Env):
         
         self.current_timestep = 0
 
-    def setup_drones(self, factory: DroneFactory, quantity: int = 1) -> List:
+    def setup_drones(self, factory: DroneFactory, position: np.ndarray, quantity: int = 1) -> List:
         drones: List = []
 
         for _ in range(quantity):
-            random_position = self.gen_random_position()
-            factory.set_initial_position(random_position)
+            #random_position = self.gen_random_position()
+            factory.set_initial_position(position)
             drone = factory.create()
             drone.update_kinematics()
 
-            drones.append(drone)
+            drones.append(drone)                            
 
         return drones
 
     def setup_loyalwingmen(self, quantity: int = 1) -> List[LoyalWingman]:
-        drones: List[LoyalWingman] = self.setup_drones(self.lwingman_factory, quantity)
+        drones: List[LoyalWingman] = self.setup_drones(self.lwingman_factory, np.array([0, 0, 0]), quantity)
         #drones.astype(LoyalWingman)
         return drones
 
     def setup_loiteringmunition(self, quantity: int = 1) -> List[LoiteringMunition]:
-        drones: List[LoiteringMunition] = self.setup_drones(self.lmunition_factory, quantity)
+        drones: List[LoiteringMunition] = self.setup_drones(self.lmunition_factory, np.array([0, 0, 3]), quantity)
         #drones.astype(LoiteringMunition)
         return drones
 
@@ -494,21 +496,39 @@ class DemoEnvironment(Env):
         return int(1000 * math.exp(-current_distance))
  
 
-    def _computeReward(self) -> float:
+    def _computeReward(self) -> int:
+        
+        """
+        Velocidade ação média: 0.08 m/s
+        Amplificaçõa da velocidade: 100x # drone_factory -> __compute_informations -> VELOCITY_AMPLIFICATION
+        Velocidade resultante: 8 m/s
+        Tempo máximo para atingir o alvo: 60 s
+        
+        Frequencia de atualização: 1 Hz
+        
+        
+        """
 
         lw: LoyalWingman = self.loyalwingmen[0]
-
-        features = lw.get_observation_features()
-        filtered = filter(lambda feature: feature[0] == Channels.DISTANCE_CHANNEL.value, features)
-        values = [x[3] for x in filtered]
+        lm: LoiteringMunition = self.loitering_munitions[0]
+        lw_position = lw.kinematics.position
+        lm_position = lm.kinematics.position
         
-        return sum(self.exp_decay(value) for value in values)
+        norm_distance: float = float(np.linalg.norm(lw_position - lm_position))
+        
+        if self.last_distance is -1:
+            self.last_distance = norm_distance
+        
+        distancy_variation = self.last_distance - norm_distance           
+        self.last_distance = norm_distance
+        
+        return int (10 - norm_distance)
         
     
     def _computeDone(self):
         current = time.time()
 
-        if current - self.RESET_TIME > 10: 
+        if current - self.RESET_TIME > 60: 
             return True
         
         return False    

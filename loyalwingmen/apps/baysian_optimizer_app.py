@@ -39,14 +39,16 @@ def rl_pipeline(suggested_parameters: Tuple[int, int, int, int, float], n_timest
     hidden_1, hidden_2, hidden_3, frequency, learning_rate = suggested_parameters
     hiddens = list((hidden_1, hidden_2, hidden_3))
     
-    number_of_logical_cores = os.cpu_count()
-    n_envs: int = number_of_logical_cores if number_of_logical_cores is not None else 1
-    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(n_envs, frequency)
-    callback_list = ReinforcementLearningPipeline.create_callback_list(vectorized_environment, model_dir=models_dir, log_dir=logs_dir, callbacks_to_include=[CallbackType.EVAL, CallbackType.PROGRESSBAR], n_eval_episodes=n_eval_episodes)
-    policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens, learning_rate)
+    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(frequency)
+    specific_model_folder = ReinforcementLearningPipeline.gen_specific_model_folder_path(hiddens, frequency, learning_rate, models_dir=models_dir)
+    callback_list = ReinforcementLearningPipeline.create_callback_list(vectorized_environment, model_dir=specific_model_folder, log_dir=logs_dir, callbacks_to_include=[CallbackType.EVAL, CallbackType.PROGRESSBAR], n_eval_episodes=n_eval_episodes)
+    policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens)
     model = ReinforcementLearningPipeline.create_ppo_model(vectorized_environment, policy_kwargs, learning_rate)
 
     logging.info(model.policy)
+    #TODO: in train model, the callback list EVAL is saving the best_model on the folder models_dir, but it should be in
+    # the folder of ReinforcementLearningPipeline.save_model. So, the operation is being done twice and the best model if getting lost.
+    #VERIFY IF IT WERE SOLVED WITH ReinforcementLearningPipeline.gen_specific_model_folder_path.
     model = ReinforcementLearningPipeline.train_model(model, callback_list, n_timesteps)
     
     avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment, n_eval_episodes=n_eval_episodes)
@@ -70,22 +72,27 @@ def suggest_parameters(trial: Trial) -> Tuple[int, int, int, int, float]:
     #hiddens = [trial.suggest_int(f'hiddens_{i}', 1, 4) * 128 for i in range(num_hiddens)]
     #hiddens = [trial.suggest_categorical(f'hiddens_{i}', [128, 256, 512]) for i in range(num_hiddens)]
     
-    hidden_1 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
-    hidden_2 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
-    hidden_3 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
+    #hidden_1 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
+    #hidden_2 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
+    #hidden_3 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
+    
+    hidden_1 = 128
+    hidden_2 = 128
+    hidden_3 = 128
 
     #frequency = trial.suggest_int('frequency', 1, 2) * 15
     #frequency = trial.suggest_categorical('frequency', [15, 30])
-    frequency = 15
-    exponent = trial.suggest_int('exponent', -10, -1)
+    frequency = 1
+    exponent = trial.suggest_int('exponent', -9, -5)
     learning_rate = 10 ** exponent
     
     logging.info(
         f"Suggested Parameters:\n"
         f"  - Hiddens: {', '.join(map(str, [hidden_1, hidden_2, hidden_3]))}\n"
         f"  - Frequency: {frequency}\n"
-        f"  - Learning Rate: {learning_rate:.10f}"
+        f"  - Learning Rate: {learning_rate:.2e}"  # Change the precision value as needed
     )
+
     
     
     return hidden_1, hidden_2, hidden_3, frequency, learning_rate
@@ -101,8 +108,14 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: st
 
     print("saving results...")
     result = list(suggested_parameters)
-
-    ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", result, headers = ["hidden_1", "hidden_2", "hidden_3", 'frequency', 'learning_rate', 'value', 'std_deviation'])
+    result.append(avg_score)
+    result.append(std_deviation)
+    headers = ["hidden_1", "hidden_2", "hidden_3", 'frequency', 'learning_rate', 'value', 'std_deviation']
+    
+    try:
+        ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", result, headers)
+    except:
+        ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}_1.xlsx", result, headers)        
     print("results saved")
 
     return avg_score
@@ -153,14 +166,17 @@ def check_gpu():
 def main():
     
     check_gpu()
+    n_timesteps = 2_500_000
+    n_timesteps_in_millions = int(n_timesteps / 1e6)
+    study_name = f"no_physics_in_{n_timesteps_in_millions}M_steps_reward_distance_low_frequency_speed_amplification"
     app_name = os.path.basename(__file__)
+    app_name = os.path.join(app_name, study_name)
     
     output_folder = DirectoryManager.get_outputs_dir(app_name=app_name)
     models_dir = DirectoryManager.get_models_dir(app_name=app_name)
     logs_dir = DirectoryManager.get_logs_dir(app_name=app_name)
     
-    n_timesteps = 500_000
-    study_name = "no_physics"
+    
     
     
     #vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(n_envs, frequency)

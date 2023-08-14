@@ -21,6 +21,15 @@ import torch.nn as nn
 from gymnasium import spaces
 import numpy as np
 from typing import Tuple
+from typing import NamedTuple
+
+import gymnasium as gym
+from modules.dataclasses.dataclasses import Kinematics, Informations, Parameters
+
+class MatrixInputShape(NamedTuple):
+    channel: int  # can be 0 (distance) or 1 (target type)
+    theta: int    # spherical coordinate system - theta
+    phi: int      # spherical coordinate system - phi
 
 
 class CustomCNN(BaseFeaturesExtractor):
@@ -166,50 +175,111 @@ class CustomActorCriticPolicy(ActorCriticPolicy):
 
     def __str__(self):
         return f"CustomActorCriticPolicy (hidden layers: {self.hiddens})"
-    
-    
 
-#TODO: Add Observation_Space. Add ObservationType.
+
+
+#===================================================================================================
+#=================================== MixObservationNN ==============================================
+#===================================================================================================
+
+
+class CustomActorCriticPolicyMixedObservation(ActorCriticPolicy):
+    def __init__(
+        self,
+        observation_space: gym.spaces.Dict,
+        action_space: spaces.Box,
+        lr_schedule: Callable[[float], float],
+        *args,
+        **kwargs,
+    ):
+
+        net_arch = kwargs.get('net_arch')
+        default_hiddens = [256, 256, 256]
+
+        if net_arch is None:
+            warnings.warn(f"net_arch is None. Using default hiddens: {default_hiddens}")
+            self.hiddens = default_hiddens
+        elif not isinstance(net_arch, dict):
+            warnings.warn(f"net_arch is not a dictionary. Using default hiddens: {default_hiddens}")
+            self.hiddens = default_hiddens
+        else:
+            # Get the 'pi' key from the dictionary, if it exists
+            self.hiddens = net_arch.get('pi', default_hiddens)
+
+        # Disable orthogonal initialization
+        kwargs["ortho_init"] = False
+        
+        super().__init__(
+            observation_space,
+            action_space,
+            lr_schedule,
+            *args,
+            **kwargs,
+        )
+        
+        self.observation_space = observation_space
+        
+    def _build_mlp_extractor(self) -> None:
+        self.mlp_extractor = MixObservationNN(self.observation_space)
+        
 class MixObservationNN(nn.Module):
-    def __init__(self, matrix_input_shape: Tuple[int, int, int], tuple_input_shape: Tuple[int, ...], features_dim: int = 256):
+    
+    def __init__(self, observation_space: gym.spaces.Dict, features_dim: int = 256):
         super(MixObservationNN, self).__init__()
 
-        # Feature extractor for the matrix observation (using Conv2d layers)
-        self.matrix_feature_extractor = nn.Sequential(
-            nn.Conv2d(in_channels=matrix_input_shape[0], out_channels=32, kernel_size=8, stride=4, padding=0),
+        lidar_observation_space = observation_space['lidar']
+        kinematic_observation_space = observation_space['kinematics']
+        
+        self.lidar_feature_extractor, n_flatten_lidar = self._preprocess_lidar_observation_space(lidar_observation_space)
+        self.kinematic_feature_extractor, n_flatten_kinematic = self._preprocess_kinematic_observation_space(kinematic_observation_space)
+        
+
+        # Concatenate both feature extractors and pass through a linear layer
+        concatenated_dim = n_flatten_lidar + n_flatten_kinematic
+        self.final_layer = nn.Sequential(
+            nn.Linear(concatenated_dim, features_dim),
+            nn.ReLU()
+        )
+        
+    
+    def _preprocess_lidar_observation_space(self, lidar_observation_space) -> Tuple[nn.Sequential, int]:
+         # Feature extractor for the matrix observation (using Conv2d layers)
+        lidar_feature_extractor = nn.Sequential(
+            nn.Conv2d(in_channels=lidar_observation_space[0], out_channels=32, kernel_size=8, stride=4, padding=0),
             nn.ReLU(),
             nn.Conv2d(in_channels=32, out_channels=64, kernel_size=2, stride=2, padding=0),
             nn.ReLU(),
             nn.Flatten()
         )
-
-        # Feature extractor for the tuple observation (using fully connected layers)
-        self.tuple_feature_extractor = nn.Sequential(
-            nn.Linear(int(np.prod(tuple_input_shape)), 128),
-            nn.ReLU(),
-            nn.Linear(128, 64),
-            nn.ReLU()
-        )
+        
         # Compute shape by doing one forward pass for the matrix feature extractor
         with torch.no_grad():
-            n_flatten_matrix = self.matrix_feature_extractor(
-                torch.rand(1, *matrix_input_shape)).shape[1]
-
-        # Compute shape by doing one forward pass for the tuple feature extractor
-        with torch.no_grad():
-            n_flatten_tuple = self.tuple_feature_extractor(
-                torch.rand(1, *tuple_input_shape)).shape[1]
-
-        # Concatenate both feature extractors and pass through a linear layer
-        self.concatenated_dim = n_flatten_matrix + n_flatten_tuple
-        self.final_layer = nn.Sequential(
-            nn.Linear(self.concatenated_dim, features_dim),
+            n_flatten_lidar = lidar_feature_extractor(
+                torch.rand(1, *lidar_observation_space)).shape[1]
+            
+        return lidar_feature_extractor, n_flatten_lidar 
+    
+    def _preprocess_kinematic_observation_space(self, kinematic_observation_space) -> Tuple[nn.Sequential, int]:
+        # Feature extractor for the tuple observation (using Linear layers)
+        kinematic_feature_extractor = nn.Sequential(
+            nn.Linear(kinematic_observation_space.shape[0], 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
             nn.ReLU()
         )
+        
+        # Compute shape by doing one forward pass for the tuple feature extractor
+        with torch.no_grad():
+            n_flatten_kinematic = kinematic_feature_extractor(
+                torch.rand(1, kinematic_observation_space.shape[0])).shape[1]
+            
+        return kinematic_feature_extractor, n_flatten_kinematic    
 
-    def forward(self, matrix_obs: torch.Tensor, tuple_obs: torch.Tensor) -> torch.Tensor:
-        matrix_features = self.matrix_feature_extractor(matrix_obs)
-        tuple_features = self.tuple_feature_extractor(tuple_obs.flatten(start_dim=1))
-        concatenated_features = torch.cat((matrix_features, tuple_features), dim=1)
+    def forward(self, lidar_observation: torch.Tensor, kinematics_observation: torch.Tensor) -> torch.Tensor:
+        lidar_features = self.lidar_feature_extractor(lidar_observation)
+        kinematics_features = self.kinematic_feature_extractor(kinematics_observation.flatten(start_dim=1))
+        concatenated_features = torch.cat((lidar_features, kinematics_features), dim=1)
         return self.final_layer(concatenated_features)
     

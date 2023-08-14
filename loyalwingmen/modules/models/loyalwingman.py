@@ -25,36 +25,9 @@ class LoyalWingman(Drone):
             commanded to the 4 motors of each drone.
         """
         
-        #velocity_intensity = np.linalg.norm(action)
-        #if velocity_intensity != 0:
-        #    velocity_unitary_vector = action / velocity_intensity
-
-        #else:
-        #   velocity_unitary_vector = np.zeros(3)
         
-        #TODO: check if this is correct
-        ''''
-        
-        freq: int=240,
-        aggregate_phy_steps: int=1,
-        
-        self.SIM_FREQ = freq
-        self.TIMESTEP = 1./self.SIM_FREQ
-        
-        temp, _, _ = self.ctrl[int(k)].computeControl(control_timestep=self.AGGR_PHY_STEPS*self.TIMESTEP, 
-                                                    cur_pos=state[0:3],
-                                                    cur_quat=state[3:7],
-                                                    cur_vel=state[10:13],
-                                                    cur_ang_vel=state[13:16],
-                                                    target_pos=state[0:3], # same as the current position
-                                                    target_rpy=np.array([0,0,state[9]]), # keep current yaw
-                                                    target_vel=self.SPEED_LIMIT * np.abs(v[3]) * v_unit_vector # target the desired velocity vector
-                                                    )
-                                                    
-                                                    
-        '''
-
-        speed_limit = self.informations.speed_limit
+        speed_limit = self.informations.speed_limit #speed_limit == 8.333333333333334
+        speed_amplification = self.informations.speed_amplification #speed_amplification == 20
 
         position: np.ndarray = self.kinematics.position
         quaternions: np.ndarray = self.kinematics.quaternions
@@ -73,7 +46,7 @@ class LoyalWingman(Drone):
             cur_ang_vel=angular_velocity,
             target_pos=position,
             target_rpy=angular_position,
-            target_vel=5 * speed_limit * action,
+            target_vel=speed_amplification * speed_limit * action,
         )
 
         return rpm
@@ -82,13 +55,21 @@ class LoyalWingman(Drone):
     # Public
     # =================================================================================================================
 
-    def apply_velocity_action(self, velocity, only_velocity=True):
+    def apply_velocity_action(self, velocity: np.ndarray, only_velocity=True):
         if only_velocity:
             
-            p.resetBaseVelocity(self.id, linearVelocity=velocity, angularVelocity=[0, 0, 0], physicsClientId=self.client_id)
+            #Zera alguma velocidade prévia
+            #p.resetBaseVelocity(self.id, linearVelocity=np.array([0, 0, 0]), angularVelocity=np.array([0, 0, 0]), physicsClientId=self.client_id)
+            
+            speed_limit = self.informations.speed_limit #speed_limit == 8.333333333333334
+            #speed_amplification = self.informations.speed_amplification #speed_amplification == 20
+            speed_amplification = 1
+            target_vel=speed_amplification * speed_limit * velocity
+            
+            
             weigth = self.environment_parameters.G * self.parameters.M
             self.apply_force(np.array([0, 0, weigth]))
-            self.apply_velocity(velocity=velocity, angular_velocity=np.array([0, 0, 0]))
+            self.apply_velocity(velocity=target_vel, angular_velocity=np.array([0, 0, 0]))
             
         else:    
             rpm = self.__preprocessAction(velocity)

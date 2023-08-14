@@ -59,7 +59,8 @@ class DroneFactory(IDroneFactory):
     def __compute_informations(self, parameters: Parameters):
         gravity_acceleration = self.environment_parameters.G
         KMH_TO_MS = 1000 / 3600
-        VELOCITY_LIMITER = 1 #0.03 #1
+        VELOCITY_LIMITER = 1
+        VELOCITY_AMPLIFICATION = 100 #speed_amplification
 
         L = parameters.L
         M = parameters.M
@@ -82,7 +83,7 @@ class DroneFactory(IDroneFactory):
         )
         max_xy_torque = (2 * L * KF * max_rpm**2) / np.sqrt(
             2
-        )  # Ajustado para Model CF2X
+        ) 
 
         informations = Informations()
         informations.gravity = gravity
@@ -93,6 +94,7 @@ class DroneFactory(IDroneFactory):
         informations.speed_limit = speed_limit
         informations.gnd_eff_h_clip = gnd_eff_h_clip
         informations.max_xy_torque = max_xy_torque
+        informations.speed_amplification = VELOCITY_AMPLIFICATION
 
         return informations
 
@@ -124,7 +126,8 @@ class DroneFactory(IDroneFactory):
 
     def __compute_LiDAR(self, radius: float = 5, resolution: float = 2) -> LiDAR:
         #print("LiDAR created in drone_factory.py", "debug", self.debug)
-        lidar: LiDAR = LiDAR(radius, resolution, client_id=self.client_id, debug=self.debug)
+        
+        lidar: LiDAR = LiDAR(radius=radius, resolution=resolution, client_id=self.client_id, debug=self.debug)
         
         return lidar
 

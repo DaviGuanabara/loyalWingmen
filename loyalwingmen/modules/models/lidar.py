@@ -143,7 +143,7 @@ class LiDAR:
         return cartesian_from_origin + current_position
   
 
-    def __gen_sphere(self, n_theta_points, n_phi_points, n_channels: int = 2):
+    def __gen_sphere(self, n_theta_points, n_phi_points, n_channels: int = 2) -> np.ndarray:
         # it is assumed the following shape: CxHxW (channels first)
         sphere = np.ones((n_channels, n_theta_points,
                           n_phi_points), dtype=np.float32)
