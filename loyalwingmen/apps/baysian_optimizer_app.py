@@ -82,7 +82,7 @@ def suggest_parameters(trial: Trial) -> Tuple[int, int, int, int, float]:
 
     #frequency = trial.suggest_int('frequency', 1, 2) * 15
     #frequency = trial.suggest_categorical('frequency', [15, 30])
-    frequency = 1
+    frequency = 15
     exponent = trial.suggest_int('exponent', -9, -5)
     learning_rate = 10 ** exponent
     

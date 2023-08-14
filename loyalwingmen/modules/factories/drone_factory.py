@@ -57,11 +57,99 @@ class DroneFactory(IDroneFactory):
         return self.__parseURDFParameters(urdf_file_path)
 
     def __compute_informations(self, parameters: Parameters):
+        """
+        Compute Information, em drone factory, é usado para computar informações importantes
+        a cerca do drone, como o peso, o raio das helices, etc.
+        Aqui há duas informações muito importantes, o speed_limit e o velocity_amplification.
+        (talvez o nome melhor fosse velocity_amplifier).
+        
+        O primeiro, speed_limit, é o limite de velocidade que o drone pode atingir, ou seja,
+        se o drone atingir esse limite, ele não pode mais acelerar.
+        Como a ação é um vetor de 3 dimensões, que varia de 0 até 1, o limite de velocidade é multiplicado 
+        nesse vetor, com 1 sendo a velocidade máxima em um eixo, e 0 a velocidade mínima.
+        
+        O cáculo do speed_limit é dado por:
+        speed_limit = VELOCITY_LIMITER * parameters.MAX_SPEED_KMH * KMH_TO_MS,
+        no qual parameters.MAX_SPEED_KMH é oriundo do arquivo urdf, e KMH_TO_MS é uma constante.
+        Velocity_limiter é uma constante que é definida na própria função.
+        O debug mostra que speed_limit = 8,333333333333334 m/s, ou seja, 30 km/h.
+        
+        Inicialmente, a rede neural retorna uma ação (vetor velocidade) baixa, em torno de 0.08 (como isso é proporcional
+        pode-se pensar em 8% da velocidade máxima), o que faz com que o drone acelere lentamente, algo em torno de 
+        0.64 m/s. Para uma frequência de 15 hz, isso daria em torno de 0.04 m/s por ação. Dado que a recompensa
+        é a distancia entre o drone e o alvo, isso daria em uma variação na recompensa de 0.04. Caso o drone esteja
+        a 5 m de distancia do alvo, a recompensa por não fazer nada é de 5 +- 0.04, ou seja, 4.96 a 5.04, o que pode
+        ser descartado devido as aproximações.
+        
+        Há dois caminhos a se seguir: 
+        1. Diminuir a frequencia da rl.
+        2. Aumentar a velocidade do drone.
+        
+        1. Diminuir a frequencia da rl.
+        A frequência da RL é dado por rl_frequency e é definida como argumento do environment.
+        Apesar de aumentar o impacto das ações sob a recompensa, diminuir a frequencia da rl 
+        aumenta o tempo de treinamento, afinal se antes a rl fazia 1000 ações por segundo
+        e agora faz 100, vai demorar 10x mais para treinar o mesmo número de passos de tempo.
+        Na realidade, não é uma variação linear assim. A diminuição da frequencia da rl aumenta o impacto do OverHead do
+        Reset do Environment, que é o tempo que o ambiente leva para resetar, e isso aumenta o tempo de treinamento final, 
+        pois o mesmo passará por mais Resets dentro da mesma faixa de passos de tempo.
+        
+        
+        2. Aumentar a velocidade do drone.
+        Há duas constantes, até que redundantes, criadas para construir a velocidade do drone.
+        Antes de mais nada, a ação tomada pela rede neural é um vetor velocidade que varia de -1 até 1 nos
+        eixos x, y e z. Assim, trata-se de um grau de proporcionalidade e sentido, assim 1 é equivalente a 
+        100% da velocidade máxima, e -1 a 100% da velocidade máxima em sentido contrário ao crescimento do eixo.
+        
+        As variáveis são: Speed Limit e Velocity Amplification.
+        a Target_Velocity, a velocidade resultante, é dada pela multiplicação da Speed Limit e Velocity Amplification.
+        Aumentar a velocidade significaria aumentar a velocity amplification, algo que impacta diretamente na recompensa, mas também
+        no comportamento do drone. Aumentar a velocidade do drone significa que ele vai se mover mais rápido, e assim
+        irrealisticamente e a RL com baixa frequencia pode não ser capaz de controlá-lo.
+        
+        Velocidade do Drone X frequencia da rl
+        
+        Por conta do impacto no tempo, a redução da frequencia da rl não é uma solução viavel, então a solução é aumentar a amplificação,
+        ou ao menos encontrar algo que balanceie a amplificação com a frequencia da rl.
+        
+        Dentro das configurações atuais, um episódio com 10 segundos, velocity_amplification em 1, e a frequencia da rl em 1hz,
+        para treinar 1 milhão de passos de tempo, é necessário 2:09:20 horas de treinamento (em uma média de 186 it/s).
+        
+        Aumentar a frequencia do drone pode ser corrigido com o aumento da velocidade
+        
+        Como contraste, ampliar a frequencia da rl para 15hz e aumentar a velocity amplification para 15, para treinar 1 milhão de passos de tempo (1,199,994),
+        demorou 1:16:53 horas de treinamento (em uma média de 322 it/s), uma redução de 53 minutos.
+        
+        
+        É importante notar que isso tudo é considerando a física inativa. Com a física ativada, precisaremos considerar o tempo de transição
+        entre o drone estar parado até o mesmo alcançar a velocidade desejada e essa ser convertida em impacto na recompensa.
+        
+        De forma simplificada, surgem algumas perguntas: 
+        1. Qual é o valor mínimo de variação da recompensa que faça com que a rede neural a perceba ?
+        2. Qual é o tempo mínimo de variação da recompensa devemos esperar para que o acumulado da variação da recompensa seja perceptível ?
+        3. Qual é a velocidade mínima que o drone deve poder atingir mantendo um impacto perceptível na recompensa ?
+        4. Qual é a velocidade máxima que o drone deve poder atingir ?
+        5. Como equilibrar Speed Limit e Velocity Amplification X frequencia da rl ?
+        5.1. Devo igualar o Velocity Amplification e a frequencia da RL ?
+        A frequencia está sendo variada em baysian_optimizer -> suggest_params
+        
+        
+        Proposta
+        Uma solução possível para a recompensa seria relacioná-la não à distância ao alvo, mas sim a taxa de variação dessa distância.
+        Para um alvo estático, isso pode ser bastante vantajoso, pois o drone não precisa se mover muito para manter a recompensa. O problema 
+        é que é uma recompensa atrasada, pois o drone precisa efetivamente se mover para perceber a variação na recompensa.
+        
+        Talvez também possa modular o derivativo com o proporcinal, assim a recompensa seria a distância ao alvo + a taxa de variação da distância ao alvo. Porém
+        adicionaria duas novas variáveis para tunar, o que pode ser um problema.
+        
+        TODO:
+        Esses parâmetros talvez devem ser difinidos no Environment e não de forma estática aqui.
+        """
         gravity_acceleration = self.environment_parameters.G
         KMH_TO_MS = 1000 / 3600
         VELOCITY_LIMITER = 1
-        VELOCITY_AMPLIFICATION = 100 #speed_amplification
-
+        VELOCITY_AMPLIFICATION = 15 #speed_amplification
+        
         L = parameters.L
         M = parameters.M
         KF = parameters.KF
