@@ -30,7 +30,10 @@ class DroneFactory(IDroneFactory):
         initial_angular_position: np.ndarray = np.zeros((3,)),
         radius: float = 5,
         resolution: float = 1,
+        speed_amplification: float = 1,
+        debug: bool = False,
     ):
+        self.VELOCITY_AMPLIFICATION = speed_amplification
         self.client_id: int = environment_parameters.client_id
         self.debug: bool = environment_parameters.debug
         
@@ -148,7 +151,7 @@ class DroneFactory(IDroneFactory):
         gravity_acceleration = self.environment_parameters.G
         KMH_TO_MS = 1000 / 3600
         VELOCITY_LIMITER = 1
-        VELOCITY_AMPLIFICATION = 1 #speed_amplification
+        #VELOCITY_AMPLIFICATION = self.VELOCITY_AMPLIFICATION  #1 #speed_amplification
         
         L = parameters.L
         M = parameters.M
@@ -182,7 +185,7 @@ class DroneFactory(IDroneFactory):
         informations.speed_limit = speed_limit
         informations.gnd_eff_h_clip = gnd_eff_h_clip
         informations.max_xy_torque = max_xy_torque
-        informations.speed_amplification = VELOCITY_AMPLIFICATION
+        informations.speed_amplification = self.VELOCITY_AMPLIFICATION
 
         return informations
 

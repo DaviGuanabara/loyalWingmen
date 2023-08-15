@@ -3,8 +3,8 @@ from modules.models.loyalwingman import LoyalWingman, Drone
 
 
 class LoyalWingmanFactory(DroneFactory):
-    def __init__(self, environment_parameters, debug: bool = False):
-        super().__init__(environment_parameters)
+    def __init__(self, environment_parameters, speed_amplification: float = 1, debug: bool = False):
+        super().__init__(environment_parameters, speed_amplification=speed_amplification, debug=debug)
 
     def create(self) -> Drone:
         (

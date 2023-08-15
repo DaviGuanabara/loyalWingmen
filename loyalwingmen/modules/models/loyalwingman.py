@@ -63,7 +63,7 @@ class LoyalWingman(Drone):
             
             speed_limit = self.informations.speed_limit #speed_limit == 8.333333333333334
             #speed_amplification = self.informations.speed_amplification #speed_amplification == 20
-            speed_amplification = 1
+            speed_amplification = self.informations.speed_amplification
             target_vel=speed_amplification * speed_limit * velocity
             
             

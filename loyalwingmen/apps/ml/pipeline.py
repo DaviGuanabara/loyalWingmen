@@ -4,7 +4,7 @@ sys.path.append("..")
 import logging
 
 from scipy.stats import randint, uniform
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.evaluation import evaluate_policy
 from modules.environments.demo_env import DemoEnvironment
@@ -22,13 +22,17 @@ from typing import Tuple
 from apps.ml.directory_manager import DirectoryManager
 import re
 import platform
+import inspect
 
 
 class ReinforcementLearningPipeline:
     @staticmethod
-    def create_vectorized_environment(frequency: int, n_envs: int = os.cpu_count() or 1) -> VecMonitor:
-            
-        env_fns = [lambda: DemoEnvironment(rl_frequency=frequency) for _ in range(n_envs)]
+    def create_vectorized_environment(env_kwargs: dict, n_envs: int = os.cpu_count() or 1) -> VecMonitor:
+        
+        env_args = set(inspect.signature(DemoEnvironment).parameters.keys())  # Get the valid argument names of the function
+        valid_env_kwargs = {key: value for key, value in env_kwargs.items() if key in env_args}
+
+        env_fns = [lambda: DemoEnvironment(**valid_env_kwargs) for _ in range(n_envs)]
         
         vectorized_environment = SubprocVecEnv(env_fns) # type: ignore
         return VecMonitor(vectorized_environment)
@@ -69,22 +73,44 @@ class ReinforcementLearningPipeline:
             return "windows"
     
         return "unknown"
+    
+    @staticmethod
+    def create_model(model_type: str, vectorized_enviroment: VecMonitor, policy_kwargs: dict, learning_rate: float, logs_dir: str, debug=False):
+
+        tensorboard_log = logs_dir
+        device = "cuda" if ReinforcementLearningPipeline.get_os_name() == "windows" else "cpu"
+        device = "mps" if ReinforcementLearningPipeline.get_os_name() == "macos" else device
+        logging.info(f"Device suggested:{device}" )
+
+        model_kwargs = {}
+        model_kwargs["tensorboard_log"] = tensorboard_log
+        model_kwargs["policy_kwargs"] = policy_kwargs
+        model_kwargs["learning_rate"] = learning_rate
+        model_kwargs["device"] = device
+        model_kwargs["debug"] = debug
+        model_kwargs["vectorized_enviroment"] = vectorized_enviroment
+
+        if model_type == "PPO":
+            model = ReinforcementLearningPipeline.create_ppo_model(**model_kwargs)
+        elif model_type == "SAC":
+            model = ReinforcementLearningPipeline.create_sac_model(**model_kwargs)
+        else:
+            raise ValueError(f"Invalid model type: {model_type}")
+        
+        return model
 
     @staticmethod
-    def create_ppo_model(vectorized_environment: VecMonitor, policy_kwargs: dict, learning_rate: float, debug=False) -> PPO:
+    def create_ppo_model(vectorized_enviroment: VecMonitor, policy_kwargs: dict, learning_rate: float, device:str, tensorboard_log:str, debug=False) -> PPO:
         """
         Creates a PPO model with the given parameters
         CustomActorCriticPolicy is used as the policy. It receives the CustomNetwork as MLP
         the feature extractor, CustomCNN, is set in policy_kwargs and do not normalize images.
         the learning rate is set in policy_kwargs
         """
-        tensorboard_log = "./logs/my_first_env/"
-        device = "cuda" if ReinforcementLearningPipeline.get_os_name() == "windows" else "cpu"
-        device = "mps" if ReinforcementLearningPipeline.get_os_name() == "macos" else device
-        logging.info(f"Device suggested:{device}" )
+
         model = PPO(
             CustomActorCriticPolicy,
-            vectorized_environment,
+            vectorized_enviroment,
             verbose=0,
             device=device,
             tensorboard_log=tensorboard_log,
@@ -96,6 +122,32 @@ class ReinforcementLearningPipeline:
         ReinforcementLearningPipeline.log_optimizer_learning_rate(model)
         return model
 
+    @staticmethod
+    def create_sac_model(vectorized_environment: VecMonitor, policy_kwargs: dict, learning_rate: float, device:str, tensorboard_log:str, debug=False) -> PPO:
+        """
+        Creates a PPO model with the given parameters
+        CustomActorCriticPolicy is used as the policy. It receives the CustomNetwork as MLP
+        the feature extractor, CustomCNN, is set in policy_kwargs and do not normalize images.
+        the learning rate is set in policy_kwargs
+        """
+        """
+        model = SAC(
+            CustomActorCriticPolicy,
+            vectorized_environment,
+            verbose=0,
+            device=device,
+            tensorboard_log=tensorboard_log,
+            policy_kwargs=policy_kwargs,
+            learning_rate=learning_rate,
+        )
+        """
+
+        assert False, "SAC is not working yet, because of the CustomActorCriticPolicy is not accepted ad argument for SAC. It should be SACPolicy and not ActorCriticPolicy"
+        
+
+        ReinforcementLearningPipeline.log_optimizer_learning_rate(model)
+        return model
+    
     @staticmethod
     def log_optimizer_learning_rate(model):
         optimizer_learning_rate = None

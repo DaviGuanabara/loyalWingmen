@@ -41,6 +41,7 @@ class DemoEnvironment(Env):
         self,
         simulation_frequency: int = 240,
         rl_frequency: int = 15,#30,
+        speed_amplification: float = 1,
         GUI: bool = False,
         debug: bool = False,
         
@@ -63,7 +64,7 @@ class DemoEnvironment(Env):
         self.RESET_TIME = time.time()
 
         #### Factories #############################################
-        self.setup_factories()
+        self.setup_factories(speed_amplification)
 
         #### Housekeeping ##########################################
         self._housekeeping()
@@ -73,9 +74,9 @@ class DemoEnvironment(Env):
         loyalwingman: LoyalWingman = self.loyalwingmen[0]
         self.observation_space = loyalwingman.observation_space()
 
-    def setup_factories(self):
+    def setup_factories(self, speed_amplification: float):
         env_p = self.environment_parameters
-        self.lwingman_factory = LoyalWingmanFactory(env_p)
+        self.lwingman_factory = LoyalWingmanFactory(env_p, speed_amplification)
         self.lmunition_factory = LoiteringMunitionFactory(env_p)
 
     def setup_pybullet_DIRECT(self):

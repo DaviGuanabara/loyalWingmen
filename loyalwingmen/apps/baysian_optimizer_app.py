@@ -34,16 +34,22 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
     
 
-def rl_pipeline(suggested_parameters: Tuple[int, int, int, int, float], n_timesteps: int, models_dir: str, logs_dir: str, n_eval_episodes: int = 100) -> Tuple[float, float, float]:
+def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: str, n_eval_episodes: int = 100) -> Tuple[float, float, float]:
     
-    hidden_1, hidden_2, hidden_3, frequency, learning_rate = suggested_parameters
+    hidden_1 = suggestion["hidden_1"]
+    hidden_2 = suggestion["hidden_2"]
+    hidden_3 = suggestion["hidden_3"]
+    frequency = suggestion["rl_frequency"]
+    learning_rate = suggestion["learning_rate"]
+    speed_amplification = suggestion["speed_amplification"]
+
     hiddens = list((hidden_1, hidden_2, hidden_3))
     
-    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(frequency)
+    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(suggestion)
     specific_model_folder = ReinforcementLearningPipeline.gen_specific_model_folder_path(hiddens, frequency, learning_rate, models_dir=models_dir)
     callback_list = ReinforcementLearningPipeline.create_callback_list(vectorized_environment, model_dir=specific_model_folder, log_dir=logs_dir, callbacks_to_include=[CallbackType.EVAL, CallbackType.PROGRESSBAR], n_eval_episodes=n_eval_episodes, debug=True)
     policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens)
-    model = ReinforcementLearningPipeline.create_ppo_model(vectorized_environment, policy_kwargs, learning_rate, debug=True)
+    model = ReinforcementLearningPipeline.create_model(model_type="PPO", vectorized_enviroment=vectorized_environment, policy_kwargs=policy_kwargs, learning_rate=learning_rate, logs_dir=logs_dir, debug=True)
 
     logging.info(model.policy)
     #TODO: in train model, the callback list EVAL is saving the best_model on the folder models_dir, but it should be in
@@ -65,38 +71,25 @@ def generate_random_parameters() -> Tuple[list, int, float]:
     return hiddens, frequency, learning_rate
 
 
-def suggest_parameters(trial: Trial) -> Tuple[int, int, int, int, float]:
-    #num_hiddens = trial.suggest_int('num_hiddens', 3, 4)
-    #num_hiddens = trial.suggest_int('num_hiddens', 3, 3)
-    #num_hiddens = 3
-    #hiddens = [trial.suggest_int(f'hiddens_{i}', 1, 4) * 128 for i in range(num_hiddens)]
-    #hiddens = [trial.suggest_categorical(f'hiddens_{i}', [128, 256, 512]) for i in range(num_hiddens)]
-    
-    #hidden_1 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
-    #hidden_2 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
-    #hidden_3 = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
-    
-    hidden_1 = 128
-    hidden_2 = 128
-    hidden_3 = 128
-
-    #frequency = trial.suggest_int('frequency', 1, 2) * 15
-    #frequency = trial.suggest_categorical('frequency', [15, 30])
-    frequency = 1
-    exponent = trial.suggest_int('exponent', -9, -7)
-    learning_rate = 10 ** exponent
-    
-    logging.info(
-        f"Suggested Parameters:\n"
-        f"  - Hiddens: {', '.join(map(str, [hidden_1, hidden_2, hidden_3]))}\n"
-        f"  - Frequency: {frequency}\n"
-        f"  - Learning Rate: {learning_rate:.2e}"  # Change the precision value as needed
-    )
+def suggest_parameters(trial: Trial) -> dict:
 
     
-    
-    return hidden_1, hidden_2, hidden_3, frequency, learning_rate
+    suggestions = {}
+    suggestions["hidden_1"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
+    suggestions["hidden_2"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
+    suggestions["hidden_3"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
 
+    suggestions["rl_frequency"] = trial.suggest_categorical('frequency', [1, 5, 10, 15, 30])
+    suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [1, 5, 10, 15, 30])
+    suggestions["learning_rate"] = 10 ** trial.suggest_int('exponent', -9, -7)
+    suggestions["model"] = trial.suggest_categorical('model', ['ppo']) #'sac'
+
+    info_message = "Suggested Parameters:\n"
+    for key in suggestions.keys():
+            info_message += f"  - {key}: {suggestions[key]}\n"
+    logging.info(info_message)
+
+    return suggestions
 
 def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str, models_dir: str, logs_dir:str) -> float:
     
@@ -152,16 +145,19 @@ def get_os_name() -> str:
         
 def check_gpu():
     os_name = get_os_name()
-    device_name = th.cuda.get_device_name(0)
+    
+    #device_name = th.cuda.get_device_name(0)
     
     if os_name == "windows" and th.cuda.is_available():
         device_name = th.cuda.get_device_name(0)
         logging.info(f"Operating System: {os_name}\nGPU Available: Yes\nGPU Device: {device_name}")
-    else:
+    elif os_name == "windows" and not th.cuda.is_available():
         logging.info(f"Operating System: {os_name}\nGPU Available: No\n Note: CUDA is not supported on this system or the necessary drivers are not installed.")
         if os_name == "windows":
             raise Exception("Fix CUDA support on Windows")
-        
+
+    elif os_name == "macos":
+        logging.info(f"Operating System: {os_name}\nGPU may not be Available\n ")    
  
 def main():
     
