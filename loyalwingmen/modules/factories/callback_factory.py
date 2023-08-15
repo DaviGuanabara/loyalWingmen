@@ -62,6 +62,7 @@ def callbacklist(
     save_freq: int = 10_000,
     callbacks_to_include: List[CallbackType] = [CallbackType.EVAL, CallbackType.CHECKPOINT, CallbackType.PROGRESSBAR],
     n_eval_episodes: int = 10,
+    debug: bool = False
 ) -> CallbackList:
     list_callbacks = []
 
@@ -88,7 +89,7 @@ def callbacklist(
             deterministic=True,
             render=False,
             callback_after_eval=stop_train_callback,
-            verbose=0
+            verbose=int(debug)
         )
 
         list_callbacks.append(eval_callback)

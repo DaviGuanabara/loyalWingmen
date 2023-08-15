@@ -34,7 +34,7 @@ class ReinforcementLearningPipeline:
         return VecMonitor(vectorized_environment)
     
     @staticmethod
-    def create_callback_list(vectorized_environment: VecMonitor, model_dir: str, log_dir: str, callbacks_to_include: List[CallbackType] = [CallbackType.EVAL, CallbackType.CHECKPOINT, CallbackType.PROGRESSBAR], n_eval_episodes: int = 10):
+    def create_callback_list(vectorized_environment: VecMonitor, model_dir: str, log_dir: str, callbacks_to_include: List[CallbackType] = [CallbackType.EVAL, CallbackType.CHECKPOINT, CallbackType.PROGRESSBAR], n_eval_episodes: int = 10, debug: bool = False):
     
         save_freq = 100_000
         callback_list = callbacklist(
@@ -44,6 +44,7 @@ class ReinforcementLearningPipeline:
             save_freq=save_freq,
             callbacks_to_include=callbacks_to_include,
             n_eval_episodes=n_eval_episodes,
+            debug=debug
         )
         return callback_list
 
@@ -70,7 +71,7 @@ class ReinforcementLearningPipeline:
         return "unknown"
 
     @staticmethod
-    def create_ppo_model(vectorized_environment: VecMonitor, policy_kwargs: dict, learning_rate: float) -> PPO:
+    def create_ppo_model(vectorized_environment: VecMonitor, policy_kwargs: dict, learning_rate: float, debug=False) -> PPO:
         """
         Creates a PPO model with the given parameters
         CustomActorCriticPolicy is used as the policy. It receives the CustomNetwork as MLP
