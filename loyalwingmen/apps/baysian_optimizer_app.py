@@ -94,21 +94,26 @@ def suggest_parameters(trial: Trial) -> dict:
 def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str, models_dir: str, logs_dir:str) -> float:
     
     #hidden_1, hidden_2, hidden_3, frequency, learning_rate = suggest_parameters(trial)
-    suggested_parameters = suggest_parameters(trial)
+    suggested_parameters: dict = suggest_parameters(trial)
     
     avg_score, std_deviation, n_episodes = rl_pipeline(suggested_parameters, n_timesteps=n_timesteps, models_dir=models_dir, logs_dir=logs_dir)
     logging.info(f"Avg score: {avg_score}")
 
     print("saving results...")
-    result = list(suggested_parameters)
-    result.append(avg_score)
-    result.append(std_deviation)
-    headers = ["hidden_1", "hidden_2", "hidden_3", 'frequency', 'learning_rate', 'value', 'std_deviation']
+    #result = list(suggest_parameters.values()) #list(suggested_parameters)
+    #result.append(avg_score)
+    #result.append(std_deviation)
+    headers = ["hidden_1", "hidden_2", "hidden_3", 'rl_frequency', 'learning_rate', 'speed_amplification', 'value', 'std_deviation']
+    
+    sorted_items = sorted(suggested_parameters.items(), key=lambda item: headers.index(item[0]))
+    sorted_values = [item[1] for _, item in sorted_items]
+    sorted_values.append(avg_score)
+    sorted_values.append(std_deviation)
     
     try:
-        ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", result, headers)
+        ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", sorted_values, headers)
     except:
-        ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}_1.xlsx", result, headers)        
+        ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}_1.xlsx", sorted_values, headers)        
     print("results saved")
 
     return avg_score
@@ -163,8 +168,8 @@ def main():
     
     check_gpu()
     n_timesteps = 1_000_000
-    n_timesteps_in_millions = int(n_timesteps / 1e6)
-    study_name = f"no_physics_in_{n_timesteps_in_millions}M_steps_reward_distance_low_frequency_speed_amplification"
+    n_timesteps_in_millions = n_timesteps / 1e6
+    study_name = f"no_physics_in_{n_timesteps_in_millions:.2f}M_steps_reward_distance_low_frequency_speed_amplification"
     app_name = os.path.basename(__file__)
     app_name = os.path.join(app_name, study_name)
     

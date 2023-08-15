@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Union
 from pynput import keyboard
 from pynput.keyboard import Key, KeyCode
+import numpy as np
 
 
 class KeyboardListener:
@@ -22,9 +23,9 @@ class KeyboardListener:
         if key == keyboard.Key.esc:
             self.listener.stop()
 
-    def get_action(self) -> list:
+    def get_action(self) -> np.ndarray:
         if self.key is not None:
             action = self.key_map[self.key]
         else:
             action = [0, 0, 0]
-        return action
+        return np.array(action)

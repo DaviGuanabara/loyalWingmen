@@ -72,6 +72,8 @@ class LiDAR:
         )
         
         
+        
+        
     def __get_flag(self, name: str) -> float:
         
         if name == "LOITERING_MUNITION":
@@ -111,7 +113,7 @@ class LiDAR:
         n_theta_points: int
         n_phi_points: int
         """
-
+        
         sector_surface: float = 1 / resolution
         sector_side: float = math.sqrt(sector_surface)
 

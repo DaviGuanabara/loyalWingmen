@@ -81,7 +81,7 @@ def load_and_run_model(selected_zip: str, frequency: int = 15):
     for steps in range(50_000):
         action, _ = model.predict(observation, deterministic=True)
         observation, reward, terminated, truncated, info = env.step(action)
-        print(reward, action)
+        #print(reward, action)
 
         if terminated:
             print("Episode terminated")
