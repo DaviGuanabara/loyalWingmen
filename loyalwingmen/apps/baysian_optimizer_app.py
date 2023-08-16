@@ -104,12 +104,12 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: st
     #result.append(avg_score)
     #result.append(std_deviation)
     headers = ["hidden_1", "hidden_2", "hidden_3", 'rl_frequency', 'learning_rate', 'speed_amplification', 'value', 'std_deviation']
+    suggested_parameters["avg_score"] = avg_score
+    suggested_parameters["std_deviation"] = std_deviation
     
     sorted_items = sorted(suggested_parameters.items(), key=lambda item: headers.index(item[0]))
     sorted_values = [item[1] for _, item in sorted_items]
-    sorted_values.append(avg_score)
-    sorted_values.append(std_deviation)
-    
+
     try:
         ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", sorted_values, headers)
     except:
