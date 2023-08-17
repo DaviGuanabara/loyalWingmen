@@ -34,7 +34,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
     
 
-def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: str, n_eval_episodes: int = 100) -> Tuple[float, float, float]:
+def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: str, n_eval_episodes: int = 20) -> Tuple[float, float, float]:
     
     hidden_1 = suggestion["hidden_1"]
     hidden_2 = suggestion["hidden_2"]
@@ -70,8 +70,10 @@ def generate_random_parameters() -> Tuple[list, int, float]:
     learning_rate = uniform(0.00000000001, 0.1).rvs() 
     return hiddens, frequency, learning_rate
 
+def check_suggestion(suggestions: dict, keys: list) -> bool:
+    return all(chave in suggestions for chave in keys)
 
-def suggest_parameters(trial: Trial) -> dict:
+def suggest_parameters(trial: Trial, headers: list) -> dict:
 
     
     suggestions = {}
@@ -80,9 +82,13 @@ def suggest_parameters(trial: Trial) -> dict:
     suggestions["hidden_3"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
 
     suggestions["rl_frequency"] = trial.suggest_categorical('frequency', [1, 5, 10, 15, 30])
-    suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [1, 5, 10, 15, 30])
     suggestions["learning_rate"] = 10 ** trial.suggest_int('exponent', -9, -7)
+    suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [1, 5, 10, 15, 30])
+    
     suggestions["model"] = trial.suggest_categorical('model', ['ppo']) #'sac'
+    
+
+    assert check_suggestion(suggestions, keys=headers), "Suggestion is not valid"
 
     info_message = "Suggested Parameters:\n"
     for key in suggestions.keys():
@@ -94,7 +100,11 @@ def suggest_parameters(trial: Trial) -> dict:
 def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str, models_dir: str, logs_dir:str) -> float:
     
     #hidden_1, hidden_2, hidden_3, frequency, learning_rate = suggest_parameters(trial)
-    suggested_parameters: dict = suggest_parameters(trial)
+    suggestion_keys = ["hidden_1", "hidden_2", "hidden_3", 'rl_frequency', 'learning_rate', 'speed_amplification']
+    suggested_parameters: dict = suggest_parameters(trial, suggestion_keys)
+    headers = suggestion_keys #["hidden_1", "hidden_2", "hidden_3", 'rl_frequency', 'learning_rate', 'speed_amplification', 'value', 'std_deviation']
+    headers.append('value')
+    headers.append('std_deviation')
     
     avg_score, std_deviation, n_episodes = rl_pipeline(suggested_parameters, n_timesteps=n_timesteps, models_dir=models_dir, logs_dir=logs_dir)
     logging.info(f"Avg score: {avg_score}")
@@ -103,7 +113,7 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: st
     #result = list(suggest_parameters.values()) #list(suggested_parameters)
     #result.append(avg_score)
     #result.append(std_deviation)
-    headers = ["hidden_1", "hidden_2", "hidden_3", 'rl_frequency', 'learning_rate', 'speed_amplification', 'value', 'std_deviation']
+    
     suggested_parameters["avg_score"] = avg_score
     suggested_parameters["std_deviation"] = std_deviation
     
@@ -167,7 +177,7 @@ def check_gpu():
 def main():
     
     check_gpu()
-    n_timesteps = 1_000_000
+    n_timesteps = 1_0_000
     n_timesteps_in_millions = n_timesteps / 1e6
     study_name = f"no_physics_in_{n_timesteps_in_millions:.2f}M_steps_reward_distance_low_frequency_speed_amplification"
     app_name = os.path.basename(__file__)
