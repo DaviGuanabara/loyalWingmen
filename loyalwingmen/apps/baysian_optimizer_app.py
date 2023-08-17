@@ -90,7 +90,10 @@ def suggest_parameters(trial: Trial, headers: list) -> dict:
     
     suggestions["model"] = trial.suggest_categorical('model', ['ppo']) #'sac'
 
-    
+    info_message = "Suggested Parameters:\n"
+    for key in suggestions.keys():
+            info_message += f"  - {key}: {suggestions[key]}\n"
+    logging.info(info_message)
 
     return suggestions
 
@@ -104,7 +107,12 @@ def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: st
     logging.info(f"Avg score: {avg_score}")
 
     print("saving results...")
-
+    #result = list(suggest_parameters.values()) #list(suggested_parameters)
+    #result.append(avg_score)
+    #result.append(std_deviation)
+    headers = ["hidden_1", "hidden_2", "hidden_3", 'rl_frequency', 'learning_rate', 'speed_amplification', 'value', 'std_deviation']
+    suggested_parameters["avg_score"] = avg_score
+    suggested_parameters["std_deviation"] = std_deviation
     
     suggestions["avg_score"] = avg_score
     suggestions["std_deviation"] = std_deviation
@@ -146,7 +154,7 @@ def check_gpu():
 def main():
     
     check_gpu()
-    n_timesteps = 1_000_000
+    n_timesteps = 1_0_000
     n_timesteps_in_millions = n_timesteps / 1e6
     study_name = f"no_physics_in_{n_timesteps_in_millions:.2f}M_steps_reward_distance_low_frequency_speed_amplification"
     app_name = os.path.basename(__file__)
