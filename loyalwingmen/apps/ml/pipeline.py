@@ -23,6 +23,7 @@ from apps.ml.directory_manager import DirectoryManager
 import re
 import platform
 import inspect
+import pandas as pd
 
 
 class ReinforcementLearningPipeline:
@@ -294,48 +295,18 @@ class ReinforcementLearningPipeline:
         return avg_reward, std_dev, len(all_rewards)
     
     @staticmethod
-    def load_or_create_workbook(file_path: str) -> Workbook:
-        
+    def load_or_create_dataframe(file_path: str, columns: list) -> pd.DataFrame:
         if os.path.isfile(file_path):
-            try:
-                # If the file exists, we load the workbook from the file to add the results
-                workbook = load_workbook(file_path)
-            except Exception as e:
-                logging.error(f"Error occurred when trying to load the workbook: {e}")
-                raise e
+            df = pd.read_excel(file_path)
         else:
-            # If the file does not exist, we create a new workbook
-            workbook = Workbook()      
-
-        if workbook.active is None:
-            workbook.create_sheet()
-            workbook.active = 0 
+            df = pd.DataFrame(columns=columns)
         
-        return workbook
+        return df
     
     @staticmethod
-    def save_workbook(workbook: Workbook, file_path: str, file_name: str):
-        try:
-            workbook.save(file_path)
-        except PermissionError:
-            logging.error(f"Não foi possível salvar o arquivo '{file_name}'. Permissão negada.")
-        except Exception as e:
-            logging.error(f"Erro ocorrido ao salvar os resultados: {e}")    
-    
-    @staticmethod
-    def save_results_to_excel(output_folder: str, file_name: str , results: List, headers = ['hidden_1', 'frequency', 'learning_rate', 'value']):
-        file_path = os.path.join(output_folder, file_name)
-        workbook: Workbook = ReinforcementLearningPipeline.load_or_create_workbook(file_path)
-        sheet: Worksheet = workbook.active # type: ignore
-        
-        if sheet.max_row == 1 and sheet['A1'].value is None:
-
-            sheet.append(headers)
-
-        other_values:list = results[0:len(headers)] 
-        while len(other_values) < len(headers):
-            other_values.append("NaN")
-
-        sheet.append(other_values)
-
-        ReinforcementLearningPipeline.save_workbook(workbook, file_path, file_name)
+    def save_results_to_excel(file_folder: str, file_name: str, results: dict):
+        file_path = os.path.join(file_folder, file_name)
+        df_file: pd.DataFrame = ReinforcementLearningPipeline.load_or_create_dataframe(file_path, list(results.keys()))
+        df_results = pd.DataFrame([results])
+        df = pd.concat([df_file, df_results], ignore_index=True)
+        df.to_excel(file_path, index=False)

@@ -70,8 +70,11 @@ def generate_random_parameters() -> Tuple[list, int, float]:
     learning_rate = uniform(0.00000000001, 0.1).rvs() 
     return hiddens, frequency, learning_rate
 
-def check_suggestion(suggestions: dict, keys: list) -> bool:
-    return all(chave in suggestions for chave in keys)
+def log_suggested_parameters(suggestions: dict):
+    info_message = "Suggested Parameters:\n"
+    for key in suggestions.keys():
+            info_message += f"  - {key}: {suggestions[key]}\n"
+    logging.info(info_message)
 
 def suggest_parameters(trial: Trial, headers: list) -> dict:
 
@@ -86,66 +89,32 @@ def suggest_parameters(trial: Trial, headers: list) -> dict:
     suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [1, 5, 10, 15, 30])
     
     suggestions["model"] = trial.suggest_categorical('model', ['ppo']) #'sac'
+
     
-
-    assert check_suggestion(suggestions, keys=headers), "Suggestion is not valid"
-
-    info_message = "Suggested Parameters:\n"
-    for key in suggestions.keys():
-            info_message += f"  - {key}: {suggestions[key]}\n"
-    logging.info(info_message)
 
     return suggestions
 
 def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str, models_dir: str, logs_dir:str) -> float:
     
-    #hidden_1, hidden_2, hidden_3, frequency, learning_rate = suggest_parameters(trial)
     suggestion_keys = ["hidden_1", "hidden_2", "hidden_3", 'rl_frequency', 'learning_rate', 'speed_amplification']
-    suggested_parameters: dict = suggest_parameters(trial, suggestion_keys)
-    headers = suggestion_keys #["hidden_1", "hidden_2", "hidden_3", 'rl_frequency', 'learning_rate', 'speed_amplification', 'value', 'std_deviation']
-    headers.append('value')
-    headers.append('std_deviation')
-    
-    avg_score, std_deviation, n_episodes = rl_pipeline(suggested_parameters, n_timesteps=n_timesteps, models_dir=models_dir, logs_dir=logs_dir)
+    suggestions: dict = suggest_parameters(trial, suggestion_keys)
+    log_suggested_parameters(suggestions)
+
+    avg_score, std_deviation, n_episodes = rl_pipeline(suggestions, n_timesteps=n_timesteps, models_dir=models_dir, logs_dir=logs_dir)
     logging.info(f"Avg score: {avg_score}")
 
     print("saving results...")
-    #result = list(suggest_parameters.values()) #list(suggested_parameters)
-    #result.append(avg_score)
-    #result.append(std_deviation)
-    
-    suggested_parameters["avg_score"] = avg_score
-    suggested_parameters["std_deviation"] = std_deviation
-    
-    sorted_items = sorted(suggested_parameters.items(), key=lambda item: headers.index(item[0]))
-    sorted_values = [item[1] for _, item in sorted_items]
 
-    try:
-        ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", sorted_values, headers)
-    except:
-        ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}_1.xlsx", sorted_values, headers)        
+    
+    suggestions["avg_score"] = avg_score
+    suggestions["std_deviation"] = std_deviation
+
+    ReinforcementLearningPipeline.save_results_to_excel(output_folder, f"results_{study_name}.xlsx", suggestions)
+   
     print("results saved")
 
     return avg_score
 
-def print_best_parameters(results: List[Tuple[List[int], int, float, float]]):
-    if not results:
-        logging.warning("No results to display.")
-        return
-
-    # Sort results by the last element (score) in descending order
-    results.sort(key=lambda x: x[-1], reverse=True)
-
-    best_result = results[0]
-    hiddens, frequency, learning_rate, score = best_result
-
-    logging.info(
-        f"Best parameters:\n"
-        f"  - Score: {score:.4f}\n"
-        f"  - Hiddens: {', '.join(map(str, hiddens))}\n"
-        f"  - Frequency: {frequency:.4f}\n"
-        f"  - Learning rate: {learning_rate:.10f}"
-    )
 
 def get_os_name() -> str:
     if platform == "linux" or platform == "linux2":
@@ -177,7 +146,7 @@ def check_gpu():
 def main():
     
     check_gpu()
-    n_timesteps = 1_0_000
+    n_timesteps = 1_000_000
     n_timesteps_in_millions = n_timesteps / 1e6
     study_name = f"no_physics_in_{n_timesteps_in_millions:.2f}M_steps_reward_distance_low_frequency_speed_amplification"
     app_name = os.path.basename(__file__)
@@ -188,21 +157,9 @@ def main():
     logs_dir = DirectoryManager.get_logs_dir(app_name=app_name)
     
     
-    
-    
-    #vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(n_envs, frequency)
-
-    
-    
     study = optuna.create_study(direction='maximize', sampler=TPESampler(), study_name=study_name)
     study.optimize(lambda trial: objective(trial, output_folder, n_timesteps, study_name, models_dir=models_dir, logs_dir=logs_dir), n_trials=100)
 
-    results = []
-    for trial in study.trials:
-        hiddens = [trial.params[f'hiddens_{i}'] for i in range(trial.params['num_hiddens'])]
-        results.append((hiddens, trial.params['frequency'], trial.params['learning_rate'], trial.value))
-
-    print_best_parameters(results)
 
 if __name__ == "__main__":
     main()
