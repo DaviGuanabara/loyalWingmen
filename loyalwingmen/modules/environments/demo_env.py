@@ -533,7 +533,7 @@ class DemoEnvironment(Env):
     def _computeDone(self):
         current = time.time()
 
-        if current - self.RESET_TIME > 60: 
+        if current - self.RESET_TIME > 10: 
             return True
         
         return False    

@@ -144,7 +144,7 @@ def check_gpu():
         logging.info(f"Operating System: {os_name}\nGPU may not be Available\n ")    
  
 def main():
-    
+    #TODO: PRECISO CORRIGIR OS LOGS DE FORMA QUE ELES SEJAM SALVOS EM ARQUIVOS DIFERENTES PARA CADA EXECUÇÃO, COM OS NOMES COMPATÍVEIS COM O DO MODELO.
     check_gpu()
     n_timesteps = 1_000_000
     n_timesteps_in_millions = n_timesteps / 1e6
