@@ -9,7 +9,7 @@ from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
 from stable_baselines3 import PPO
-from modules.environments.demo_env import DemoEnvironment
+from modules.environments.drone_chase_env import DroneChaseEnv
 from multiprocessing import cpu_count
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from modules.factories.callback_factory import callbacklist
@@ -67,7 +67,7 @@ def main():
 
     env_fns = []
     for _ in range(n_envs):
-        env_fns.append(DemoEnvironment)
+        env_fns.append(DroneChaseEnv)
 
     vectorized_environment = SubprocVecEnv(env_fns)
 

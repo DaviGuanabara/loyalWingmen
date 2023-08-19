@@ -7,7 +7,7 @@ from scipy.stats import randint, uniform
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.evaluation import evaluate_policy
-from modules.environments.demo_env import DemoEnvironment
+from modules.environments.drone_chase_env import DroneChaseEnv
 from modules.models.policy import CustomActorCriticPolicy, CustomCNN
 from modules.factories.callback_factory import callbacklist, CallbackType
 from typing import List, Tuple

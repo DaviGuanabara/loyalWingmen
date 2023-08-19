@@ -7,8 +7,11 @@ import pandas as pd
 from scipy.stats import randint, uniform
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
-from stable_baselines3.common.evaluation import evaluate_policy
-from modules.environments.demo_env import DemoEnvironment
+
+
+from modules.environments.drone_chase_env import DroneChaseEnv
+from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
+
 from modules.models.policy import CustomActorCriticPolicy, CustomCNN
 from modules.factories.callback_factory import callbacklist, CallbackType
 from typing import List, Tuple
@@ -32,7 +35,36 @@ from sys import platform
 warnings.filterwarnings("ignore", category=UserWarning)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
+def generate_random_parameters() -> Tuple[list, int, float]:
+    hidden_dist = randint(10, 1000)
+    num_hiddens = randint(3, 8).rvs()
+    hiddens = [hidden_dist.rvs() for _ in range(num_hiddens)]
+    frequency = (randint(1, 8).rvs() * 15)
+    learning_rate = uniform(1e-9, 1e-1).rvs() 
+    return hiddens, frequency, learning_rate
+
+def log_suggested_parameters(suggestions: dict):
+    info_message = "Suggested Parameters:\n"
+    for key in suggestions.keys():
+            info_message += f"  - {key}: {suggestions[key]}\n"
+    logging.info(info_message)
+
+def suggest_parameters(trial: Trial) -> dict:
+
     
+    suggestions = {}
+    suggestions["hidden_1"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512, 1024])
+    suggestions["hidden_2"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512, 1024])
+    suggestions["hidden_3"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512, 1024])
+
+    suggestions["rl_frequency"] = trial.suggest_categorical('frequency', [1, 5, 10, 15, 30])
+    suggestions["learning_rate"] = 10 ** trial.suggest_int('exponent', -9, -5)
+    suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [1, 2, 5, 10, 15, 20, 30])
+    
+    suggestions["model"] = trial.suggest_categorical('model', ['ppo']) #'sac'
+
+    return suggestions
 
 def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: str, n_eval_episodes: int = 20) -> Tuple[float, float, float]:
     
@@ -45,16 +77,15 @@ def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: s
 
     hiddens = list((hidden_1, hidden_2, hidden_3))
     
-    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(suggestion)
-    specific_model_folder = ReinforcementLearningPipeline.gen_specific_model_folder_path(hiddens, frequency, learning_rate, models_dir=models_dir)
-    callback_list = ReinforcementLearningPipeline.create_callback_list(vectorized_environment, model_dir=specific_model_folder, log_dir=logs_dir, callbacks_to_include=[CallbackType.EVAL, CallbackType.PROGRESSBAR], n_eval_episodes=n_eval_episodes, debug=True)
+    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(environment=RandomizedDroneChaseEnv, env_kwargs=suggestion)
+    specific_model_folder = ReinforcementLearningPipeline.gen_specific_folder_path(hiddens, frequency, learning_rate, dir=models_dir)
+    specific_log_folder = ReinforcementLearningPipeline.gen_specific_folder_path(hiddens, frequency, learning_rate, dir=logs_dir)
+    
+    callback_list = ReinforcementLearningPipeline.create_callback_list(vectorized_environment, model_dir=specific_model_folder, log_dir=specific_log_folder, callbacks_to_include=[CallbackType.EVAL, CallbackType.PROGRESSBAR], n_eval_episodes=n_eval_episodes, debug=True)
     policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens)
-    model = ReinforcementLearningPipeline.create_model(model_type="PPO", vectorized_enviroment=vectorized_environment, policy_kwargs=policy_kwargs, learning_rate=learning_rate, logs_dir=logs_dir, debug=True)
+    model = ReinforcementLearningPipeline.create_model(model_type="PPO", vectorized_enviroment=vectorized_environment, policy_kwargs=policy_kwargs, learning_rate=learning_rate, logs_dir=specific_log_folder, debug=True)
 
     logging.info(model.policy)
-    #TODO: in train model, the callback list EVAL is saving the best_model on the folder models_dir, but it should be in
-    # the folder of ReinforcementLearningPipeline.save_model. So, the operation is being done twice and the best model if getting lost.
-    #VERIFY IF IT WERE SOLVED WITH ReinforcementLearningPipeline.gen_specific_model_folder_path.
     model = ReinforcementLearningPipeline.train_model(model, callback_list, n_timesteps)
     
     avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment, n_eval_episodes=n_eval_episodes)
@@ -62,42 +93,9 @@ def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: s
     
     return avg_reward, std_dev, num_episodes
 
-def generate_random_parameters() -> Tuple[list, int, float]:
-    hidden_dist = randint(10, 1000)
-    num_hiddens = randint(3, 8).rvs()
-    hiddens = [hidden_dist.rvs() for _ in range(num_hiddens)]
-    frequency = (randint(1, 8).rvs() * 15)
-    learning_rate = uniform(0.00000000001, 0.1).rvs() 
-    return hiddens, frequency, learning_rate
-
-def log_suggested_parameters(suggestions: dict):
-    info_message = "Suggested Parameters:\n"
-    for key in suggestions.keys():
-            info_message += f"  - {key}: {suggestions[key]}\n"
-    logging.info(info_message)
-
-def suggest_parameters(trial: Trial, headers: list) -> dict:
-
-    
-    suggestions = {}
-    suggestions["hidden_1"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
-    suggestions["hidden_2"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
-    suggestions["hidden_3"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512])
-
-    suggestions["rl_frequency"] = trial.suggest_categorical('frequency', [1, 5, 10, 15, 30])
-    suggestions["learning_rate"] = 10 ** trial.suggest_int('exponent', -9, -7)
-    suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [1, 5, 10, 15, 30])
-    
-    suggestions["model"] = trial.suggest_categorical('model', ['ppo']) #'sac'
-
-    
-
-    return suggestions
-
 def objective(trial: Trial, output_folder: str, n_timesteps: int, study_name: str, models_dir: str, logs_dir:str) -> float:
     
-    suggestion_keys = ["hidden_1", "hidden_2", "hidden_3", 'rl_frequency', 'learning_rate', 'speed_amplification']
-    suggestions: dict = suggest_parameters(trial, suggestion_keys)
+    suggestions: dict = suggest_parameters(trial)
     log_suggested_parameters(suggestions)
 
     avg_score, std_deviation, n_episodes = rl_pipeline(suggestions, n_timesteps=n_timesteps, models_dir=models_dir, logs_dir=logs_dir)
@@ -148,7 +146,7 @@ def main():
     check_gpu()
     n_timesteps = 1_000_000
     n_timesteps_in_millions = n_timesteps / 1e6
-    study_name = f"no_physics_in_{n_timesteps_in_millions:.2f}M_steps_reward_distance_low_frequency_speed_amplification"
+    study_name = f"RandomizedDroneChaseEnv_no_physics\\{n_timesteps_in_millions:.2f}M_steps"
     app_name = os.path.basename(__file__)
     app_name = os.path.join(app_name, study_name)
     

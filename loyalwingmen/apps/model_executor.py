@@ -16,7 +16,7 @@ import glob
 import logging
 from prompt_toolkit.shortcuts import checkboxlist_dialog
 from stable_baselines3 import PPO
-from modules.environments.demo_env import DemoEnvironment
+from modules.environments.drone_chase_env import DroneChaseEnv
 #from ml.pipeline
 
 def describe_folder(folder_name: str) -> str:
@@ -74,7 +74,7 @@ def load_and_run_model(selected_zip: str, frequency: int = 15):
     
     print("Selected model:", selected_zip)
     model = PPO.load(selected_zip)
-    env = DemoEnvironment(GUI=True, rl_frequency=frequency, debug=True)
+    env = DroneChaseEnv(GUI=True, rl_frequency=frequency, debug=True)
     
     observation, info = env.reset()
 

@@ -27,7 +27,7 @@ from modules.dataclasses.dataclasses import EnvironmentParameters
 from modules.models.lidar import CoordinateConverter
 from typing import List
 from modules.models.lidar import Channels
-class DemoEnvironment(Env):
+class RandomizedDroneChaseEnv(Env):
     """
     This class aims to demonstrate a environment with one Loyal Wingmen and one Loitering Munition,
     in a simplest way possible.
@@ -40,8 +40,8 @@ class DemoEnvironment(Env):
     def __init__(
         self,
         simulation_frequency: int = 240,
-        rl_frequency: int = 15,#30,
-        speed_amplification: float = .1,
+        rl_frequency: int = 30,
+        speed_amplification: float = 1,
         GUI: bool = False,
         debug: bool = False,
         
@@ -293,8 +293,8 @@ class DemoEnvironment(Env):
 
         #TODO: eu devo reposicionar o drone e o alvo a cada episódio, e não recriá-los.
         
-        self.loyalwingmen = self.setup_loyalwingmen(1, np.array([0, 0, 0]))
-        self.loitering_munitions = self.setup_loiteringmunition(1, np.array([0, 0, 3]))
+        self.loyalwingmen = self.setup_loyalwingmen(position_function=self.gen_random_position, quantity=1)
+        self.loitering_munitions = self.setup_loiteringmunition(position_function=self.gen_random_position, quantity=1)
         
         self.current_timestep = 0
 
@@ -302,7 +302,6 @@ class DemoEnvironment(Env):
         drones: List = []
 
         for _ in range(quantity):
-            #random_position = self.gen_random_position()
             factory.set_initial_position(position)
             drone = factory.create()
             drone.update_kinematics()
@@ -311,14 +310,12 @@ class DemoEnvironment(Env):
 
         return drones
 
-    def setup_loyalwingmen(self, quantity: int = 1, positions: np.ndarray = np.array([0, 0, 0])) -> List[LoyalWingman]:
-        drones: List[LoyalWingman] = self.setup_drones(self.lwingman_factory, positions, quantity)
-        #drones.astype(LoyalWingman)
+    def setup_loyalwingmen(self, position_function, quantity: int = 1) -> List[LoyalWingman]:
+        drones: List[LoyalWingman] = self.setup_drones(self.lwingman_factory, position_function(), quantity)
         return drones
 
-    def setup_loiteringmunition(self, quantity: int = 1, positions: np.ndarray = np.array([0, 0, 3])) -> List[LoiteringMunition]:
-        drones: List[LoiteringMunition] = self.setup_drones(self.lmunition_factory, positions, quantity)
-        #drones.astype(LoiteringMunition)
+    def setup_loiteringmunition(self, position_function, quantity: int = 1) -> List[LoiteringMunition]:
+        drones: List[LoiteringMunition] = self.setup_drones(self.lmunition_factory, position_function(), quantity)
         return drones
 
     ################################################################################
@@ -520,11 +517,7 @@ class DemoEnvironment(Env):
         #print(self.loyalwingmen[0].get_observation_features())
         
         norm_distance: float = float(np.linalg.norm(lw_position - lm_position))
-        
-        if self.last_distance is -1:
-            self.last_distance = norm_distance
-        
-        distancy_variation = self.last_distance - norm_distance           
+                
         self.last_distance = norm_distance
         
         return int (10 - norm_distance)

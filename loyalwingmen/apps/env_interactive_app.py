@@ -18,12 +18,12 @@ from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.env_checker import check_env
 from pathlib import Path
-from modules.environments.demo_env import DemoEnvironment
+from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
 import logging
 
 debug = True
 
-env = DemoEnvironment(GUI=True, debug=debug)
+env = RandomizedDroneChaseEnv(GUI=True, rl_frequency=15, speed_amplification=1, debug=debug)
 keyboard_listener = KeyboardListener(env.get_keymap())
 
 

@@ -7,7 +7,7 @@ from scipy.stats import randint, uniform
 from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.evaluation import evaluate_policy
-from modules.environments.demo_env import DemoEnvironment
+from modules.environments.drone_chase_env import DroneChaseEnv
 from modules.models.policy import CustomActorCriticPolicy, CustomCNN
 from modules.factories.callback_factory import callbacklist, CallbackType
 from typing import List, Tuple
@@ -24,16 +24,17 @@ import re
 import platform
 import inspect
 import pandas as pd
-
+from stable_baselines3.common.logger import configure
+from gymnasium import Env
 
 class ReinforcementLearningPipeline:
     @staticmethod
-    def create_vectorized_environment(env_kwargs: dict, n_envs: int = os.cpu_count() or 1) -> VecMonitor:
+    def create_vectorized_environment(environment, env_kwargs: dict, n_envs: int = os.cpu_count() or 1) -> VecMonitor:
         
-        env_args = set(inspect.signature(DemoEnvironment).parameters.keys())  # Get the valid argument names of the function
+        env_args = set(inspect.signature(environment).parameters.keys())  # Get the valid argument names of the function
         valid_env_kwargs = {key: value for key, value in env_kwargs.items() if key in env_args}
 
-        env_fns = [lambda: DemoEnvironment(**valid_env_kwargs) for _ in range(n_envs)]
+        env_fns = [lambda: environment(**valid_env_kwargs) for _ in range(n_envs)]
         
         vectorized_environment = SubprocVecEnv(env_fns) # type: ignore
         return VecMonitor(vectorized_environment)
@@ -98,6 +99,9 @@ class ReinforcementLearningPipeline:
         else:
             raise ValueError(f"Invalid model type: {model_type}")
         
+        new_logger = configure(logs_dir, ["csv", "tensorboard"])
+        model.set_logger(new_logger)
+        
         return model
 
     @staticmethod
@@ -112,7 +116,7 @@ class ReinforcementLearningPipeline:
         model = PPO(
             CustomActorCriticPolicy,
             vectorized_enviroment,
-            verbose=0,
+            verbose=1,
             device=device,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
@@ -177,17 +181,18 @@ class ReinforcementLearningPipeline:
         return model
 
     @staticmethod
-    def gen_specific_model_folder_path(hidden_layers: List[int], rl_frequency: int, learning_rate: float, models_dir: str) -> str:
+    def gen_specific_folder_path(hidden_layers: List[int], rl_frequency: int, learning_rate: float, dir: str) -> str:
         model_folder_name = f"h{hidden_layers}-f{rl_frequency}-lr{learning_rate}"
-        specific_model_dir = os.path.join(models_dir, model_folder_name)
-        os.makedirs(specific_model_dir, exist_ok=True)
-        return specific_model_dir
+        specific_dir = os.path.join(dir, model_folder_name)
+        os.makedirs(specific_dir, exist_ok=True)
+        return specific_dir
+      
     
     #TODO change save_model input to a dictionary. it can be a kwarg
     @staticmethod
     def save_model(model: BaseAlgorithm, hidden_layers: List[int], rl_frequency: int, learning_rate: float, avg_reward: float, reward_std_dev: float, models_dir: str, debug: bool = False):
         
-        specific_model_dir = ReinforcementLearningPipeline.gen_specific_model_folder_path(hidden_layers, rl_frequency, learning_rate, models_dir)
+        specific_model_dir = ReinforcementLearningPipeline.gen_specific_folder_path(hidden_layers, rl_frequency, learning_rate, models_dir)
         
         model_path = os.path.join(specific_model_dir, f"m{model.__class__.__name__}-r{avg_reward}-sd{reward_std_dev}.zip")
         model.save(model_path)
