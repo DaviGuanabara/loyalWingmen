@@ -128,8 +128,6 @@ def get_os_name() -> str:
 def check_gpu():
     os_name = get_os_name()
     
-    #device_name = th.cuda.get_device_name(0)
-    
     if os_name == "windows" and th.cuda.is_available():
         device_name = th.cuda.get_device_name(0)
         logging.info(f"Operating System: {os_name}\nGPU Available: Yes\nGPU Device: {device_name}")
@@ -144,9 +142,9 @@ def check_gpu():
 def main():
     #TODO: PRECISO CORRIGIR OS LOGS DE FORMA QUE ELES SEJAM SALVOS EM ARQUIVOS DIFERENTES PARA CADA EXECUÇÃO, COM OS NOMES COMPATÍVEIS COM O DO MODELO.
     check_gpu()
-    n_timesteps = 1_000_000
+    n_timesteps = 4_000_000
     n_timesteps_in_millions = n_timesteps / 1e6
-    study_name = f"RandomizedDroneChaseEnv_no_physics\\{n_timesteps_in_millions:.2f}M_steps"
+    study_name = f"{n_timesteps_in_millions:.2f}M_steps"
     app_name = os.path.basename(__file__)
     app_name = os.path.join(app_name, study_name)
     
