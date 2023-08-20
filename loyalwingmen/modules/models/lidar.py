@@ -45,7 +45,7 @@ class LiDAR:
         """
         self.client_id = client_id
         self.debug = debug
-        
+        self.debug_line_id = -1
         #print("in Lidar, debug:", self.debug)
         self.debug_lines_id = []
 
@@ -156,12 +156,8 @@ class LiDAR:
             self.n_theta_points, self.n_phi_points
         )
         
-        if self.debug:
-            for line_id in self.debug_lines_id:
-                p.removeUserDebugItem(line_id, physicsClientId=self.client_id)
-            self.debug_lines_id = []
-            
-
+        
+        
 
     # ============================================================================================================
     # Matrix Functions
@@ -238,11 +234,12 @@ class LiDAR:
                 distance = self.sphere[Channels.DISTANCE_CHANNEL.value][theta_point][phi_point]
                 if distance < 1:
                     #print("distance:", distance)
+        
                     end_position = self.convert_angle_point_to_cartesian(theta_point=theta_point, phi_point=phi_point, n_theta_points=self.n_theta_points, n_phi_points=self.n_phi_points, distance=distance, current_position=current_position)
-                    line_id = p.addUserDebugLine(lineFromXYZ = current_position, lineToXYZ = end_position, lineColorRGB = [1, 0, 0], lineWidth = 3, lifeTime = 0.1, physicsClientId=self.client_id)
-                    self.debug_lines_id.append(line_id)
-                    
-        return
+                    if self.debug_line_id == -1:
+                        self.debug_line_id = p.addUserDebugLine(lineFromXYZ = current_position, lineToXYZ = end_position, lineColorRGB = [1, 0, 0], lineWidth = 3, lifeTime = 1, physicsClientId=self.client_id)
+                    else:
+                        self.debug_line_id = p.addUserDebugLine(lineFromXYZ=current_position, lineToXYZ = end_position, lineColorRGB = [1, 0, 0], lineWidth = 3, lifeTime = 1, replaceItemUniqueId=self.debug_line_id, physicsClientId=self.client_id)
     
     
     def add_position(

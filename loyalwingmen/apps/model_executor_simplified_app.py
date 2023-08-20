@@ -10,6 +10,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
 from stable_baselines3 import PPO
 from modules.environments.drone_chase_env import DroneChaseEnv
+from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
 from multiprocessing import cpu_count
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from modules.factories.callback_factory import callbacklist
@@ -24,10 +25,10 @@ def main():
     
 
  
-    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\no_physics_in_1.00M_steps_reward_distance_low_frequency_speed_amplification\\models\\h[256, 256, 256]-f30-lr1e-08\\mPPO-r16211.7998046875-sd536.4000244140625.zip"
-    
+    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\1.00M_steps\\models\\h[1024, 1024, 1024]-f10-lr1e-06\\mPPO-r4674.5498046875-sd4209.28857421875.zip"
+
     model = PPO.load(selected_zip)
-    env = DroneChaseEnv(GUI=True, rl_frequency=15, speed_amplification=1, debug=True)
+    env = RandomizedDroneChaseEnv(GUI=True, rl_frequency=10, speed_amplification=1, debug=True)
     
     observation, info = env.reset()
 

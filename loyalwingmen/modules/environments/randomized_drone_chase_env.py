@@ -51,11 +51,19 @@ class RandomizedDroneChaseEnv(Env):
             client_id = self.setup_pybulley_GUI()
             #p.addUserDebugParameter("button",1,0,1)
             self.debug = debug
-            
 
         else:
             client_id = self.setup_pybullet_DIRECT()
             self.debug = False
+            
+        self.loyalwingmen = []
+        self.loitering_munitions = []
+        
+        self.entities_pool = {
+            "loyalwingmen": [],
+            "loitering_munitions": [],
+            # Add more types as needed
+        }
 
         #### Constants #############################################
         self.setup_Parameteres(simulation_frequency, rl_frequency, client_id, debug)
@@ -141,8 +149,7 @@ class RandomizedDroneChaseEnv(Env):
             The initial observation, check the specific implementation of `_computeObs()`
             in each subclass for its format.
         """
-        p.resetSimulation(
-            physicsClientId=self.environment_parameters.client_id)
+        
         self.RESET_TIME = time.time()
 
         #### Housekeeping ##########################################
@@ -271,6 +278,8 @@ class RandomizedDroneChaseEnv(Env):
         """
 
         #### Set PyBullet's parameters #############################
+        #p.resetSimulation(
+        #    physicsClientId=self.environment_parameters.client_id)
         
         p.setGravity(
             0,
@@ -290,13 +299,30 @@ class RandomizedDroneChaseEnv(Env):
             pybullet_data.getDataPath(),
             physicsClientId=self.environment_parameters.client_id,
         )
-
-        #TODO: eu devo reposicionar o drone e o alvo a cada episódio, e não recriá-los.
         
-        self.loyalwingmen = self.setup_loyalwingmen(position_function=self.gen_random_position, quantity=1)
-        self.loitering_munitions = self.setup_loiteringmunition(position_function=self.gen_random_position, quantity=1)
+        self.reset_and_recycle_entities()
         
         self.current_timestep = 0
+    
+    def reset_and_recycle_entities(self):
+        if len(self.loyalwingmen) == 0:
+            self.loyalwingmen: list[LoyalWingman] = self.setup_loyalwingmen(position_function=self.gen_random_position, quantity=1)
+        else:
+            for lw in self.loyalwingmen:
+                position = self.gen_random_position()
+                quaternion = p.getQuaternionFromEuler([0, 0, 0], physicsClientId=self.environment_parameters.client_id)
+                lw.replace(position, quaternion)
+                lw.apply_velocity_action(np.array([0, 0, 0]))
+                
+        if len(self.loitering_munitions) == 0:          
+            self.loitering_munitions: List[LoiteringMunition] = self.setup_loiteringmunition(position_function=self.gen_random_position, quantity=1)
+        else:
+            for lm in self.loitering_munitions:
+                position = self.gen_random_position()
+                quaternion = p.getQuaternionFromEuler([0, 0, 0], physicsClientId=self.environment_parameters.client_id)
+                lm.replace(position, quaternion)
+                #lm.apply_velocity_action(np.array([0, 0, 0]))
+            
 
     def setup_drones(self, factory: DroneFactory, position: np.ndarray, quantity: int = 1) -> List:
         drones: List = []

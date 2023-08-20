@@ -154,12 +154,13 @@ class Drone(IDrone):
         #print(self.debug)
     #    self.lidar: LiDAR = LiDAR(radius, resolution, client_id=self.client_id, debug=self.debug)
 
-    
+    def replace(self, position: np.ndarray, quaternion: np.ndarray):
+        p.resetBasePositionAndOrientation(self.id, position, quaternion)
+        self.update_kinematics()
 
     def observation_space(self):
             if ObservationType.LIDAR == self.observation_type:
                 return self.lidar.observation_space()
-            
             else:
                 return self.kinematics.observation_space()
             
