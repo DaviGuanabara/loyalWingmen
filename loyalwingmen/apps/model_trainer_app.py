@@ -10,6 +10,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
 from stable_baselines3 import PPO
 from modules.environments.drone_chase_env import DroneChaseEnv
+from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
 from multiprocessing import cpu_count
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from modules.factories.callback_factory import callbacklist
@@ -65,11 +66,14 @@ def main():
     print("device", device)
     print("cpu_count", number_of_logical_cores)
 
-    env_fns = []
-    for _ in range(n_envs):
-        env_fns.append(DroneChaseEnv)
+    #env_fns = []
+    #for _ in range(n_envs):
+    #    env_fns.append(DroneChaseEnv)
+        
+    env_fns = [lambda: RandomizedDroneChaseEnv(GUI=True) for _ in range(n_envs)]    
 
-    vectorized_environment = SubprocVecEnv(env_fns)
+    vectorized_environment = SubprocVecEnv(env_fns) # type: ignore
+    
 
     callback_list = callbacklist(
         vectorized_environment,

@@ -54,19 +54,19 @@ def suggest_parameters(trial: Trial) -> dict:
 
     
     suggestions = {}
-    suggestions["hidden_1"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512, 1024])
-    suggestions["hidden_2"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512, 1024])
-    suggestions["hidden_3"] = trial.suggest_categorical(f'hiddens_1', [128, 256, 512, 1024])
+    n_hiddens = trial.suggest_int(f'n_hiddens', 3, 8)
+    for i in range(1, n_hiddens + 1):
+        suggestions[f"hidden_{i}"] = trial.suggest_categorical(f'hiddens_{i}', [128, 256, 512, 1024, 2048])
 
-    suggestions["rl_frequency"] = trial.suggest_categorical('frequency', [1, 5, 10, 15, 30])
-    suggestions["learning_rate"] = 10 ** trial.suggest_int('exponent', -9, -5)
-    suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [1, 2, 5, 10, 15, 20, 30])
+    suggestions["rl_frequency"] = trial.suggest_categorical('frequency', [1, 2, 5, 10, 15, 30])
+    suggestions["learning_rate"] = 10 ** trial.suggest_int('exponent', -9, -4)
+    suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [.5, 1, 2, 3, 4, 5])
     
     suggestions["model"] = trial.suggest_categorical('model', ['ppo']) #'sac'
 
     return suggestions
 
-def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: str, n_eval_episodes: int = 20) -> Tuple[float, float, float]:
+def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: str, n_eval_episodes: int = 100) -> Tuple[float, float, float]:
     
     hidden_1 = suggestion["hidden_1"]
     hidden_2 = suggestion["hidden_2"]
@@ -142,7 +142,7 @@ def check_gpu():
 def main():
     #TODO: PRECISO CORRIGIR OS LOGS DE FORMA QUE ELES SEJAM SALVOS EM ARQUIVOS DIFERENTES PARA CADA EXECUÇÃO, COM OS NOMES COMPATÍVEIS COM O DO MODELO.
     check_gpu()
-    n_timesteps = 4_000_000
+    n_timesteps = 2_000_000
     n_timesteps_in_millions = n_timesteps / 1e6
     study_name = f"{n_timesteps_in_millions:.2f}M_steps"
     app_name = os.path.basename(__file__)

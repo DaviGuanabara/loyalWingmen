@@ -25,10 +25,12 @@ def main():
     
 
  
-    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\1.00M_steps\\models\\h[1024, 1024, 1024]-f10-lr1e-06\\mPPO-r4674.5498046875-sd4209.28857421875.zip"
-
+    #selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\1.00M_steps\\models\\h[1024, 1024, 1024]-f10-lr1e-06\\mPPO-r4674.5498046875-sd4209.28857421875.zip"
+    #selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\4.00M_steps\\models\\h[256, 256, 256]-f10-lr1e-09\\best_model.zip"
+    #selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\2.00M_steps\\models\\h[1024, 256, 2048]-f2-lr1e-06\\best_model.zip"
+    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\2.00M_steps\\models\\h[1024, 256, 2048]-f2-lr1e-06\\mPPO-r16270.5498046875-sd4154.3701171875.zip"
     model = PPO.load(selected_zip)
-    env = RandomizedDroneChaseEnv(GUI=True, rl_frequency=10, speed_amplification=1, debug=True)
+    env = RandomizedDroneChaseEnv(GUI=True, rl_frequency=2, speed_amplification=1, debug=True)
     
     observation, info = env.reset()
 

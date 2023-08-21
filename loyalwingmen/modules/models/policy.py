@@ -158,6 +158,7 @@ class CustomActorCriticPolicy(ActorCriticPolicy):
             # Get the 'pi' key from the dictionary, if it exists
             self.hiddens = net_arch.get('pi', default_hiddens)
 
+        print(f"CustomActorCritic Hiddens: {self.hiddens}")
         # Disable orthogonal initialization
         kwargs["ortho_init"] = False
         
