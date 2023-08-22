@@ -54,7 +54,7 @@ def suggest_parameters(trial: Trial) -> dict:
 
     
     suggestions = {}
-    n_hiddens = trial.suggest_int(f'n_hiddens', 3, 8)
+    n_hiddens = trial.suggest_int(f'n_hiddens', 3, 4)
     for i in range(1, n_hiddens + 1):
         suggestions[f"hidden_{i}"] = trial.suggest_categorical(f'hiddens_{i}', [128, 256, 512, 1024, 2048])
 
@@ -68,14 +68,19 @@ def suggest_parameters(trial: Trial) -> dict:
 
 def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: str, n_eval_episodes: int = 100) -> Tuple[float, float, float]:
     
-    hidden_1 = suggestion["hidden_1"]
-    hidden_2 = suggestion["hidden_2"]
-    hidden_3 = suggestion["hidden_3"]
     frequency = suggestion["rl_frequency"]
     learning_rate = suggestion["learning_rate"]
     speed_amplification = suggestion["speed_amplification"]
 
-    hiddens = list((hidden_1, hidden_2, hidden_3))
+    hiddens = []
+    for i in range(1, len(suggestion) + 1):
+        key = f"hidden_{i}"
+        if key in suggestion:
+            hiddens.append(suggestion[key])
+        else:
+            break
+
+    #hiddens = list((hidden_1, hidden_2, hidden_3))
     
     vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(environment=RandomizedDroneChaseEnv, env_kwargs=suggestion)
     specific_model_folder = ReinforcementLearningPipeline.gen_specific_folder_path(hiddens, frequency, learning_rate, dir=models_dir)
@@ -142,7 +147,7 @@ def check_gpu():
 def main():
     #TODO: PRECISO CORRIGIR OS LOGS DE FORMA QUE ELES SEJAM SALVOS EM ARQUIVOS DIFERENTES PARA CADA EXECUÇÃO, COM OS NOMES COMPATÍVEIS COM O DO MODELO.
     check_gpu()
-    n_timesteps = 2_000_000
+    n_timesteps = 1_500_000
     n_timesteps_in_millions = n_timesteps / 1e6
     study_name = f"{n_timesteps_in_millions:.2f}M_steps"
     app_name = os.path.basename(__file__)
