@@ -54,7 +54,7 @@ def suggest_parameters(trial: Trial) -> dict:
 
     
     suggestions = {}
-    n_hiddens = trial.suggest_int(f'n_hiddens', 3, 4)
+    n_hiddens = trial.suggest_int(f'n_hiddens', 3, 3)
     for i in range(1, n_hiddens + 1):
         suggestions[f"hidden_{i}"] = trial.suggest_categorical(f'hiddens_{i}', [128, 256, 512, 1024, 2048])
 
@@ -147,9 +147,9 @@ def check_gpu():
 def main():
     #TODO: PRECISO CORRIGIR OS LOGS DE FORMA QUE ELES SEJAM SALVOS EM ARQUIVOS DIFERENTES PARA CADA EXECUÇÃO, COM OS NOMES COMPATÍVEIS COM O DO MODELO.
     check_gpu()
-    n_timesteps = 1_500_000
+    n_timesteps = 1_000_000
     n_timesteps_in_millions = n_timesteps / 1e6
-    study_name = f"{n_timesteps_in_millions:.2f}M_steps"
+    study_name = f"DroneChaseEnv_no_physics_{n_timesteps_in_millions:.2f}M_steps_lidar_range_20m_60s"
     app_name = os.path.basename(__file__)
     app_name = os.path.join(app_name, study_name)
     

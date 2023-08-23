@@ -70,7 +70,7 @@ def main():
     #for _ in range(n_envs):
     #    env_fns.append(DroneChaseEnv)
         
-    env_fns = [lambda: RandomizedDroneChaseEnv(GUI=True) for _ in range(n_envs)]    
+    env_fns = [lambda: DroneChaseEnv(GUI=True) for _ in range(n_envs)]    
 
     vectorized_environment = SubprocVecEnv(env_fns) # type: ignore
     
@@ -82,7 +82,7 @@ def main():
         save_freq=100_000,
     )
 
-    nn_t = [185, 222, 845, 682]
+    nn_t = [2048, 1024, 256, 2048]
     policy_kwargs = dict(
         features_extractor_class=CustomCNN,
         features_extractor_kwargs=dict(features_dim=128),

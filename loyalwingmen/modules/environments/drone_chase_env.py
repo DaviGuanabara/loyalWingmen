@@ -293,8 +293,8 @@ class DroneChaseEnv(Env):
 
         #TODO: eu devo reposicionar o drone e o alvo a cada episódio, e não recriá-los.
         
-        self.loyalwingmen = self.setup_loyalwingmen(1, np.array([0, 0, 0]))
-        self.loitering_munitions = self.setup_loiteringmunition(1, np.array([0, 0, 3]))
+        self.loyalwingmen = self.setup_loyalwingmen(1, np.array([0, 0, 3]))
+        self.loitering_munitions = self.setup_loiteringmunition(1, np.array([0, 0, 0]))
         
         self.current_timestep = 0
 
