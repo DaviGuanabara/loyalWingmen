@@ -180,19 +180,9 @@ class DroneChaseEnvLevel1(Env):
     
     def step(self, rl_action: np.ndarray):
         
-        #direction = np.array([0, 0, 0])
-        #if float(np.linalg.norm(rl_action[0:3])) == 0:
-        #    direction = rl_action[0:3]
-        
-        #else:
-        #    direction = rl_action[0:3] / float(np.linalg.norm(rl_action[0:3]))
-            
-        #intensity = self.MAX_VELOCITY * rl_action[3]
-        
-        #velocity: np.ndarray = intensity * direction
         velocity = rl_action
         velocity = np.concatenate([rl_action, [0]])
-        #print(velocity)
+
         p.resetBaseVelocity(
                 self.drone_id,
                 velocity,
@@ -272,16 +262,16 @@ class DroneChaseEnvLevel1(Env):
     
     def get_keymap(self):
         keycode = KeyCode()
-        default_action = [0.0, 0.0, 0.0, 0.0]  # Modify this to your actual default action
+        default_action = [0.0, 0.0]
 
         key_map = defaultdict(lambda: default_action)
         key_map.update({
-            Key.up: [0, 1.0, 0, .1],
-            Key.down: [0, -1.0, 0, .1],
-            Key.left: [-1.0, 0, 0, .1],
-            Key.right: [1.0, 0, 0, .1],
-            keycode.from_char("w"): [0, 0, 1.0, .1],
-            keycode.from_char("s"): [0, 0, -1.0, .1],
+            Key.up: [0, 1.0],
+            Key.down: [0, -1.0],
+            Key.left: [-1.0, 0],
+            Key.right: [1.0, 0],
+            #keycode.from_char("w"): [0, 0, 1.0, .1],
+            #keycode.from_char("s"): [0, 0, -1.0, .1],
         })
         
         return key_map  
