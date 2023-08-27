@@ -2,6 +2,10 @@ import time
 
 # import curses
 import random
+import math
+
+from pynput.keyboard import Key, KeyCode
+from collections import defaultdict
 
 import numpy as np
 import pybullet as p
@@ -9,9 +13,10 @@ import pybullet_data
 
 
 import gymnasium as gym
-from gymnasium import spaces
+from gymnasium import spaces, Env
 
-from modules.factories.drone_factory import DroneFactory, Drone
+
+from modules.factories.drone_factory import DroneFactory
 from modules.factories.loiteringmunition_factory import (
     LoiteringMunitionFactory,
     LoiteringMunition,
@@ -20,9 +25,9 @@ from modules.factories.loyalwingman_factory import LoyalWingmanFactory, LoyalWin
 
 from modules.dataclasses.dataclasses import EnvironmentParameters
 from modules.models.lidar import CoordinateConverter
-
-
-class DemoEnvironment(gym.Env):
+from typing import List
+from modules.models.lidar import Channels
+class RandomizedDroneChaseEnvFixed(Env):
     """
     This class aims to demonstrate a environment with one Loyal Wingmen and one Loitering Munition,
     in a simplest way possible.
@@ -35,24 +40,39 @@ class DemoEnvironment(gym.Env):
     def __init__(
         self,
         simulation_frequency: int = 240,
-        rl_frequency: int = 60,
+        rl_frequency: int = 30,
+        speed_amplification: float = 1,
         GUI: bool = False,
+        debug: bool = False,
+        
     ):
         #### client #############################################
         if GUI:
             client_id = self.setup_pybulley_GUI()
+            #p.addUserDebugParameter("button",1,0,1)
+            self.debug = debug
 
         else:
             client_id = self.setup_pybullet_DIRECT()
+            self.debug = False
+            
+        self.loyalwingmen = []
+        self.loitering_munitions = []
+        
+        self.entities_pool = {
+            "loyalwingmen": [],
+            "loitering_munitions": [],
+            # Add more types as needed
+        }
 
         #### Constants #############################################
-        self.setup_Parameteres(simulation_frequency, rl_frequency, client_id)
+        self.setup_Parameteres(simulation_frequency, rl_frequency, client_id, debug)
 
         #### Options ###############################################
         self.RESET_TIME = time.time()
 
         #### Factories #############################################
-        self.setup_factories()
+        self.setup_factories(speed_amplification)
 
         #### Housekeeping ##########################################
         self._housekeeping()
@@ -60,16 +80,11 @@ class DemoEnvironment(gym.Env):
         #### Create action and observation spaces ##################
         self.action_space = self._actionSpace()
         loyalwingman: LoyalWingman = self.loyalwingmen[0]
-        self.observation_space = (
-            loyalwingman.lidar.observation_space()
-        )  # self._observationSpace()
-        #print(self.observation_space)
-        #### Demo Debug Setup ##################
-        # self.setup_demo_lidar_log()
+        self.observation_space = loyalwingman.observation_space()
 
-    def setup_factories(self):
+    def setup_factories(self, speed_amplification: float):
         env_p = self.environment_parameters
-        self.lwingman_factory = LoyalWingmanFactory(env_p)
+        self.lwingman_factory = LoyalWingmanFactory(env_p, speed_amplification)
         self.lmunition_factory = LoiteringMunitionFactory(env_p)
 
     def setup_pybullet_DIRECT(self):
@@ -94,7 +109,7 @@ class DemoEnvironment(gym.Env):
 
         return client_id
 
-    def setup_Parameteres(self, simulation_frequency, rl_frequency, client_id):
+    def setup_Parameteres(self, simulation_frequency, rl_frequency, client_id, debug):
         self.environment_parameters = EnvironmentParameters(
             G=9.8,
             NEIGHBOURHOOD_RADIUS=np.inf,
@@ -105,12 +120,19 @@ class DemoEnvironment(gym.Env):
             client_id=client_id,
             max_distance=100,
             error=0.5,
+            debug=debug
         )
         
     def set_frequency(self, simulation_frequency, rl_frequency):
         self.environment_parameters.simulation_frequency = simulation_frequency
         self.environment_parameters.rl_frequency = rl_frequency
+        
 
+    def manage_debug_text(self, text: str, position: list = [0, 0, 0], debug_text_id=None):
+        if debug_text_id is not None:
+            p.removeUserDebugItem(debug_text_id)
+
+        return p.addUserDebugText(str(text), position)
             
 
     def get_parameteres(self):
@@ -127,24 +149,34 @@ class DemoEnvironment(gym.Env):
             The initial observation, check the specific implementation of `_computeObs()`
             in each subclass for its format.
         """
-        p.resetSimulation(
-            physicsClientId=self.environment_parameters.client_id)
+        
         self.RESET_TIME = time.time()
 
         #### Housekeeping ##########################################
 
         self._housekeeping()
-        return self._computeObs(), self._computeInfo()
+        observation = self._computeObs()
+        
+        self.last_distance: float = -1
+        return observation, self._computeInfo()
 
     ################################################################################
 
-    def step(self, rl_action):
+    def step(self, rl_action: np.ndarray):
         """Advances the environment by one simulation step.
         Parameters
         ----------
-        action : ndarray | dict[..]
+        rl_action : ndarray | dict[..]
             The input action for one or more drones, translated into RPMs by
             the specific implementation of `_preprocessAction()` in each subclass.
+            this action is a velocity vector that will be converted in unitary vector and intensity to be 
+            used in the PID Controller.
+            It was chosen to use a velocity vector because it is more intuitive to the user. Futhermore, uses no non-linear
+            function as arctan, arccos like in unitary spherical direction and intensity, which brings more stability to the
+            neural network learning.
+            Finally, the use of cartesian direction and intensity can be a problem because it not respect
+            the unitary constraint, meaning that the direction is not unitary.
+            
         Returns
         -------
         ndarray | dict[..]
@@ -161,13 +193,22 @@ class DemoEnvironment(gym.Env):
             in each subclass for its format.
         """
 
-        theta, phi, intensity = np.pi * \
-            rl_action[0], np.pi * rl_action[1], 1 * rl_action[2]
-        radius = 1
-        spherical = np.array([radius, theta, phi])
-        cartesian = np.array(
-            CoordinateConverter.spherical_to_cartesian(spherical))
-        velocity_action = np.append(cartesian, intensity)
+        #theta, phi, intensity = np.pi * \
+        #    rl_action[0], np.pi * rl_action[1], 1 * rl_action[2]
+        #radius = 1
+        #spherical = np.array([radius, theta, phi])
+        #cartesian = np.array(
+        #    CoordinateConverter.spherical_to_cartesian(spherical))
+        #velocity_action = np.append(cartesian, intensity)
+        self.current_timestep += 1
+        
+        #velocity_action: np.ndarray = np.array(rl_action)
+        
+        direction = rl_action[0:3]
+        intensity = rl_action[3]
+        
+        velocity_action: np.ndarray = intensity * direction
+        
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             # multiple drones not ready. TODO: setup multiple drones
@@ -218,23 +259,23 @@ class DemoEnvironment(gym.Env):
 
     ################################################################################
 
-    def getDroneIds(self):
+    #def getDroneIds(self):
         """Return the Drone Ids.
         Returns
         -------
         ndarray:
             (NUM_DRONES,)-shaped array of ints containing the drones' ids.
         """
-        return self.DRONE_IDS
+        #return self.DRONE_IDS
 
     ################################################################################
 
-    def gen_random_position(self):
+    def gen_random_position(self) -> np.ndarray:
         x = random.choice([-1, 1]) * random.random() * 2
         y = random.choice([-1, 1]) * random.random() * 2
         z = random.choice([-1, 1]) * random.random() * 2
 
-        return [x, y, z]
+        return np.array([x, y, z])
 
     def _housekeeping(self):
         """Housekeeping function.
@@ -243,6 +284,9 @@ class DemoEnvironment(gym.Env):
         """
 
         #### Set PyBullet's parameters #############################
+        #p.resetSimulation(
+        #    physicsClientId=self.environment_parameters.client_id)
+        
         p.setGravity(
             0,
             0,
@@ -261,31 +305,49 @@ class DemoEnvironment(gym.Env):
             pybullet_data.getDataPath(),
             physicsClientId=self.environment_parameters.client_id,
         )
+        
+        self.reset_and_recycle_entities()
+        
+        self.current_timestep = 0
+    
+    def reset_and_recycle_entities(self):
+        if len(self.loyalwingmen) == 0:
+            self.loyalwingmen: list[LoyalWingman] = self.setup_loyalwingmen(position_function=lambda: [0, 0, 5], quantity=1)
+        else:
+            for lw in self.loyalwingmen:
+                position = self.gen_random_position()
+                quaternion = p.getQuaternionFromEuler([0, 0, 0], physicsClientId=self.environment_parameters.client_id)
+                lw.replace(position, quaternion)
+                lw.apply_velocity_action(np.array([0, 0, 0]))
+                
+        if len(self.loitering_munitions) == 0:          
+            self.loitering_munitions: List[LoiteringMunition] = self.setup_loiteringmunition(position_function=lambda: [0, 0, 0], quantity=1)
+        else:
+            for lm in self.loitering_munitions:
+                position = self.gen_random_position()
+                quaternion = p.getQuaternionFromEuler([0, 0, 0], physicsClientId=self.environment_parameters.client_id)
+                lm.replace(position, quaternion)
+                #lm.apply_velocity_action(np.array([0, 0, 0]))
+            
 
-        self.loyalwingmen = self.setup_loyalwingmen(1)
-        self.loitering_munitions = self.setup_loiteringmunition(1)
-
-    def setup_drones(self, factory: DroneFactory, quantity: int = 1) -> np.array:
-        drones = np.array([], dtype=Drone)
+    def setup_drones(self, factory: DroneFactory, position: np.ndarray, quantity: int = 1) -> List:
+        drones: List = []
 
         for _ in range(quantity):
-            random_position = self.gen_random_position()
-            factory.set_initial_position(random_position)
+            factory.set_initial_position(position)
             drone = factory.create()
             drone.update_kinematics()
 
-            drones = np.append(drones, drone)
+            drones.append(drone)                            
 
         return drones
 
-    def setup_loyalwingmen(self, quantity: int = 1) -> np.array:
-        drones: np.array = self.setup_drones(self.lwingman_factory, quantity)
-        drones.astype(LoyalWingman)
+    def setup_loyalwingmen(self, position_function, quantity: int = 1) -> List[LoyalWingman]:
+        drones: List[LoyalWingman] = self.setup_drones(self.lwingman_factory, position_function(), quantity)
         return drones
 
-    def setup_loiteringmunition(self, quantity: int = 1) -> np.array:
-        drones: np.array = self.setup_drones(self.lmunition_factory, quantity)
-        drones.astype(LoiteringMunition)
+    def setup_loiteringmunition(self, position_function, quantity: int = 1) -> List[LoiteringMunition]:
+        drones: List[LoiteringMunition] = self.setup_drones(self.lmunition_factory, position_function(), quantity)
         return drones
 
     ################################################################################
@@ -313,13 +375,25 @@ class DemoEnvironment(gym.Env):
             dtype=np.float32,
         )
         """
-
-        return spaces.Box(
+        
+        
+        #Direction in spherical coordinates and intensity
+        """_return spaces.Box(
             low=np.array([0, -1, 0]),
             high=np.array([1, 1, 1]),
             shape=(3,),
             dtype=np.float32,
         )
+        """
+        
+        #Velocity Vector that will be converted in direction and intensity
+        return spaces.Box(
+            low=np.array([-1, -1, -1, 0]),
+            high=np.array([1, 1, 1, 1]),
+            shape=(4,),
+            dtype=np.float32,
+        )
+        
 
     def _observationSpace(self):
         """Returns the observation space of the environment.
@@ -339,61 +413,74 @@ class DemoEnvironment(gym.Env):
 
     ################################################################################
 
-    def _computeObs(self):
+    def _computeObs(self) -> np.ndarray:
+        #lw: LoyalWingman = self.loyalwingmen[0]
+        #lm: LoiteringMunition = self.loitering_munitions[0]
+        
         lw: LoyalWingman = self.loyalwingmen[0]
         lm: LoiteringMunition = self.loitering_munitions[0]
 
-        observation = lw.observation(
-            loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions
-        )
 
-        #print("Compute Obs")
-        #print(observation.shape)
-        return observation
-
-    def _computeReward(self):
-        penalty = 0
-        bonus = 0
-
-        drone_position = self.loyalwingmen[0].kinematics.position
-        target_position = self.loitering_munitions[0].kinematics.position
-        distance = np.linalg.norm(target_position - drone_position)
-
-        if distance > self.environment_parameters.max_distance:
-            penalty += 100_000
-
-        if distance < self.environment_parameters.error:
-            bonus += 10_000 * \
-                (self.environment_parameters.error - 1 * distance)
-
-        self.last_reward = (5) - 1 * distance + bonus - penalty
-
-        return self.last_reward
-
+        #TODO: kwargs problem.
+        # TypeError: lidar_observation() got an unexpected keyword argument 'kwargs'
+        return lw.observation(loyalwingmen=self.loyalwingmen, loitering_munitions=self.loitering_munitions, obstacles=[])
+    
+    def _computeReward(self) -> float:
+        
+        
+        lw: LoyalWingman = self.loyalwingmen[0]
+        lm: LoiteringMunition = self.loitering_munitions[0]
+        lw_position = lw.kinematics.position
+        lw_velocity = lw.kinematics.velocity
+        
+        lm_position = lm.kinematics.position
+        
+        norm_distance: float = float(np.linalg.norm(lm_position - lw_position))
+        velocity:float = float(np.linalg.norm(lw_velocity))
+        
+        penalty = 0.1 * norm_distance
+        bonus = velocity
+        
+                
+        if norm_distance > 10:
+            penalty += 1_000_000
+            
+        if velocity < 0.5:
+            penalty += 1_000    
+            
+        if norm_distance < 0.2:
+            bonus += 1_000_000    
+        
+        return bonus - penalty 
+        
+    
     def _computeDone(self):
-        drone_position = self.loyalwingmen[0].kinematics.position
-        drone_velocity = self.loyalwingmen[0].kinematics.velocity
-
-        target_position = self.loitering_munitions[0].kinematics.position
-        target_velocity = self.loitering_munitions[0].kinematics.velocity
-
-        distance = np.linalg.norm(target_position - drone_position)
-
         current = time.time()
-
-        if current - self.RESET_TIME > 20:
+        
+        if current - self.RESET_TIME > 20: 
             return True
-
-        if (
-            np.linalg.norm(
-                drone_position) > self.environment_parameters.max_distance
-            or np.linalg.norm(target_position)
-            > self.environment_parameters.max_distance
-            or distance < self.environment_parameters.error
-        ):
+        
+        lw: LoyalWingman = self.loyalwingmen[0]
+        lm: LoiteringMunition = self.loitering_munitions[0]
+        lw_position = lw.kinematics.position
+        lw_velocity = lw.kinematics.velocity
+        
+        lm_position = lm.kinematics.position
+        
+        norm_distance: float = float(np.linalg.norm(lm_position - lw_position))
+        velocity:float = float(np.linalg.norm(lw_velocity))
+        
+        penalty = norm_distance
+        bonus = velocity
+        
+                
+        if float(np.linalg.norm(lw_position)) > 200:
             return True
+            
+        if float(np.linalg.norm(lw_position)) < 0.2:
+            return True   
 
-        return False
+        return False    
 
     def _computeInfo(self):
         return {}
@@ -402,19 +489,17 @@ class DemoEnvironment(gym.Env):
     # Normalization
     #####################################################################################################
 
-    def _normalizeVelocity(self, velocity: np.array):
+    def _normalizeVelocity(self, velocity: np.ndarray):
         MAX_Velocity = 5
-        normalized_velocity = (
-            np.clip(velocity, -MAX_Velocity, MAX_Velocity) / MAX_Velocity
-        )
+        normalized_velocity = (np.clip(velocity, -MAX_Velocity, MAX_Velocity) / MAX_Velocity) # type: ignore
         return normalized_velocity
 
-    def _normalizePosition(self, position: np.array):
+    def _normalizePosition(self, position: np.ndarray):
         MAX_X_Y = 100
         MAX_Z = 100
 
         normalized_position_x_y = np.clip(
-            position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y
+            position[0:2], -MAX_X_Y, MAX_X_Y) / MAX_X_Y # type: ignore
         normalized_position_z = np.clip([position[2]], 0, MAX_Z) / MAX_Z
 
         normalized_position = np.concatenate(
@@ -429,3 +514,94 @@ class DemoEnvironment(gym.Env):
             np.clip(distance, -MAX_DISTANCE, MAX_DISTANCE) / MAX_DISTANCE
         )
         return normalized_distance
+
+    
+
+    def get_keymap(self):
+        keycode = KeyCode()
+        default_action = [0, 0, 0, .2]  # Modify this to your actual default action
+
+        key_map = defaultdict(lambda: default_action)
+        key_map.update({
+            Key.up: [0, 1, 0, .2],
+            Key.down: [0, -1, 0, .2],
+            Key.left: [-1, 0, 0, .2],
+            Key.right: [1, 0, 0, .2],
+            keycode.from_char("w"): [0, 0, 1, .2],
+            keycode.from_char("s"): [0, 0, -1, .2],
+        })
+        
+        return key_map
+
+    #####################################################################################################
+    # Log
+    #####################################################################################################
+    """
+    def format_list(self, list_of_values):
+        return str.join(" ", ["%0.2f".center(5) % i for i in list_of_values])
+
+    def setup_demo_lidar_log(self):
+        radius: float = 5
+        resolution: float = 0.0045
+
+        self.loyalwingmen[0].set_lidar_parameters(radius, resolution)
+
+        return radius, resolution
+
+    def generate_lidar_log(self):
+        lw_kinematics = self.loyalwingmen[0].kinematics
+        lm_kinematics = self.loitering_munitions[0].kinematics
+
+        lw_position = lw_kinematics.position
+        lm_position = lm_kinematics.position
+
+        distance = np.linalg.norm(lm_position - lw_position)
+        direction = (lm_position - lw_position) / distance
+
+        # radius, resolution = self.setup_demo_lidar_log()
+        obs = np.round(self.observation, 2)
+
+        text = "The Demo Environment reduces the lidar resolution to be able to log it"
+        text += "\n"
+        text += f"LiDAR Max distance: {radius}, Resolution: {resolution}"
+        text += "\n"
+        text += "LoyalWingman position:"
+        text += "({:.2f}, {:.2f}, {:.2f})".format(
+            lw_position[0], lw_position[1], lw_position[2]
+        )
+        text += "\n"
+        text += "LoiteringMunition position:"
+        text += "({:.2f}, {:.2f}, {:.2f})".format(
+            lm_position[0], lm_position[1], lm_position[2]
+        )
+        text += "\n"
+        text += "direction: " + self.format_list(direction) + "\n"
+        text += "distance: {:.2f}".format(distance) + "\n"
+        text += "reward: {:.2f}".format(self.last_reward) + "\n"
+        text += "action: " + self.format_list(self.last_action) + "\n"
+        text += "Lidar View"
+        text += "\n"
+        text += "\n"
+        text += np.array2string(obs)
+
+        return text
+
+    def show_lidar_log(self):
+        # text = self.generate_lidar_log()
+        # stdscr = curses.initscr()
+        stdscr.clear()
+
+        try:
+            stdscr.addstr(0, 0, text)
+            stdscr.refresh()
+        except curses.error:
+            pass
+
+    def init_curses(self):
+        if not self.curses_activated:
+            stdscr = curses.initscr()
+            self.curses_activated = True
+
+        return stdscr
+"""
+

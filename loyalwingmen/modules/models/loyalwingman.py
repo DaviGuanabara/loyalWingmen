@@ -58,27 +58,51 @@ class LoyalWingman(Drone):
     def apply_velocity_action(self, velocity: np.ndarray, only_velocity=True):
         if only_velocity:
             
-            #Zera alguma velocidade prévia
-            #p.resetBaseVelocity(self.id, linearVelocity=np.array([0, 0, 0]), angularVelocity=np.array([0, 0, 0]), physicsClientId=self.client_id)
-            
-            speed_limit = self.informations.speed_limit #speed_limit == 8.333333333333334
-            #speed_amplification = self.informations.speed_amplification #speed_amplification == 20
+           
+            speed_limit = self.informations.speed_limit 
+
             speed_amplification = self.informations.speed_amplification
             target_vel=speed_amplification * speed_limit * velocity
             
-            
             weigth = self.environment_parameters.G * self.parameters.M
-            self.apply_force(np.array([0, 0, weigth]))
-            self.apply_velocity(velocity=target_vel, angular_velocity=np.array([0, 0, 0]))
+        
+            p.applyExternalForce(
+                self.id,
+                -1,
+                forceObj=np.array([0, 0, weigth]),
+                posObj=[0, 0, 0],
+                flags=p.LINK_FRAME,
+                physicsClientId=self.environment_parameters.client_id,
+            )
+            p.resetBaseVelocity(
+                self.id,
+                target_vel,
+                np.array([0, 0, 0]),
+                physicsClientId=self.environment_parameters.client_id,
+            )
             
-        else:    
+        else:   
             rpm = self.__preprocessAction(velocity)
             self.physics(rpm)
     
     def apply_frozen_behavior(self):
         weigth = self.environment_parameters.G * self.parameters.M
-        self.apply_force(np.array([0, 0, weigth]))
-        self.apply_velocity(velocity=np.array([0, 0, 0]), angular_velocity=np.array([0, 0, 0]))
+        
+        p.applyExternalForce(
+            self.id,
+            -1,
+            forceObj=np.array([0, 0, weigth]),
+            posObj=[0, 0, 0],
+            flags=p.LINK_FRAME,
+            physicsClientId=self.environment_parameters.client_id,
+        )
+        
+        p.resetBaseVelocity(
+            self.id,
+            np.array([0, 0, 0]),
+            np.array([0, 0, 0]),
+            physicsClientId=self.environment_parameters.client_id,
+        )
 
     def apply_constant_velocity_behavior(self):
         self.apply_frozen_behavior()

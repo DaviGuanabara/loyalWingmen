@@ -11,6 +11,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 
 from modules.environments.drone_chase_env import DroneChaseEnv
 from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
+from modules.environments.randomized_drone_chase_env_action_fixed import RandomizedDroneChaseEnvFixed
 
 from modules.models.policy import CustomActorCriticPolicy, CustomCNN
 from modules.factories.callback_factory import callbacklist, CallbackType
@@ -56,11 +57,17 @@ def suggest_parameters(trial: Trial) -> dict:
     suggestions = {}
     n_hiddens = trial.suggest_int(f'n_hiddens', 3, 3)
     for i in range(1, n_hiddens + 1):
-        suggestions[f"hidden_{i}"] = trial.suggest_categorical(f'hiddens_{i}', [128, 256, 512, 1024, 2048])
+        suggestions[f"hidden_{i}"] = trial.suggest_categorical(f'hiddens_{i}', [128, 256, 512])
 
-    suggestions["rl_frequency"] = trial.suggest_categorical('frequency', [1, 2, 5, 10, 15, 30])
-    suggestions["learning_rate"] = 10 ** trial.suggest_int('exponent', -9, -4)
-    suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [.5, 1, 2, 3, 4, 5])
+    #suggestions[f"hidden_{1}"] = 512
+    #suggestions[f"hidden_{2}"] = 256
+    #suggestions[f"hidden_{3}"] = 128
+    
+    suggestions["rl_frequency"] = trial.suggest_categorical('frequency', [1, 2, 5, 10, 15])
+    #suggestions["learning_rate"] = 1e-7 #
+    suggestions["learning_rate"] = 10 ** trial.suggest_int('exponent', -9, -2)
+    #suggestions["speed_amplification"] = 1 # 
+    suggestions["speed_amplification"] = trial.suggest_categorical('speed_amplification', [1])#[.5, 1, 2, 3, 4, 5])
     
     suggestions["model"] = trial.suggest_categorical('model', ['ppo']) #'sac'
 
@@ -82,7 +89,7 @@ def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: s
 
     #hiddens = list((hidden_1, hidden_2, hidden_3))
     
-    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(environment=RandomizedDroneChaseEnv, env_kwargs=suggestion)
+    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(environment=RandomizedDroneChaseEnvFixed, env_kwargs=suggestion)
     specific_model_folder = ReinforcementLearningPipeline.gen_specific_folder_path(hiddens, frequency, learning_rate, dir=models_dir)
     specific_log_folder = ReinforcementLearningPipeline.gen_specific_folder_path(hiddens, frequency, learning_rate, dir=logs_dir)
     
@@ -149,7 +156,7 @@ def main():
     check_gpu()
     n_timesteps = 1_000_000
     n_timesteps_in_millions = n_timesteps / 1e6
-    study_name = f"DroneChaseEnv_no_physics_{n_timesteps_in_millions:.2f}M_steps_lidar_range_20m_60s"
+    study_name = f"ULTIMO_RANDOM_no_physics_{n_timesteps_in_millions:.2f}M_steps_lidar_range_20m_32_20s"
     app_name = os.path.basename(__file__)
     app_name = os.path.join(app_name, study_name)
     

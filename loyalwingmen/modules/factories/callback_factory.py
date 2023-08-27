@@ -77,7 +77,7 @@ def callbacklist(
         assert isinstance(save_freq, int) and save_freq > 0, "save_freq must be a positive integer"
 
         stop_train_callback = StopTrainingOnNoModelImprovement(
-            max_no_improvement_evals=3, min_evals=5, verbose=0
+            max_no_improvement_evals=3, min_evals=5, verbose=1#0
         )
 
         eval_callback = EvalCallback(
@@ -89,7 +89,7 @@ def callbacklist(
             deterministic=True,
             render=False,
             callback_after_eval=stop_train_callback,
-            verbose=int(debug)
+            verbose=1#int(debug)
         )
 
         list_callbacks.append(eval_callback)

@@ -120,8 +120,8 @@ class LiDAR:
         theta_range: float = self.THETA_FINAL_RADIAN - self.THETA_INITIAL_RADIAN
         phi_range: float = self.PHI_FINAL_RADIAN - self.PHI_INITIAL_RADIAN
 
-        theta_side: float = theta_range * radius
-        phi_side: float = phi_range * radius
+        theta_side: float = theta_range #* radius
+        phi_side: float = phi_range #* radius
 
         n_theta_points: int = math.ceil(theta_side / sector_side)
         n_phi_points: int = math.ceil(phi_side / sector_side)
@@ -187,7 +187,11 @@ class LiDAR:
             return None
 
         self.sphere[Channels.DISTANCE_CHANNEL.value][theta_point][phi_point] = normalized_distance
-        self.sphere[Channels.DISTANCE_CHANNEL.FLAG_CHANNEL.value][theta_point][phi_point] = flag
+        
+        #TODO: SÓ COLOQUEI ISSO PARA FACILITAR A MUDANÇA NO NÚMERO DE CANAIS. NO CASO, EU QUERO DEIXAR EM 1.
+        if self.sphere.shape[0] > 1:
+            self.sphere[Channels.DISTANCE_CHANNEL.FLAG_CHANNEL.value][theta_point][phi_point] = flag
+        
 
     def __add_spherical(self, spherical: np.ndarray, distance: np.float32 = np.float32(10), flag: float = 0):
         radius = self.radius

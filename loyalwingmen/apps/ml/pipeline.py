@@ -77,7 +77,7 @@ class ReinforcementLearningPipeline:
         return "unknown"
     
     @staticmethod
-    def create_model(model_type: str, vectorized_enviroment: VecMonitor, policy_kwargs: dict, learning_rate: float, logs_dir: str, debug=False):
+    def create_model(model_type: str, vectorized_enviroment: VecMonitor, policy_kwargs: dict, learning_rate: float, logs_dir: str, debug=False, policy = None):
 
         tensorboard_log = logs_dir
         device = "cuda" if ReinforcementLearningPipeline.get_os_name() == "windows" else "cpu"
@@ -91,6 +91,7 @@ class ReinforcementLearningPipeline:
         model_kwargs["device"] = device
         model_kwargs["debug"] = debug
         model_kwargs["vectorized_enviroment"] = vectorized_enviroment
+        model_kwargs["policy"] = policy
 
         if model_type == "PPO":
             model = ReinforcementLearningPipeline.create_ppo_model(**model_kwargs)
@@ -105,7 +106,7 @@ class ReinforcementLearningPipeline:
         return model
 
     @staticmethod
-    def create_ppo_model(vectorized_enviroment: VecMonitor, policy_kwargs: dict, learning_rate: float, device:str, tensorboard_log:str, debug=False) -> PPO:
+    def create_ppo_model(vectorized_enviroment: VecMonitor, policy_kwargs: dict, learning_rate: float, device:str, tensorboard_log:str, debug=False, policy = None) -> PPO:
         """
         Creates a PPO model with the given parameters
         CustomActorCriticPolicy is used as the policy. It receives the CustomNetwork as MLP
@@ -114,7 +115,7 @@ class ReinforcementLearningPipeline:
         """
 
         model = PPO(
-            CustomActorCriticPolicy,
+            CustomActorCriticPolicy if policy is None else policy,
             vectorized_enviroment,
             verbose=1,
             device=device,

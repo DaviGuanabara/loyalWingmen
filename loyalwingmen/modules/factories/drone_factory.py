@@ -34,6 +34,7 @@ class DroneFactory(IDroneFactory):
         debug: bool = False,
     ):
         self.VELOCITY_AMPLIFICATION = speed_amplification
+        
         self.client_id: int = environment_parameters.client_id
         self.debug: bool = environment_parameters.debug
         
@@ -151,7 +152,6 @@ class DroneFactory(IDroneFactory):
         gravity_acceleration = self.environment_parameters.G
         KMH_TO_MS = 1000 / 3600
         VELOCITY_LIMITER = 1
-        #VELOCITY_AMPLIFICATION = self.VELOCITY_AMPLIFICATION  #1 #speed_amplification
         
         L = parameters.L
         M = parameters.M
@@ -186,7 +186,7 @@ class DroneFactory(IDroneFactory):
         informations.gnd_eff_h_clip = gnd_eff_h_clip
         informations.max_xy_torque = max_xy_torque
         informations.speed_amplification = self.VELOCITY_AMPLIFICATION
-
+        #print(f"information formation:{informations}")
         return informations
 
     def __compute_drone_model(self):
@@ -215,7 +215,8 @@ class DroneFactory(IDroneFactory):
             model, parameters, environment_parameters, urdf_path=urdf_file_path
         )
 
-    def __compute_LiDAR(self, radius: float = 20, resolution: float = 2) -> LiDAR:
+    def __compute_LiDAR(self, radius: float = 20, resolution: float = 32) -> LiDAR:
+    #def __compute_LiDAR(self, radius: float = 20, resolution: float = 2) -> LiDAR:
         #print("LiDAR created in drone_factory.py", "debug", self.debug)
         
         lidar: LiDAR = LiDAR(radius=radius, resolution=resolution, client_id=self.client_id, debug=self.debug)

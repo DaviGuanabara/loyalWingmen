@@ -11,6 +11,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 
 from modules.environments.drone_chase_env import DroneChaseEnv
 from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
+from modules.environments.drone_chase_level_1 import DroneChaseEnvLevel1
 
 from modules.models.policy import CustomActorCriticPolicy, CustomCNN
 from modules.factories.callback_factory import callbacklist, CallbackType
@@ -32,19 +33,22 @@ from torch import backends
 from sys import platform
 
 def main():
-    models_dir = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs"
+    
+    environment = DroneChaseEnvLevel1
+    models_dir = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\Model_Trainer2\\level1"
     logs_dir = models_dir
 
+    n_timesteps = 1_000_000
     suggestions = {}
 
-    suggestions[f"hidden_{1}"] = 2048
-    suggestions[f"hidden_{2}"] = 1024
-    suggestions[f"hidden_{3}"] = 256
-    suggestions[f"hidden_{4}"] = 2048
+    suggestions[f"hidden_{1}"] = 128
+    suggestions[f"hidden_{2}"] = 128
+    suggestions[f"hidden_{3}"] = 128
 
-    suggestions["rl_frequency"] = 2
-    suggestions["learning_rate"] = 1e-6
-    suggestions["speed_amplification"] = 3
+
+    suggestions["rl_frequency"] = 15
+    suggestions["learning_rate"] = 1e-9
+    suggestions["speed_amplification"] = .1
 
     suggestions["model"] = "PPO"
 
@@ -57,20 +61,41 @@ def main():
             break
         
         
-    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(environment=DroneChaseEnv, env_kwargs=suggestions)#, n_envs=1)
+    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(environment=environment, env_kwargs=suggestions)#, n_envs=1)
     specific_model_folder = ReinforcementLearningPipeline.gen_specific_folder_path(hiddens, suggestions["rl_frequency"], suggestions["learning_rate"], dir=models_dir)
     specific_log_folder = ReinforcementLearningPipeline.gen_specific_folder_path(hiddens, suggestions["rl_frequency"], suggestions["learning_rate"], dir=logs_dir)
 
     callback_list = ReinforcementLearningPipeline.create_callback_list(vectorized_environment, model_dir=specific_model_folder, log_dir=specific_log_folder, callbacks_to_include=[CallbackType.EVAL, CallbackType.PROGRESSBAR], n_eval_episodes=20, debug=True)
-    policy_kwargs = ReinforcementLearningPipeline.create_policy_kwargs(hiddens)
-    model = ReinforcementLearningPipeline.create_model(model_type=suggestions["model"], vectorized_enviroment=vectorized_environment, policy_kwargs=policy_kwargs, learning_rate=suggestions["learning_rate"], logs_dir=specific_log_folder, debug=True)
-
+    policy_kwargs = dict(
+            net_arch=dict(pi=hiddens, vf=hiddens),
+        )
+    model = PPO(
+            "MlpPolicy",
+            vectorized_environment,
+            verbose=1,
+            device="auto",
+            tensorboard_log=specific_model_folder,
+            policy_kwargs=policy_kwargs,
+            learning_rate=suggestions["learning_rate"],
+        )
     logging.info(model.policy)
-    model = ReinforcementLearningPipeline.train_model(model, callback_list, n_timesteps=1_000_000)
+    model = ReinforcementLearningPipeline.train_model(model, callback_list, n_timesteps=n_timesteps)
 
-    avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment, n_eval_episodes=20)
-    ReinforcementLearningPipeline.save_model(model, hiddens, suggestions["rl_frequency"], suggestions["learning_rate"], avg_reward, std_dev, models_dir)
+    #avg_reward, std_dev, num_episodes = ReinforcementLearningPipeline.evaluate(model, vectorized_environment, n_eval_episodes=20)
+    ReinforcementLearningPipeline.save_model(model, hiddens, suggestions["rl_frequency"], suggestions["learning_rate"], 0, 0, models_dir)
     
+    env = environment(GUI=True, rl_frequency=suggestions["rl_frequency"], speed_amplification=suggestions["speed_amplification"], debug=True)
+    
+    observation, info = env.reset()
+
+    for steps in range(50_000):
+        action, _ = model.predict(observation)
+        observation, reward, terminated, truncated, info = env.step(action)
+        print(reward, action)
+
+        if terminated:
+            print("Episode terminated")
+            env.reset()
     
 if __name__ == '__main__':
     main()    

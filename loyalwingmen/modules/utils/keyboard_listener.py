@@ -27,5 +27,6 @@ class KeyboardListener:
         if self.key is not None:
             action = self.key_map[self.key]
         else:
-            action = [0, 0, 0]
+            action = self.key_map["default"] # type: ignore
+        
         return np.array(action)

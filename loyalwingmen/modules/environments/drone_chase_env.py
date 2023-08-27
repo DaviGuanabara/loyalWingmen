@@ -498,32 +498,31 @@ class DroneChaseEnv(Env):
     def exp_decay(current_distance) -> int:
         return int(1000 * math.exp(-current_distance))
  
-
-    def _computeReward(self) -> int:
-        
-        """
-        Velocidade ação média: 0.08 m/s
-        Amplificaçõa da velocidade: 100x # drone_factory -> __compute_informations -> VELOCITY_AMPLIFICATION
-        Velocidade resultante: 8 m/s
-        Tempo máximo para atingir o alvo: 60 s
-        
-        Frequencia de atualização: 1 Hz
+    
+    def _computeReward(self) -> float:
         
         
-        """
-
         lw: LoyalWingman = self.loyalwingmen[0]
         lm: LoiteringMunition = self.loitering_munitions[0]
         lw_position = lw.kinematics.position
+        lw_velocity = lw.kinematics.velocity
+        
         lm_position = lm.kinematics.position
         
-        #print(self.loyalwingmen[0].get_observation_features())
+        norm_distance: float = float(np.linalg.norm(lm_position - lw_position))
+        velocity:float = float(np.linalg.norm(lw_velocity))
         
-        norm_distance: float = float(np.linalg.norm(lw_position - lm_position))
+        penalty = norm_distance
+        bonus = velocity
+        
                 
-        self.last_distance = norm_distance
+        if float(np.linalg.norm(lw_position)) > 200:
+            penalty += 1_000_000
+            
+        if float(np.linalg.norm(lw_position)) < 0.2:
+            bonus += 1_000_000    
         
-        return int (10 - norm_distance)
+        return bonus - penalty 
         
     
     def _computeDone(self):

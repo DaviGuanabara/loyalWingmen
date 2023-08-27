@@ -11,6 +11,10 @@ from gymnasium import spaces
 from stable_baselines3 import PPO
 from modules.environments.drone_chase_env import DroneChaseEnv
 from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
+from modules.environments.randomized_drone_chase_env_action_fixed import RandomizedDroneChaseEnvFixed
+from modules.environments.drone_chase_level_1 import DroneChaseEnvLevel1
+
+
 from multiprocessing import cpu_count
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from modules.factories.callback_factory import callbacklist
@@ -25,25 +29,18 @@ def main():
     
 
  
-    #selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\1.00M_steps\\models\\h[1024, 1024, 1024]-f10-lr1e-06\\mPPO-r4674.5498046875-sd4209.28857421875.zip"
-    #selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\4.00M_steps\\models\\h[256, 256, 256]-f10-lr1e-09\\best_model.zip"
-    #selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\2.00M_steps\\models\\h[1024, 256, 2048]-f2-lr1e-06\\best_model.zip"
-    #selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\2.00M_steps\\models\\h[1024, 256, 2048]-f2-lr1e-06\\mPPO-r16270.5498046875-sd4154.3701171875.zip"
-    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\1.50M_steps\\models\\h[512, 2048, 2048, 256]-f15-lr1e-05\\mPPO-r10641.7998046875-sd2006.248046875.zip"
-    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\DroneChaseEnv_no_physics_6.00M_steps_lidar_range_20m\\models\\h[512, 1024, 128, 256]-f1-lr0.0001\\best_model.zip"
-    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\DroneChaseEnv_no_physics_6.00M_steps_lidar_range_20m\\models\\h[512, 1024, 128, 256]-f1-lr0.0001\\mPPO-r9913.0400390625-sd2193.84765625.zip"
-    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\DroneChaseEnv_no_physics_6.00M_steps_lidar_range_20m\\models\\h[2048, 1024, 256, 2048]-f2-lr1e-06\\mPPO-r8023.93017578125-sd2374.717529296875.zip"
-    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\h[2048, 1024, 256, 2048]-f2-lr1e-06\\mPPO-r-15051.75-sd71.28314971923828.zip"
-    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\h[2048, 1024, 256, 2048]-f2-lr1e-06\\cima-para-baixo.zip"
+    #selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\ULTIMO_no_physics_2.00M_steps_lidar_range_100m_16_20s\\models\\h[512, 512, 128]-f15-lr0.0001\\mPPO-r7849.205078125-sd763.091552734375"
+    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\ULTIMO_RANDOM_no_physics_2.00M_steps_lidar_range_100m_16_20s\\models\\h[256, 256, 512]-f10-lr1e-09\\mPPO-r74375928.0-sd740232064.0.zip"
+    selected_zip = "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\loyalwingmen\\outputs\\baysian_optimizer_app.py\\ULTIMO_RANDOM_no_physics_1.00M_steps_lidar_range_20m_32_20s\models\h[256, 256, 256]-f2-lr1e-07\mPPO-r-750122496.0-sd284461344.0.zip"
     model = PPO.load(selected_zip)
-    env = DroneChaseEnv(GUI=True, rl_frequency=30, speed_amplification=.2, debug=True)
+    env = RandomizedDroneChaseEnvFixed(GUI=True, rl_frequency=10, speed_amplification=1, debug=True)
     
     observation, info = env.reset()
 
     for steps in range(50_000):
         action, _ = model.predict(observation, deterministic=True)
         observation, reward, terminated, truncated, info = env.step(action)
-        print(reward, action)
+        print(f"{reward:.2f}, {action}")
 
         if terminated:
             print("Episode terminated")
