@@ -61,7 +61,7 @@ class DroneChaseEnvLevel1(Env):
             
         self.setup_pybullet(simulation_frequency, rl_frequency, gravity, GUI) 
         
-        self.drone_id = self.create_drone([1, 1, 1])
+        self.drone_id = self.create_drone([1, 1, 0])
         self.aggregate_physics_steps = int(simulation_frequency / rl_frequency)   
         self.MAX_DISTANCE = 10
         self.MAX_VELOCITY = 1
@@ -168,7 +168,7 @@ class DroneChaseEnvLevel1(Env):
         
         p.resetBaseVelocity(
                 self.drone_id,
-                [1, 1, 0],
+                [0, 0, 0],
                 np.array([0, 0, 0]),
                 physicsClientId=self.client_id,
             )
@@ -266,10 +266,10 @@ class DroneChaseEnvLevel1(Env):
 
         key_map = defaultdict(lambda: default_action)
         key_map.update({
-            Key.up: [0, 1.0],
-            Key.down: [0, -1.0],
-            Key.left: [-1.0, 0],
-            Key.right: [1.0, 0],
+            Key.up: [0, .1],
+            Key.down: [0, -.1],
+            Key.left: [-.1, 0],
+            Key.right: [.1, 0],
             #keycode.from_char("w"): [0, 0, 1.0, .1],
             #keycode.from_char("s"): [0, 0, -1.0, .1],
         })
