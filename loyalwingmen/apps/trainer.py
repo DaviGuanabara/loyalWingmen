@@ -30,7 +30,7 @@ def main():
     
     
     n_envs = os.cpu_count() or 1
-    env_fns = [lambda: DroneChaseEnvLevel1(GUI=False, rl_frequency=15, debug=False) for i, _ in enumerate(range(n_envs))]
+    env_fns = [lambda: DroneChaseEnvLevel1(GUI=False, rl_frequency=10, debug=False) for i, _ in enumerate(range(n_envs))]
         
     vectorized_environment = SubprocVecEnv(env_fns)# type: ignore
         
@@ -38,18 +38,17 @@ def main():
     observation, info = env.reset()
 
 
-    policy_kwargs = dict(activation_fn=th.nn.ReLU,
-                     net_arch=[256, 256, 256]#dict(pi=[128, 128, 128], qf=[128, 128, 128])
+    policy_kwargs = dict(activation_fn=th.nn.LeakyReLU,
+                         
+                     net_arch=[128]#dict(pi=[128, 128, 128], qf=[128, 128, 128])
                      )
     
     model = SAC(
         "MlpPolicy", 
         vectorized_environment, 
         policy_kwargs=policy_kwargs, 
-        train_freq=1, 
-        gradient_steps=2, 
         verbose=0, 
-        learning_rate=1e-4,
+        learning_rate=1e-8,
         )
     
     progressbar_callback = ProgressBarCallback()

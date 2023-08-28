@@ -64,8 +64,8 @@ class DroneChaseEnvLevel1(Env):
         self.drone_id = self.create_drone([1, 1, 0])
         self.aggregate_physics_steps = int(simulation_frequency / rl_frequency)   
         self.MAX_DISTANCE = 10
-        self.MAX_VELOCITY = 1
-        self.MAX_TIME = 10
+        self.MAX_VELOCITY = .1
+        self.MAX_TIME = 5#10
         self.observation_space = self._observationSpace()
         self.action_space = self._actionSpace()
             
@@ -217,12 +217,12 @@ class DroneChaseEnvLevel1(Env):
             )
         
         
-        norm_distance: float = float(np.linalg.norm(position))
+        #norm_distance: float = float(np.linalg.norm(position))
         
-        if norm_distance < .2:
-            return 1_000_000
+        #if norm_distance < .2:
+        #    return 1_000_000
         
-        return -norm_distance
+        return -10 * float(np.linalg.norm(position)) **2
     
     def _compute_done(self):
         current = time.time()
