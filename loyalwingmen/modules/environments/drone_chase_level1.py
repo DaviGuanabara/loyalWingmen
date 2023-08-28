@@ -74,54 +74,7 @@ class DroneChaseEnvLevel1(Env):
         
         
     
-    def setup_pybullet(self, simulation_frequency, rl_frequency, gravity, GUI):
-        self.simulation_frequency = simulation_frequency
-        self.rl_frequency = rl_frequency    
-        
-        if GUI:
-            self.client_id = self.setup_pybulley_GUI()
-            
-        else:
-            self.client_id = self.setup_pybullet_DIRECT()
-            
-        p.setGravity(
-            0,
-            0,
-            0,#-gravity,
-            physicsClientId=self.client_id,
-        )
-        
-        p.setRealTimeSimulation(
-            0, 
-            physicsClientId=self.client_id
-        )  # No Realtime Sync
-        
-        p.setTimeStep(
-            1 / simulation_frequency,
-            physicsClientId=self.client_id,
-        )
     
-    def setup_pybullet_DIRECT(self):
-        return p.connect(p.DIRECT)
-
-    def setup_pybulley_GUI(self):
-        client_id = p.connect(p.GUI)
-        for i in [
-            p.COV_ENABLE_RGB_BUFFER_PREVIEW,
-            p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
-            p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
-        ]:
-            p.configureDebugVisualizer(i, 0, physicsClientId=client_id)
-        p.resetDebugVisualizerCamera(
-            cameraDistance=3,
-            cameraYaw=-30,
-            cameraPitch=-30,
-            cameraTargetPosition=[0, 0, 0],
-            physicsClientId=client_id,
-        )
-        ret = p.getDebugVisualizerCamera(physicsClientId=client_id)
-
-        return client_id
             
 
     def create_drone(self, position) -> int:
@@ -242,7 +195,84 @@ class DroneChaseEnvLevel1(Env):
     def _actionSpace(self):
         return spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]), shape=(2,), dtype=np.float32)
         
+
+class Simulation():
+    def __init__(self, simulation_frequency: int = 240, gravity: float = 9.81, GUI: bool = False, dome_radius:int = 5):
+        self.setup_pybullet(simulation_frequency=simulation_frequency, gravity=gravity, GUI=GUI)
+        self.dome_radius = dome_radius
+    
+    def reset(self, seed: int = 0):
+        self.drone_id = self.create_drone(np.array([.5, .5, .5]))    
+    def setup_pybullet(self, simulation_frequency, gravity, GUI: bool = False):
+
+        if GUI:
+            self.client_id = self.setup_pybulley_GUI()
+            
+        else:
+            self.client_id = self.setup_pybullet_DIRECT()
+            
+        p.setAdditionalSearchPath(pybullet_data.getDataPath())    
+            
+        p.setGravity(
+            0,
+            0,
+            -gravity,
+            physicsClientId=self.client_id,
+        )
         
+        p.setTimeStep(
+            1 / simulation_frequency,
+            physicsClientId=self.client_id,
+        )
+    
+    def setup_pybullet_DIRECT(self):
+        return p.connect(p.DIRECT)
+
+    def setup_pybulley_GUI(self):
+        client_id = p.connect(p.GUI)
+        for i in [
+            p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+            p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+            p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+        ]:
+            p.configureDebugVisualizer(i, 0, physicsClientId=client_id)
+        p.resetDebugVisualizerCamera(
+            cameraDistance=3,
+            cameraYaw=-30,
+            cameraPitch=-30,
+            cameraTargetPosition=[0, 0, 0],
+            physicsClientId=client_id,
+        )
+        ret = p.getDebugVisualizerCamera(physicsClientId=client_id)
+
+        return client_id
+    
+    def apply_velocity(self, velocity: np.ndarray):
+        
+        if velocity.size == 2:
+            velocity = np.concatenate([velocity, [0]])
+
+        p.resetBaseVelocity(
+                self.drone_id,
+                velocity,
+                np.array([0, 0, 0]),
+                physicsClientId=self.client_id,
+            )
+    
+    def create_drone(self, position) -> int:
+        urdf_name = "cf2x"  + ".urdf"
+        base_path = str(Path(os.getcwd()).parent.absolute())
+        
+        urdf_file_path = base_path + "\\assets\\" + urdf_name  # "cf2x.urdf"
+
+        id = p.loadURDF(
+            fileName=urdf_file_path,
+            basePosition=position,
+            flags=p.URDF_USE_INERTIA_FROM_FILE,
+            physicsClientId=self.client_id,
+        )
+        
+        return id
     #####################################################################################################
     # Normalization
     #####################################################################################################
