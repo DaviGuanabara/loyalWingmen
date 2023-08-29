@@ -9,13 +9,15 @@ from modules.utils.utils import sync, str2bool
 import torch
 from stable_baselines3.common.env_util import make_vec_env
 import torch as th
-from modules.environments.drone_chase_level1 import DroneChaseEnvLevel1
+from modules.environments.simplified_env import DroneChaseEnvLevel1
 
-#policy_kwargs = dict(
-#                net_arch=dict(pi=[128, 128, 128], vf=[128, 128, 128]),
-            #)
 
-env = DroneChaseEnvLevel1(GUI=True, rl_frequency=1, debug=True)
+policy_kwargs = dict(activation_fn=th.nn.LeakyReLU,
+                         
+                     net_arch=[128, 128, 128]
+                     )
+
+env = DroneChaseEnvLevel1(GUI=True, rl_frequency=1)
 
 model = SAC(
                 "MlpPolicy",
@@ -25,7 +27,7 @@ model = SAC(
             )
 
 
-model.load("./sac_drone_chase_level1")
+model.load("./sac_simplified_env")
 observation, info = env.reset()
 for steps in range(50_000):
     action, _ = model.predict(observation, deterministic=True)

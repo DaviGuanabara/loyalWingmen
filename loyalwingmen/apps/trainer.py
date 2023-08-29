@@ -9,7 +9,7 @@ from modules.utils.utils import sync, str2bool
 import torch
 from stable_baselines3.common.env_util import make_vec_env
 import torch as th
-from modules.environments.drone_chase_level1 import DroneChaseEnvLevel1
+from modules.environments.simplified_env import DroneChaseEnvLevel1
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.callbacks import (
@@ -20,17 +20,17 @@ from stable_baselines3.common.callbacks import (
     ProgressBarCallback,
     BaseCallback
 )
-        
+import math
 
 def main():
     
     
-    env = DroneChaseEnvLevel1(GUI=False, rl_frequency=1, debug=False)
+    env = DroneChaseEnvLevel1(GUI=False, rl_frequency=1)
     check_env(env, warn=True, skip_render_check=True)
     
     
-    n_envs = os.cpu_count() or 1
-    env_fns = [lambda: DroneChaseEnvLevel1(GUI=False, rl_frequency=10, debug=False) for i, _ in enumerate(range(n_envs))]
+    n_envs = math.ceil((os.cpu_count() or 1)/2)
+    env_fns = [lambda: DroneChaseEnvLevel1(GUI=False, rl_frequency=15) for i, _ in enumerate(range(n_envs))]
         
     vectorized_environment = SubprocVecEnv(env_fns)# type: ignore
         
@@ -40,7 +40,7 @@ def main():
 
     policy_kwargs = dict(activation_fn=th.nn.LeakyReLU,
                          
-                     net_arch=[128]#dict(pi=[128, 128, 128], qf=[128, 128, 128])
+                     net_arch=[128, 128, 128]
                      )
     
     model = SAC(
@@ -52,9 +52,9 @@ def main():
         )
     
     progressbar_callback = ProgressBarCallback()
-    model.learn(total_timesteps=1_000_000, callback=progressbar_callback)
+    model.learn(total_timesteps=4_000_000, callback=progressbar_callback)
     
-    model.save("./sac_drone_chase_level1")
+    model.save("./sac_simplified_env")
 
 
 if __name__ == '__main__':
