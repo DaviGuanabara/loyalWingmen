@@ -65,18 +65,18 @@ class DroneChaseEnvLevel1(Env):
         
     
     def _actionSpace(self, shape_size):
-        return spaces.Box(low=np.array([-1, -1]), high=np.array([1, 1]), shape=(shape_size,), dtype=np.float32)
+        return spaces.Box(low=-1, high=1, shape=(shape_size,), dtype=np.float32)
     
     def step(self, action):
         self.simulation.set_action(action)
         return self.simulation.step(aggregate_physics_steps=self.aggregate_physics_steps)
     
-    def reset(self):
-        return self.simulation.reset()
+    def reset(self, seed: int = 0):
+        return self.simulation.reset(seed)
         
 
 class Simulation():
-    def __init__(self, simulation_frequency: int = 240, gravity: float = 9.81, GUI: bool = False, dome_radius:int = 5, max_velocity: int = 1, action_type: int = 0, initial_position: np.ndarray = np.array([3, 3, 3])):
+    def __init__(self, simulation_frequency: int = 240, gravity: float = 9.81, GUI: bool = False, dome_radius:int = 10, max_velocity: int = 1, action_type: int = 0, initial_position: np.ndarray = np.array([3, 3, 3])):
         self.setup_pybullet(simulation_frequency=simulation_frequency, gravity=gravity, GUI=GUI)
         
         self.dome_radius = dome_radius
@@ -86,7 +86,7 @@ class Simulation():
         self.initial_position = initial_position
         self.drone_id = self.create_drone(initial_position)   
         self.target_position = np.array([0, 0, 0])
-        
+        self.last_action = np.zeros(self.get_action_size())
         self.MAX_TIME = 10
         self.RESET_TIME = time.time()
         
@@ -140,6 +140,8 @@ class Simulation():
     def reset(self, seed: int = 0):
         p.resetBasePositionAndOrientation(
                 self.drone_id,
+                posObj=self.initial_position,
+                ornObj=np.array([0, 0, 0, 1]),  # [x,y,z,w]
                 physicsClientId=self.client_id,
             )
         
@@ -217,37 +219,6 @@ class Simulation():
         info = self.compute_info()
 
         return observation, reward, terminated, False, info
-        
-    def compute_observation(self) -> np.ndarray:
-        state = self.get_state()
-        position = self._normalize_position(state["position"])
-        orientation = state["orientation"]
-        direction = state["direction"]
-        last_action = self._normalizeVelocity(state["last_action"])
-        
-        observation = np.concatenate((position, orientation, direction, last_action), dtype=np.float32)
-        return observation
-
-    def compute_reward(self) -> float:
-        position = self.get_state()["position"]
-        dome_radius = self.dome_radius
-        return dome_radius -1 * float(np.linalg.norm(self.target_position - position))
-        
-    def compute_done(self):
-        position = self.get_state()["position"]
-        dome_radius = self.dome_radius
-        
-        if np.linalg.norm(position) > dome_radius:
-            return True
-        
-        if time.time() - self.RESET_TIME > self.MAX_TIME:
-            return True
-        
-        return False
-    
-    def compute_info(self):
-        return {}
-    
     
     def get_state(self) -> dict:
         position, orientation = p.getBasePositionAndOrientation(
@@ -261,19 +232,68 @@ class Simulation():
         )
         
         target_position: np.ndarray = self.target_position
-        direction = (target_position - position)/np.linalg.norm(target_position - position)
+        direction = (target_position - position)/np.linalg.norm(np.array(target_position) - np.array(position))
         last_action = self.last_action
         
         state = {}
-        state["position"] = position
-        state["orientation"] = orientation
-        state["linear_velocity"] = linear_velocity
-        state["angular_velocity"] = angular_velocity    
+        state["position"] = np.array(position)
+        state["orientation"] = np.array(orientation)
+        state["linear_velocity"] = np.array(linear_velocity)
+        state["angular_velocity"] = np.array(angular_velocity)    
         state["target_position"] = target_position
         state["direction"] = direction
         state["last_action"] = last_action
         
         return state
+    
+    def compute_observation(self) -> np.ndarray:
+        state = self.get_state()
+        position = self._normalize_position(state["position"])
+        orientation = state["orientation"]
+        linear_velocity = self._normalizeVelocity(state["linear_velocity"])
+        angular_velocity = state["angular_velocity"]
+        target_position = self._normalize_position(state["target_position"])
+        direction = state["direction"]
+        last_action = self._normalizeVelocity(state["last_action"])
+        
+        observation = np.concatenate((position, orientation, linear_velocity, angular_velocity, target_position, direction, last_action), dtype=np.float32)
+        return observation
+
+    def compute_reward(self) -> float:
+        position = self.get_state()["position"]
+        dome_radius = self.dome_radius
+        
+        bonus = 0
+        
+        if np.linalg.norm(position) < 0.2:
+            bonus = 100_000
+            return True
+        
+        return dome_radius -1 * float(np.linalg.norm(self.target_position - position)) + bonus
+        
+    def compute_done(self):
+        position = self.get_state()["position"]
+        dome_radius = self.dome_radius
+        
+        if np.linalg.norm(position) > dome_radius:
+            print("out of bounds", position)
+            return True
+        
+        if np.linalg.norm(position) < 0.2:
+            print("reached target")
+            return True
+        
+        if time.time() - self.RESET_TIME > self.MAX_TIME:
+            print("time out")
+            return True
+        
+        return False
+    
+    def compute_info(self):
+        return {}
+    
+    
+
     
     
     #####################################################################################################

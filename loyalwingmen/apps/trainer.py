@@ -26,7 +26,7 @@ def main():
     
     
     env = DroneChaseEnvLevel1(GUI=False, rl_frequency=1)
-    check_env(env, warn=True, skip_render_check=True)
+    #check_env(env, warn=True, skip_render_check=True)
     
     
     n_envs = math.ceil((os.cpu_count() or 1)/2)
@@ -52,7 +52,7 @@ def main():
         )
     
     progressbar_callback = ProgressBarCallback()
-    model.learn(total_timesteps=4_000_000, callback=progressbar_callback)
+    model.learn(total_timesteps=1_000_000, callback=progressbar_callback)
     
     model.save("./sac_simplified_env")
 

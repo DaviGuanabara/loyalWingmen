@@ -17,7 +17,7 @@ policy_kwargs = dict(activation_fn=th.nn.LeakyReLU,
                      net_arch=[128, 128, 128]
                      )
 
-env = DroneChaseEnvLevel1(GUI=True, rl_frequency=1)
+env = DroneChaseEnvLevel1(GUI=True, rl_frequency=15)
 
 model = SAC(
                 "MlpPolicy",
@@ -37,4 +37,5 @@ for steps in range(50_000):
     #logging.debug(f"(main) reward: {reward}")
     print(f"reward:{reward:.2f} - action:{action}, ")
     if terminated:
+        print("terminated")
         observation, info = env.reset()
