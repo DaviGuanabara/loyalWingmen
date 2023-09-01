@@ -21,6 +21,8 @@ from stable_baselines3.common.callbacks import (
     BaseCallback
 )
 import math
+from stable_baselines3.common.noise import OrnsteinUhlenbeckActionNoise
+import numpy as np
 
 from ml.pipeline import ReinforcementLearningPipeline
 def main():
@@ -39,6 +41,7 @@ def main():
     
     #observation, info = vectorized_environment.reset()
 
+    action_noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(3), sigma=float(0.5) * np.ones(3))
 
     policy_kwargs = dict(activation_fn=th.nn.LeakyReLU,
                          
@@ -50,7 +53,8 @@ def main():
         vectorized_environment, 
         policy_kwargs=policy_kwargs, 
         verbose=0, 
-        learning_rate=1e-8,
+        learning_rate=1e-5,
+        action_noise=action_noise
         )
     
     progressbar_callback = ProgressBarCallback()
