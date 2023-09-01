@@ -9,9 +9,10 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 
 
-from modules.environments.drone_chase_env import DroneChaseEnv
-from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
-from modules.environments.randomized_drone_chase_env_action_fixed import RandomizedDroneChaseEnvFixed
+#from modules.environments.drone_chase_env import DroneChaseEnv
+#from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
+#from modules.environments.randomized_drone_chase_env_action_fixed import RandomizedDroneChaseEnvFixed
+from modules.environments.simplified_env import DroneChaseEnvLevel1
 
 from modules.models.policy import CustomActorCriticPolicy, CustomCNN
 from modules.factories.callback_factory import callbacklist, CallbackType
@@ -89,7 +90,7 @@ def rl_pipeline(suggestion: dict, n_timesteps: int, models_dir: str, logs_dir: s
 
     #hiddens = list((hidden_1, hidden_2, hidden_3))
     
-    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(environment=RandomizedDroneChaseEnvFixed, env_kwargs=suggestion)
+    vectorized_environment: VecMonitor = ReinforcementLearningPipeline.create_vectorized_environment(environment=DroneChaseEnvLevel1, env_kwargs=suggestion)
     specific_model_folder = ReinforcementLearningPipeline.gen_specific_folder_path(hiddens, frequency, learning_rate, dir=models_dir)
     specific_log_folder = ReinforcementLearningPipeline.gen_specific_folder_path(hiddens, frequency, learning_rate, dir=logs_dir)
     

@@ -22,25 +22,27 @@ from stable_baselines3.common.callbacks import (
 )
 import math
 
+from ml.pipeline import ReinforcementLearningPipeline
 def main():
     
     
-    env = DroneChaseEnvLevel1(GUI=False, rl_frequency=1)
+    #env = DroneChaseEnvLevel1(GUI=False, rl_frequency=30)
     #check_env(env, warn=True, skip_render_check=True)
     
     
-    n_envs = math.ceil((os.cpu_count() or 1)/2)
-    env_fns = [lambda: DroneChaseEnvLevel1(GUI=False, rl_frequency=15) for i, _ in enumerate(range(n_envs))]
+    n_envs = 2 * math.ceil((os.cpu_count() or 1))
+    env_fns = [lambda: DroneChaseEnvLevel1(GUI=False, rl_frequency=i) for i, _ in enumerate(range(n_envs))]
         
     vectorized_environment = SubprocVecEnv(env_fns)# type: ignore
-        
     
-    observation, info = env.reset()
+    vectorized_environment = VecMonitor(vectorized_environment)
+    
+    #observation, info = vectorized_environment.reset()
 
 
     policy_kwargs = dict(activation_fn=th.nn.LeakyReLU,
                          
-                     net_arch=[128, 128, 128]
+                     net_arch=[1024, 512, 256]
                      )
     
     model = SAC(
@@ -52,7 +54,7 @@ def main():
         )
     
     progressbar_callback = ProgressBarCallback()
-    model.learn(total_timesteps=1_000_000, callback=progressbar_callback)
+    model.learn(total_timesteps=4_000_000, callback=progressbar_callback)
     
     model.save("./sac_simplified_env")
 

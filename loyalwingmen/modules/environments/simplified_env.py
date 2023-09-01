@@ -76,7 +76,7 @@ class DroneChaseEnvLevel1(Env):
         
 
 class Simulation():
-    def __init__(self, simulation_frequency: int = 240, gravity: float = 9.81, GUI: bool = False, dome_radius:int = 10, max_velocity: int = 1, action_type: int = 0, initial_position: np.ndarray = np.array([3, 3, 3])):
+    def __init__(self, simulation_frequency: int = 240, gravity: float = 9.81, GUI: bool = False, dome_radius:int = 10, max_velocity: float = 1, action_type: int = 1, initial_position: np.ndarray = np.array([3, 3, 3])):
         self.setup_pybullet(simulation_frequency=simulation_frequency, gravity=gravity, GUI=GUI)
         
         self.dome_radius = dome_radius
@@ -87,7 +87,7 @@ class Simulation():
         self.drone_id = self.create_drone(initial_position)   
         self.target_position = np.array([0, 0, 0])
         self.last_action = np.zeros(self.get_action_size())
-        self.MAX_TIME = 10
+        self.MAX_TIME = 5
         self.RESET_TIME = time.time()
         
    
@@ -106,7 +106,7 @@ class Simulation():
         p.setGravity(
             0,
             0,
-            -gravity,
+            0,#-gravity,
             physicsClientId=self.client_id,
         )
         
@@ -137,10 +137,20 @@ class Simulation():
 
         return client_id
     
+    def sample_spherical(self):
+        radius = np.random.rand() * self.dome_radius
+        random_position = np.random.uniform(-1, 1, (1, 3))[0]
+    
+        magnitude = np.linalg.norm(random_position, axis=0)
+        
+        return radius * random_position / magnitude
+        
     def reset(self, seed: int = 0):
+        #np.random.seed(seed)
+        random_position = self.sample_spherical()
         p.resetBasePositionAndOrientation(
                 self.drone_id,
-                posObj=self.initial_position,
+                posObj=random_position,
                 ornObj=np.array([0, 0, 0, 1]),  # [x,y,z,w]
                 physicsClientId=self.client_id,
             )
@@ -152,6 +162,12 @@ class Simulation():
     def get_action_size(self):
         if self.action_type == 0:
             return 3
+        
+        if self.action_type == 1:
+            return 3
+        
+        if self.action_type == 2:
+            return 4
         
         return 3
     
@@ -193,17 +209,72 @@ class Simulation():
             action = np.concatenate([action, [0]])
             
         if self.action_type == 0:
-            velocity = self.MAX_VELOCITY * action
+            action = self.MAX_VELOCITY * action
             
-        else:
-            velocity = action    
+            p.resetBaseVelocity(
+                self.drone_id,
+                action,
+                np.array([0, 0, 0]),
+                physicsClientId=self.client_id,
+            )
             
-        p.resetBaseVelocity(
-            self.drone_id,
-            velocity,
-            np.array([0, 0, 0]),
-            physicsClientId=self.client_id,
-        )
+        if self.action_type == 1:
+            p.applyExternalForce(
+                objectUniqueId=self.drone_id,
+                linkIndex=-1,
+                forceObj=action,
+                posObj=[0, 0, 0],
+                flags=p.LINK_FRAME,
+                physicsClientId=self.client_id,
+                
+            )
+            
+        if self.action_type == 2:
+            position, orientation = p.getPositionAndOrientation(
+                self.drone_id,
+                physicsClientId=self.client_id,
+            )
+            p.resetBasePositionAndOrientation(
+                self.drone_id,
+                position,
+                action[:3],
+                physicsClientId=self.client_id,
+            )
+            p.applyExternalForce(
+                objectUniqueId=self.drone_id,
+                linkIndex=-1,
+                forceObj=[0, 0, action[3]],
+                posObj=[0, 0, 0],
+                flags=p.LINK_FRAME,
+                physicsClientId=self.client_id,
+                
+            )
+        
+        #
+        """
+        Abaixo está uma das observações adquiridas durante o treinamento do drone, com 40 Milhões de steps. Tem algo muito esquisito. 
+        A velcidade linear [-2.6049018e-02 -3.2533258e-02 -3.2603025e-01] está diferente da última ação: [-2.6089132e-02
+        -3.2583356e-02  7.4040890e-04], eles deveriam estar iguais. Deve ser algum problema com o pybullet. Talvez essa função não foi feita
+        para ser atualizada a cada passo de tempo.
+        
+        reward:7.95 - action:[-0.02608913 -0.03258336  0.00074041], observation:[ 2.8671153e-02  1.8143277e-01 -9.0536118e-02  0.0000000e+00
+        0.0000000e+00  0.0000000e+00  1.0000000e+00 -2.6049018e-02
+        -3.2533258e-02 -3.2603025e-01  0.0000000e+00  0.0000000e+00
+        0.0000000e+00  0.0000000e+00  0.0000000e+00  0.0000000e+00
+        -1.4000648e-01 -8.8596946e-01  4.4210446e-01 -2.6089132e-02
+        -3.2583356e-02  7.4040890e-04]
+        """
+        
+        
+        #p.applyExternalForce(
+        #    objectUniqueId=self.drone_id,
+        #    linkIndex=-1,
+        #    forceObj=action,
+        #    posObj=[0, 0, 0],
+        #    flags=p.LINK_FRAME,
+        #    physicsClientId=self.client_id,
+            
+        #)
         
     #####################################################################################################
     # Step
@@ -276,15 +347,15 @@ class Simulation():
         dome_radius = self.dome_radius
         
         if np.linalg.norm(position) > dome_radius:
-            print("out of bounds", position)
+            #print("out of bounds", position, float(np.linalg.norm(self.target_position - position)))
             return True
         
         if np.linalg.norm(position) < 0.2:
-            print("reached target")
+            #print("reached target")
             return True
         
         if time.time() - self.RESET_TIME > self.MAX_TIME:
-            print("time out")
+            #print("time out")
             return True
         
         return False
