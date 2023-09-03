@@ -49,10 +49,10 @@ class DroneChaseEnvLevel1(Env):
         rl_frequency: int = 30,
         gravity: float = 9.81,
         GUI: bool = False,
-
+        seed: int = 0
         
     ):
-            
+        np.random.seed(seed)
         self.simulation = Simulation(simulation_frequency=simulation_frequency, gravity=gravity, GUI=GUI)
          
         self.observation_space = self._observationSpace(self.simulation.get_observation_size())
@@ -89,6 +89,7 @@ class Simulation():
         self.last_action = np.zeros(self.get_action_size())
         self.MAX_TIME = 5
         self.RESET_TIME = time.time()
+        
         
    
         
@@ -148,12 +149,15 @@ class Simulation():
     def reset(self, seed: int = 0):
         #np.random.seed(seed)
         random_position = self.sample_spherical()
-        p.resetBasePositionAndOrientation(
-                self.drone_id,
-                posObj=random_position,
-                ornObj=np.array([0, 0, 0, 1]),  # [x,y,z,w]
-                physicsClientId=self.client_id,
-            )
+        p.resetSimulation(physicsClientId=self.client_id)
+        self.drone_id = self.create_drone(random_position)
+        
+        #p.resetBasePositionAndOrientation(
+        #        self.drone_id,
+        #        posObj=random_position,
+        #        ornObj=np.array([0, 0, 0, 1]),  # [x,y,z,w]
+        #        physicsClientId=self.client_id,
+        #    )
         
         self.RESET_TIME = time.time()
         

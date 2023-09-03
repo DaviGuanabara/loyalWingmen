@@ -9,7 +9,9 @@ from modules.utils.utils import sync, str2bool
 import torch
 from stable_baselines3.common.env_util import make_vec_env
 import torch as th
-from modules.environments.simplified_env import DroneChaseEnvLevel1
+#from modules.environments.simplified_env import DroneChaseEnvLevel1
+#from modules.environments.randomized_drone_chase_env import RandomizedDroneChaseEnv
+from modules.environments.drone_chase_env import DroneChaseEnv
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.callbacks import (
@@ -24,7 +26,7 @@ import math
 from stable_baselines3.common.noise import OrnsteinUhlenbeckActionNoise
 import numpy as np
 
-from ml.pipeline import ReinforcementLearningPipeline
+
 def main():
     
     
@@ -33,7 +35,7 @@ def main():
     
     
     n_envs = 2 * math.ceil((os.cpu_count() or 1))
-    env_fns = [lambda: DroneChaseEnvLevel1(GUI=False, rl_frequency=i) for i, _ in enumerate(range(n_envs))]
+    env_fns = [lambda: DroneChaseEnv(GUI=False, rl_frequency=30) for i, _ in enumerate(range(n_envs))]
         
     vectorized_environment = SubprocVecEnv(env_fns)# type: ignore
     
@@ -41,7 +43,7 @@ def main():
     
     #observation, info = vectorized_environment.reset()
 
-    action_noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(3), sigma=float(0.5) * np.ones(3))
+    #action_noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(3), sigma=float(0.8) * np.ones(3))
 
     policy_kwargs = dict(activation_fn=th.nn.LeakyReLU,
                          
@@ -54,13 +56,13 @@ def main():
         policy_kwargs=policy_kwargs, 
         verbose=0, 
         learning_rate=1e-5,
-        action_noise=action_noise
+     #   action_noise=action_noise
         )
     
     progressbar_callback = ProgressBarCallback()
-    model.learn(total_timesteps=4_000_000, callback=progressbar_callback)
+    model.learn(total_timesteps=2_000_000, callback=progressbar_callback)
     
-    model.save("./sac_simplified_env")
+    model.save("./sac_randomized_drone_chase_env")
 
 
 if __name__ == '__main__':
