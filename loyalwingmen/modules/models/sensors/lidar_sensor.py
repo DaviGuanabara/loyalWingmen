@@ -1,12 +1,13 @@
 import sys
-sys.path.append("..")
+sys.path.append("../..")
 
 import math
 import numpy as np
 from typing import Tuple, List
 import pybullet as p
 from gymnasium import spaces
-from modules.interfaces.sensor import Sensor
+from modules.models.interfaces.sensor_interface import Sensor
+
 
 from enum import Enum
 
@@ -40,13 +41,15 @@ class LiDAR(Sensor):
     https://en.wikipedia.org/wiki/Spherical_coordinate_system
     """
 
-    def __init__(self, radius: float = 5, resolution: float = 1, client_id: int = 0, debug: bool = False):
+    def __init__(self, parent_id: int = 0, client_id: int = 0, radius: float = 5, resolution: float = 1,  debug: bool = False):
         """
         Params
         -------
         max_distance: float, the radius of the sphere
         resolution: number of sectors per m2
         """
+        
+        self.parent_id = parent_id
         self.client_id = client_id
         self.debug = debug
         self.debug_line_id = -1

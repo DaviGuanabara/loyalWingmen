@@ -7,16 +7,16 @@ from pathlib import Path
 import xml.etree.ElementTree as etxml
 from typing import Tuple
 
-from modules.models.lidar import LiDAR
+from modules.models.sensors.lidar_sensor import LiDAR
 
 
-from modules.models.loyalwingman import LoyalWingman
-from modules.models.loiteringmunition import LoiteringMunition
+from modules.models.drones.loyalwingman import LoyalWingman
+from modules.models.drones.loiteringmunition import LoiteringMunition
 
 from modules.control.DSLPIDControl import DSLPIDControl
 from modules.utils.enums import DroneModel
 
-from modules.models.drone import (
+from modules.models.drones.drone import (
     Drone,
     Parameters,
     Kinematics,
@@ -210,11 +210,6 @@ class DroneFactory():
         return DSLPIDControl(
             self.drone_model, droneParameters, self.environment_parameters
         )
-
-    def __compute_LiDAR(self) -> LiDAR:
-        
-        lidar: LiDAR = LiDAR(radius=self.radius, resolution=self.resolution, client_id=self.client_id, debug=self.debug)
-        return lidar
 
     
 
