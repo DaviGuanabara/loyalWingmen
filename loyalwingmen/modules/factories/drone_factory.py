@@ -9,9 +9,13 @@ from typing import Tuple
 
 from modules.models.lidar import LiDAR
 
+
+from modules.models.loyalwingman import LoyalWingman
+from modules.models.loiteringmunition import LoiteringMunition
+
 from modules.control.DSLPIDControl import DSLPIDControl
 from modules.utils.enums import DroneModel
-from modules.interfaces.factory_interface import IDroneFactory
+
 from modules.models.drone import (
     Drone,
     Parameters,
@@ -20,35 +24,130 @@ from modules.models.drone import (
     EnvironmentParameters,
 )
 
+from enum import Enum, auto
 
-class DroneFactory(IDroneFactory):
+##AINDA ESTOU EDITANDO O DRONE_FACTORY, COM A AJUDA DO CHAT GPT
+
+class DroneType(Enum):
+    LOYALWINGMAN = auto()
+    LOITERINGMUNITION = auto()
+
+class DroneURDFHandler:
+    def __init__(self, drone_model: DroneModel, environment_parameters: EnvironmentParameters):
+        self.environment_parameters = environment_parameters
+        
+        self.urdf_file_path = DroneURDFHandler.create_path(drone_model=drone_model)
+        self.tree = etxml.parse(self.urdf_file_path)
+        self.root = self.tree.getroot()
+    
+    @staticmethod
+    def create_path(drone_model: DroneModel) -> str:
+        urdf_name = drone_model.value + ".urdf"
+        base_path = str(Path(os.getcwd()).parent.absolute())
+        if platform.system() == "Windows":
+            return base_path + "\\" + "assets\\" + urdf_name
+        else:
+            return base_path + "/" + "assets/" + urdf_name
+        
+    def load_to_pybullet(self, initial_position, initial_quaternion):
+        return p.loadURDF(
+            self.urdf_file_path,
+            initial_position,
+            initial_quaternion,
+            flags=p.URDF_USE_INERTIA_FROM_FILE,
+            physicsClientId=self.environment_parameters.client_id
+        )    
+        
+    def load_parameters(self):
+        """Loads parameters from an URDF file.
+        This method is nothing more than a custom XML parser for the .urdf
+        files in folder `assets/`.
+        """
+
+        URDF_TREE = self.root
+        M = float(URDF_TREE[1][0][1].attrib["value"])
+        L = float(URDF_TREE[0].attrib["arm"])
+        THRUST2WEIGHT_RATIO = float(URDF_TREE[0].attrib["thrust2weight"])
+        IXX = float(URDF_TREE[1][0][2].attrib["ixx"])
+        IYY = float(URDF_TREE[1][0][2].attrib["iyy"])
+        IZZ = float(URDF_TREE[1][0][2].attrib["izz"])
+        J = np.diag([IXX, IYY, IZZ])
+        J_INV = np.linalg.inv(J)
+        KF = float(URDF_TREE[0].attrib["kf"])
+        KM = float(URDF_TREE[0].attrib["km"])
+        COLLISION_H = float(URDF_TREE[1][2][1][0].attrib["length"])
+        COLLISION_R = float(URDF_TREE[1][2][1][0].attrib["radius"])
+        COLLISION_SHAPE_OFFSETS = [
+            float(s) for s in URDF_TREE[1][2][0].attrib["xyz"].split(" ")
+        ]
+        COLLISION_Z_OFFSET = COLLISION_SHAPE_OFFSETS[2]
+        MAX_SPEED_KMH = float(URDF_TREE[0].attrib["max_speed_kmh"])
+        GND_EFF_COEFF = float(URDF_TREE[0].attrib["gnd_eff_coeff"])
+        PROP_RADIUS = float(URDF_TREE[0].attrib["prop_radius"])
+        DRAG_COEFF_XY = float(URDF_TREE[0].attrib["drag_coeff_xy"])
+        DRAG_COEFF_Z = float(URDF_TREE[0].attrib["drag_coeff_z"])
+        DRAG_COEFF = np.array([DRAG_COEFF_XY, DRAG_COEFF_XY, DRAG_COEFF_Z])
+        DW_COEFF_1 = float(URDF_TREE[0].attrib["dw_coeff_1"])
+        DW_COEFF_2 = float(URDF_TREE[0].attrib["dw_coeff_2"])
+        DW_COEFF_3 = float(URDF_TREE[0].attrib["dw_coeff_3"])
+        return Parameters(
+            M=M,
+            L=L,
+            THRUST2WEIGHT_RATIO=THRUST2WEIGHT_RATIO,
+            J=J,
+            J_INV=J_INV,
+            KF=KF,
+            KM=KM,
+            COLLISION_H=COLLISION_H,
+            COLLISION_R=COLLISION_R,
+            COLLISION_Z_OFFSET=COLLISION_Z_OFFSET,
+            MAX_SPEED_KMH=MAX_SPEED_KMH,
+            GND_EFF_COEFF=GND_EFF_COEFF,
+            PROP_RADIUS=PROP_RADIUS,
+            DRAG_COEFF=DRAG_COEFF,
+            DW_COEFF_1=DW_COEFF_1,
+            DW_COEFF_2=DW_COEFF_2,
+            DW_COEFF_3=DW_COEFF_3,
+        )
+    
+
+class DroneFactory():
     def __init__(
         self,
         environment_parameters: EnvironmentParameters,
         drone_model: DroneModel = DroneModel.CF2X,
-        initial_position: np.ndarray = np.ones((3,), dtype=np.float64),
-        initial_angular_position: np.ndarray = np.zeros((3,)),
-        radius: float = 5,
-        resolution: float = 1,
-        speed_amplification: float = 1,
-        debug: bool = False,
     ):
-        self.VELOCITY_AMPLIFICATION = speed_amplification
         
         self.client_id: int = environment_parameters.client_id
         self.debug: bool = environment_parameters.debug
         
-        self.set_drone_model(drone_model)
-        self.set_environment_parameters(environment_parameters)
-        self.set_initial_position(initial_position)
-        self.set_initial_angular_position(initial_angular_position)
-        self.set_LiDAR(radius, resolution, environment_parameters.debug)
+        self.drone_model = drone_model
+        self.drone_urdf_handler = DroneURDFHandler(self.drone_model, self.environment_parameters)
+        self.environment_parameters = environment_parameters
+        
+        self.lidar = None
+        
+        
+        
+    # =================================================================================================================
+    # Set
+    # =================================================================================================================
+    
+
+    def set_initial_position(self, initial_position: np.ndarray):
+        self.initial_position = initial_position
+
+    def set_initial_angular_position(self, initial_angular_position: np.ndarray):
+        self.initial_angular_position = initial_angular_position
+        self.initial_quaternion = p.getQuaternionFromEuler(initial_angular_position)
+
+    def set_LiDAR(self, lidar: LiDAR):
+        self.lidar = lidar
 
     # =================================================================================================================
-    # Private
+    # Compute
     # =================================================================================================================
 
-    ################### Compute ###############################
 
     def __compute_kinematics(self) -> Kinematics:
         return Kinematics(
@@ -57,11 +156,122 @@ class DroneFactory(IDroneFactory):
         )
 
     def __compute_parameters(self):
-        urdf_file_path = self.urdf_file_path
-        return self.__parseURDFParameters(urdf_file_path)
+        return self.drone_urdf_handler.load_parameters()
 
     def __compute_informations(self, parameters: Parameters):
-        """
+       
+        gravity_acceleration = self.environment_parameters.G
+        KMH_TO_MS = 1000 / 3600
+        VELOCITY_LIMITER = 1
+        
+        L = parameters.L
+        M = parameters.M
+        KF = parameters.KF
+        KM = parameters.KM
+        PROP_RADIUS = parameters.PROP_RADIUS
+        GND_EFF_COEFF = parameters.GND_EFF_COEFF
+        THRUST2WEIGHT_RATIO = parameters.THRUST2WEIGHT_RATIO
+
+        gravity = gravity_acceleration * M
+        max_rpm = np.sqrt((THRUST2WEIGHT_RATIO * gravity) / (4 * KF))
+        max_thrust = 4 * KF * max_rpm**2
+        max_z_torque = 2 * KM * max_rpm**2
+        hover_rpm = np.sqrt(gravity / (4 * KF))
+        speed_limit = VELOCITY_LIMITER * parameters.MAX_SPEED_KMH * KMH_TO_MS
+        gnd_eff_h_clip = (
+            0.25
+            * PROP_RADIUS
+            * np.sqrt((15 * max_rpm**2 * KF * GND_EFF_COEFF) / max_thrust)
+        )
+        max_xy_torque = (2 * L * KF * max_rpm**2) / np.sqrt(
+            2
+        ) 
+
+        informations = Informations()
+        informations.gravity = gravity
+        informations.max_rpm = max_rpm
+        informations.max_thrust = max_thrust
+        informations.max_z_torque = max_z_torque
+        informations.hover_rpm = hover_rpm
+        informations.speed_limit = speed_limit
+        informations.gnd_eff_h_clip = gnd_eff_h_clip
+        informations.max_xy_torque = max_xy_torque
+
+        return informations
+
+    def __compute_drone_model(self):
+        return self.drone_model  # DroneModel.CF2X
+
+    def __compute_control(
+        self,
+        droneParameters: Parameters,
+
+    ) -> DSLPIDControl:
+        return DSLPIDControl(
+            self.drone_model, droneParameters, self.environment_parameters
+        )
+
+    def __compute_LiDAR(self) -> LiDAR:
+        
+        lidar: LiDAR = LiDAR(radius=self.radius, resolution=self.resolution, client_id=self.client_id, debug=self.debug)
+        return lidar
+
+    
+
+    ################### create ###############################
+
+    def load_drone_attributes(
+        self
+    ) -> Tuple[
+        int,
+        DroneModel,
+        Parameters,
+        Informations,
+        Kinematics,
+        DSLPIDControl,
+        EnvironmentParameters,
+    ]:
+        id = self.drone_urdf_handler.load_to_pybullet(self.initial_position, self.initial_quaternion)
+        model = self.__compute_drone_model()
+        parameters = self.__compute_parameters()
+        informations = self.__compute_informations(parameters)
+        kinematics = self.__compute_kinematics()
+        control = self.__compute_control(
+            parameters, 
+        )
+        environment_parameters = self.environment_parameters
+        
+
+        return (
+            id,
+            model,
+            parameters,
+            informations,
+            kinematics,
+            control,
+            environment_parameters,
+        )
+
+    def create(self, type: DroneType, position: np.ndarray, ang_position: np.ndarray) -> Drone:
+        
+        self.set_initial_position(position)
+        self.set_initial_angular_position(ang_position)
+        
+        attributes = self.load_drone_attributes()
+        
+        constructor = {
+            DroneType.LOYALWINGMAN: LoyalWingman,
+            DroneType.LOITERINGMUNITION: LoiteringMunition
+        }.get(type, Drone)
+        
+        drone = constructor(*attributes)
+        drone.set_lidar(self.lidar)
+        return drone
+    
+    
+
+
+    """
         Compute Information, em drone factory, é usado para computar informações importantes
         a cerca do drone, como o peso, o raio das helices, etc.
         Aqui há duas informações muito importantes, o speed_limit e o velocity_amplification.
@@ -149,229 +359,3 @@ class DroneFactory(IDroneFactory):
         TODO:
         Esses parâmetros talvez devem ser difinidos no Environment e não de forma estática aqui.
         """
-        gravity_acceleration = self.environment_parameters.G
-        KMH_TO_MS = 1000 / 3600
-        VELOCITY_LIMITER = 1
-        
-        L = parameters.L
-        M = parameters.M
-        KF = parameters.KF
-        KM = parameters.KM
-        PROP_RADIUS = parameters.PROP_RADIUS
-        GND_EFF_COEFF = parameters.GND_EFF_COEFF
-        THRUST2WEIGHT_RATIO = parameters.THRUST2WEIGHT_RATIO
-
-        gravity = gravity_acceleration * M
-        max_rpm = np.sqrt((THRUST2WEIGHT_RATIO * gravity) / (4 * KF))
-        max_thrust = 4 * KF * max_rpm**2
-        max_z_torque = 2 * KM * max_rpm**2
-        hover_rpm = np.sqrt(gravity / (4 * KF))
-        speed_limit = VELOCITY_LIMITER * parameters.MAX_SPEED_KMH * KMH_TO_MS
-        gnd_eff_h_clip = (
-            0.25
-            * PROP_RADIUS
-            * np.sqrt((15 * max_rpm**2 * KF * GND_EFF_COEFF) / max_thrust)
-        )
-        max_xy_torque = (2 * L * KF * max_rpm**2) / np.sqrt(
-            2
-        ) 
-
-        informations = Informations()
-        informations.gravity = gravity
-        informations.max_rpm = max_rpm
-        informations.max_thrust = max_thrust
-        informations.max_z_torque = max_z_torque
-        informations.hover_rpm = hover_rpm
-        informations.speed_limit = speed_limit
-        informations.gnd_eff_h_clip = gnd_eff_h_clip
-        informations.max_xy_torque = max_xy_torque
-        informations.speed_amplification = self.VELOCITY_AMPLIFICATION
-        #print(f"information formation:{informations}")
-        return informations
-
-    def __compute_drone_model(self):
-        return self.drone_model  # DroneModel.CF2X
-
-    def __setup_urdf_file_path(self, drone_model: DroneModel = DroneModel.CF2X):
-        urdf_name = drone_model.value + ".urdf"
-        base_path = str(Path(os.getcwd()).parent.absolute())
-
-        if platform.system() == "Windows":
-            path = base_path + "\\" + "assets\\" + urdf_name  # "cf2x.urdf"
-
-        else:
-            path = base_path + "/" + "assets/" + urdf_name  # "cf2x.urdf"
-
-        self.set_urdf_file_path(path)
-
-    def __compute_control(
-        self,
-        model: DroneModel,
-        parameters: Parameters,
-        environment_parameters: EnvironmentParameters,
-        urdf_file_path: str,
-    ) -> DSLPIDControl:
-        return DSLPIDControl(
-            model, parameters, environment_parameters, urdf_path=urdf_file_path
-        )
-
-    def __compute_LiDAR(self, radius: float = 20, resolution: float = 32) -> LiDAR:
-    #def __compute_LiDAR(self, radius: float = 20, resolution: float = 2) -> LiDAR:
-        #print("LiDAR created in drone_factory.py", "debug", self.debug)
-        
-        lidar: LiDAR = LiDAR(radius=radius, resolution=resolution, client_id=self.client_id, debug=self.debug)
-        
-        return lidar
-
-    ################### Adjust ###############################
-
-    def __parseURDFParameters(self, urdf_file_path):
-        """Loads parameters from an URDF file.
-        This method is nothing more than a custom XML parser for the .urdf
-        files in folder `assets/`.
-        """
-        # urdf_file_path = self.urdf_file_path
-        URDF_TREE = etxml.parse(urdf_file_path).getroot()
-        M = float(URDF_TREE[1][0][1].attrib["value"])
-        L = float(URDF_TREE[0].attrib["arm"])
-        THRUST2WEIGHT_RATIO = float(URDF_TREE[0].attrib["thrust2weight"])
-        IXX = float(URDF_TREE[1][0][2].attrib["ixx"])
-        IYY = float(URDF_TREE[1][0][2].attrib["iyy"])
-        IZZ = float(URDF_TREE[1][0][2].attrib["izz"])
-        J = np.diag([IXX, IYY, IZZ])
-        J_INV = np.linalg.inv(J)
-        KF = float(URDF_TREE[0].attrib["kf"])
-        KM = float(URDF_TREE[0].attrib["km"])
-        COLLISION_H = float(URDF_TREE[1][2][1][0].attrib["length"])
-        COLLISION_R = float(URDF_TREE[1][2][1][0].attrib["radius"])
-        COLLISION_SHAPE_OFFSETS = [
-            float(s) for s in URDF_TREE[1][2][0].attrib["xyz"].split(" ")
-        ]
-        COLLISION_Z_OFFSET = COLLISION_SHAPE_OFFSETS[2]
-        MAX_SPEED_KMH = float(URDF_TREE[0].attrib["max_speed_kmh"])
-        GND_EFF_COEFF = float(URDF_TREE[0].attrib["gnd_eff_coeff"])
-        PROP_RADIUS = float(URDF_TREE[0].attrib["prop_radius"])
-        DRAG_COEFF_XY = float(URDF_TREE[0].attrib["drag_coeff_xy"])
-        DRAG_COEFF_Z = float(URDF_TREE[0].attrib["drag_coeff_z"])
-        DRAG_COEFF = np.array([DRAG_COEFF_XY, DRAG_COEFF_XY, DRAG_COEFF_Z])
-        DW_COEFF_1 = float(URDF_TREE[0].attrib["dw_coeff_1"])
-        DW_COEFF_2 = float(URDF_TREE[0].attrib["dw_coeff_2"])
-        DW_COEFF_3 = float(URDF_TREE[0].attrib["dw_coeff_3"])
-        return Parameters(
-            M=M,
-            L=L,
-            THRUST2WEIGHT_RATIO=THRUST2WEIGHT_RATIO,
-            J=J,
-            J_INV=J_INV,
-            KF=KF,
-            KM=KM,
-            COLLISION_H=COLLISION_H,
-            COLLISION_R=COLLISION_R,
-            COLLISION_Z_OFFSET=COLLISION_Z_OFFSET,
-            MAX_SPEED_KMH=MAX_SPEED_KMH,
-            GND_EFF_COEFF=GND_EFF_COEFF,
-            PROP_RADIUS=PROP_RADIUS,
-            DRAG_COEFF=DRAG_COEFF,
-            DW_COEFF_1=DW_COEFF_1,
-            DW_COEFF_2=DW_COEFF_2,
-            DW_COEFF_3=DW_COEFF_3,
-        )
-
-    def __load_urdf(self):
-        id = p.loadURDF(
-            self.urdf_file_path,
-            self.initial_position,
-            self.initial_quaternion,
-            flags=p.URDF_USE_INERTIA_FROM_FILE,
-            physicsClientId=self.environment_parameters.client_id,
-        )
-
-        return id
-
-    # =================================================================================================================
-    # Public
-    # =================================================================================================================
-
-    ################### set ###############################
-
-    def set_drone_model(self, drone_model: DroneModel):
-        self.drone_model = drone_model
-        self.__setup_urdf_file_path(drone_model)
-
-    def set_environment_parameters(self, environment_parameters: EnvironmentParameters):
-        self.environment_parameters = environment_parameters
-
-    def set_urdf_file_path(self, urdf_file_path: str):
-        self.urdf_file_path = urdf_file_path
-
-    def set_initial_position(self, initial_position: np.ndarray):
-        self.initial_position = initial_position
-
-    def set_initial_angular_position(self, initial_angular_position: np.ndarray):
-        self.initial_angular_position = initial_angular_position
-        self.initial_quaternion = p.getQuaternionFromEuler(initial_angular_position)
-
-    def set_LiDAR(self, radius: float = 5, resolution: float = 1, debug: bool = False):
-        self.radius = radius
-        self.resolution = resolution
-        self.debug = debug
-
-    ################### create ###############################
-
-    def load_drone_attributes(
-        self,
-    ) -> Tuple[
-        int,
-        DroneModel,
-        Parameters,
-        Informations,
-        Kinematics,
-        DSLPIDControl,
-        EnvironmentParameters,
-        LiDAR
-    ]:
-        id = self.__load_urdf()
-        model = self.__compute_drone_model()
-        parameters = self.__compute_parameters()
-        informations = self.__compute_informations(parameters)
-        kinematics = self.__compute_kinematics()
-        control = self.__compute_control(
-            model, parameters, self.environment_parameters, self.urdf_file_path
-        )
-        environment_parameters = self.environment_parameters
-        lidar = self.__compute_LiDAR()
-
-        return (
-            id,
-            model,
-            parameters,
-            informations,
-            kinematics,
-            control,
-            environment_parameters,
-            lidar,
-        )
-
-    def create(self) -> Drone:
-        (
-            id,
-            model,
-            parameters,
-            informations,
-            kinematics,
-            control,
-            environment_parameters,
-            lidar,
-        ) = self.load_drone_attributes()
-        drone = Drone(
-            id,
-            model,
-            parameters,
-            kinematics,
-            informations,
-            control,
-            environment_parameters,
-            lidar,
-        )
-
-        return drone

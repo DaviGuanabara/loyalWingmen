@@ -15,7 +15,7 @@ from modules.dataclasses.dataclasses import (
 from dataclasses import dataclass, field
 from modules.utils.enums import DroneModel
 from typing import List, TYPE_CHECKING, Union, Optional
-
+from modules.interfaces.sensor_interface import Sensor
 from enum import Enum
 
 
@@ -64,6 +64,8 @@ class Drone(IDrone):
         
         if self.debug:
             print("Drone created", "debug", environment_parameters.debug)
+            
+        self.sensors = dict()    
             
     
     def setup_observation(self, observation_type: ObservationType, lidar: Optional[LiDAR] = None):
@@ -243,4 +245,7 @@ class Drone(IDrone):
             return parameters
         
         return parameters
+    
+    def register_sensor(self, sensor_name: str, sensor_instance: Sensor):
+        self.sensors[sensor_name] = sensor_instance
     

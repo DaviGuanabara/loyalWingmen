@@ -21,7 +21,7 @@ class BaseControl(object):
 
     ################################################################################
 
-    def __init__(self, drone_model: DroneModel, parameters: Parameters, environmentParameters: EnvironmentParameters, urdf_path: str):
+    def __init__(self, drone_model: DroneModel, parameters: Parameters, environmentParameters: EnvironmentParameters):
         """Common control classes __init__ method.
 
         Parameters
@@ -33,7 +33,6 @@ class BaseControl(object):
 
         """
         #### Set general use constants #############################
-        self.urdf_path = urdf_path
         self.DRONE_MODEL = drone_model
         """DroneModel: The type of drone to control."""
         self.GRAVITY = environmentParameters.G * parameters.M
@@ -195,56 +194,3 @@ class BaseControl(object):
             self.D_COEFF_TOR = self.D_COEFF_TOR if d_coeff_att is None else d_coeff_att
 
     ################################################################################
-
-    def _getURDFParameter(self, parameter_name: str):
-        """Reads a parameter from a drone's URDF file.
-
-        This method is nothing more than a custom XML parser for the .urdf
-        files in folder `assets/`.
-
-        Parameters
-        ----------
-        parameter_name : str
-            The name of the parameter to read.
-
-        Returns
-        -------
-        float
-            The value of the parameter.
-
-        """
-        #### Get the XML tree of the drone model to control ########
-
-        path = self.urdf_path
-
-        # path = base_path + "\\" + "assets\\" + URDF
-        # path = pkg_resources.resource_filename("loyalwingmen", "assets/" + URDF)
-        # path = "assets/" + URDF
-        URDF_TREE = etxml.parse(path).getroot()
-        #### Find and return the desired parameter #################
-        if parameter_name == "m":
-            return float(URDF_TREE[1][0][1].attrib["value"])
-        elif parameter_name in ["ixx", "iyy", "izz"]:
-            return float(URDF_TREE[1][0][2].attrib[parameter_name])
-        elif parameter_name in [
-            "arm",
-            "thrust2weight",
-            "kf",
-            "km",
-            "max_speed_kmh",
-            "gnd_eff_coeff" "prop_radius",
-            "drag_coeff_xy",
-            "drag_coeff_z",
-            "dw_coeff_1",
-            "dw_coeff_2",
-            "dw_coeff_3",
-        ]:
-            return float(URDF_TREE[0].attrib[parameter_name])
-        elif parameter_name in ["length", "radius"]:
-            return float(URDF_TREE[1][2][1][0].attrib[parameter_name])
-        elif parameter_name == "collision_z_offset":
-            COLLISION_SHAPE_OFFSETS = [
-                float(s) for s in URDF_TREE[1][2][0].attrib["xyz"].split(" ")
-            ]
-            return COLLISION_SHAPE_OFFSETS[2]
-        return -1

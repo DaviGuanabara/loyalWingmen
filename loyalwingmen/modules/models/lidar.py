@@ -1,8 +1,12 @@
+import sys
+sys.path.append("..")
+
 import math
 import numpy as np
 from typing import Tuple, List
 import pybullet as p
 from gymnasium import spaces
+from modules.interfaces.sensor import Sensor
 
 from enum import Enum
 
@@ -28,7 +32,7 @@ class CoordinateConverter:
         return np.array([radius, theta, phi])
 
 
-class LiDAR:
+class LiDAR(Sensor):
     """
     This class aims to simulate a spherical LiDAR reading. It uses physics convention for spherical coordinates (radius, theta, phi).
     In this convention, theta is the polar angle and varies between 0 and +pi, from z to xy plane.
@@ -279,6 +283,8 @@ class LiDAR:
     def get_sphere(self) -> np.ndarray:
         return self.sphere
 
+    def read_data(self) -> np.ndarray:
+        return self.sphere
     # ============================================================================================================
     # Observation Functions
     # ============================================================================================================

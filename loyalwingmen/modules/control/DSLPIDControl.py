@@ -18,7 +18,7 @@ class DSLPIDControl(BaseControl):
 
     ################################################################################
 
-    def __init__(self, drone_model: DroneModel, parameters: Parameters, environmentParameters: EnvironmentParameters, urdf_path: str):
+    def __init__(self, drone_model: DroneModel, droneParameters: Parameters, environmentParameters: EnvironmentParameters):
         """Common control classes __init__ method.
 
         Parameters
@@ -29,7 +29,7 @@ class DSLPIDControl(BaseControl):
             The gravitational acceleration in m/s^2.
 
         """
-        super().__init__(drone_model, parameters, environmentParameters, urdf_path)
+        super().__init__(drone_model, droneParameters, environmentParameters)
         if self.DRONE_MODEL != DroneModel.CF2X and self.DRONE_MODEL != DroneModel.CF2P:
             print(
                 "[ERROR] in DSLPIDControl.__init__(), DSLPIDControl requires DroneModel.CF2X or DroneModel.CF2P"
