@@ -23,6 +23,16 @@ from .components.actuators.propulsion import Propulsion, Motors, DirectVelocityA
 
 from typing import Type
 
+from loyalwingmen.modules.events.message_hub import MessageHub
+from .components.sensors.lidar import LiDAR
+from enum import Enum, auto
+
+class QuadcopterType(Enum):
+    QUADCOPTER = auto()
+    LOYALWINGMAN = auto()
+    LOITERINGMUNITION = auto()
+    
+    
 
 # TODO: CORRIGIR LIDAR, PQ LÁ NÃO TEM READ_DATA, E O READ_DATA TEM QUE RETORNAR UM DICIONÁRIO
 class Quadcopter:
@@ -65,6 +75,10 @@ class Quadcopter:
         self.sensors: Dict[str, Sensor] = {}
         self.actuators: Dict[str, ActuatorInterface] = {}
         self.controllers: Dict[str, DSLPIDControl] = {}
+        
+        self.messageHub = MessageHub()
+        self.messageHub.subscribe(topic="flight_state", subscriber=self._subscriber_flight_state)
+        self.quadcopter_type = QuadcopterType.QUADCOPTER
 
     # =================================================================================================================
 
@@ -91,6 +105,25 @@ class Quadcopter:
 
             if data is not None:
                 self.flightState.update_data(data)
+                
+        self._publish_flight_state()
+
+    def _publish_flight_state(self):
+        keys_to_share = ["position", "attitude", "quaternions", "velocity", "angular_rate"]
+        message = {}
+        message.update(self.flightState.get_data(keys_to_share))
+        message["publisher_type"] = self.quadcopter_type
+        self.messageHub.publish(topic="flight_state", message=self.flightState.get_data(keys_to_share), publisher_id=self.id)
+        
+    def _subscriber_flight_state(self, message: Dict, publisher_id: int):
+        if "Lidar" in self.sensors:
+            sensor = self.sensors["Lidar"]
+            if isinstance(sensor, LiDAR):
+                lidar: LiDAR = sensor
+                lidar.buffer_flight_state_data(message, publisher_id)
+                
+
+
 
     def get_flight_state(self) -> Dict:
         return self.flightState.get_data() or {}

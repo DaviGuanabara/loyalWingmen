@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 import numpy as np
+from typing import Union, List, Dict, Any
 
 
 class FlightState:
@@ -18,9 +19,20 @@ class FlightState:
         """Update the flight state with new sensor data."""
         self.data.update(sensor_data)
 
-    def get_data(self, key: str = ""):
-        """Retrieve a specific sensor reading or all data."""
-        return self.data.get(key) if key else self.data.copy()
+    def get_data(self, key: Union[str, List[str], None] = None) -> Dict[str, Any]:
+        """Retrieve specific sensor readings or all data."""
+        
+        # If key is None or an empty string, return a copy of the entire data.
+        if not key:
+            return self.data.copy()
+        
+        # If key is a string, check if it exists and then return the corresponding value.
+        if isinstance(key, str):
+            return {key: self.data[key]} if key in self.data else {}
+        
+        # If key is a list of strings, return a dictionary of corresponding values for existing keys.
+        if isinstance(key, list):
+            return {k: self.data[k] for k in key if k in self.data}
 
     # Additional states can be added as needed, such as:
     # - Accelerations (linear and angular)

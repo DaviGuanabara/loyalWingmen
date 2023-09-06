@@ -55,6 +55,7 @@ class LiDAR(Sensor):
         resolution: number of sectors per m2
         """
 
+        self.buffer = {}
         self.parent_id = parent_id
         self.client_id = client_id
         self.debug = debug
@@ -338,3 +339,12 @@ class LiDAR(Sensor):
 
     def update_data(self):
         pass
+    
+    def buffer_flight_state_data(self, message: Dict, publisher_id: int):
+        self.buffer[str(publisher_id)] = message
+    #TODO: lidar tem que se adptar ao padrão sensor.
+    #TODO: import class QuadcopterType(Enum): from quadcopter.py
+    #QUADCOPTER = auto()
+    #LOYALWINGMAN = auto()
+    #LOITERINGMUNITION = auto()
+
