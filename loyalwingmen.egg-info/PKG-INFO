@@ -1,0 +1,12 @@
+Metadata-Version: 2.1
+Name: loyalwingmen
+Version: 1.0.1
+Summary: loyalwingmen simulation
+Home-page: https://github.com/DaviGuanabara/loyalWingmen/tree/master
+Author: Davi Guanabara
+Author-email: your@email.address
+License: BSD 3-Clause License
+Keywords: example,setuptools
+Classifier: License :: OSI Approved :: BSD License
+Classifier: Programming Language :: Python :: 3
+Description-Content-Type: text/markdown
