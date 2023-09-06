@@ -187,3 +187,10 @@ class Quadcopter:
     def reset_flight_state(self):
         if self.flightState is not None:
             self.flightState = FlightState()
+
+
+    def detach_from_simulation(self):
+        self.messageHub.terminate(self.id)
+        p.removeBody(self.id, physicsClientId=self.client_id)
+        self.id = -1
+        

@@ -7,12 +7,24 @@ from .sensor_interface import Sensor
 
 
 from enum import Enum, auto
-
+from loyalwingmen.modules.enums.entity_types import EntityTypes
 
 class Channels(Enum):
-    DISTANCE_CHANNEL = auto()
-    FLAG_CHANNEL = auto()
+    DISTANCE_CHANNEL = 0
+    FLAG_CHANNEL = 1
 
+class LiDARBufferManager:
+    def __init__(self):
+        self.buffer = {}
+
+    def buffer_flight_state_data(self, message: Dict, publisher_id: int):
+        self.buffer[str(publisher_id)] = message
+
+    def clear_buffer_data(self, publisher_id: int) -> None:
+        self.buffer.pop(str(publisher_id), None)
+
+    def get_all_data(self) -> Dict:
+        return self.buffer
 
 class CoordinateConverter:
     @staticmethod
@@ -30,6 +42,8 @@ class CoordinateConverter:
         theta = np.arccos(z / radius)
         phi = np.arctan2(y, x)
         return np.array([radius, theta, phi])
+    
+    
 
 
 class LiDAR(Sensor):
@@ -80,21 +94,17 @@ class LiDAR(Sensor):
 
         self.n_theta_points, self.n_phi_points = self.__count_points(radius, resolution)
         self.sphere: np.ndarray = self.__gen_sphere(
-            self.n_theta_points, self.n_phi_points, self.n_channels
-        )
+            self.n_theta_points, self.n_phi_points, self.n_channels)
+        
+        self.buffer_manager = LiDARBufferManager()
 
-    def __get_flag(self, name: str) -> float:
-        if name == "LOITERING_MUNITION":
-            return 0
-
-        if name == "LOYAL_WINGMAN":
-            return 0.3
-
-        if name == "OBSTACLE":
-            return 0.6
-
-        else:
-            return 1
+    def _get_flag(self, entity_type: EntityTypes) -> float:
+        flag_mapping = {
+            EntityTypes.LOITERING_MUNITION: 0,
+            EntityTypes.LOYAL_WINGMAN: 0.3,
+            EntityTypes.OBSTACLE: 0.6
+        }
+        return flag_mapping.get(entity_type, 1)
 
     # ============================================================================================================
     # Setup Functions
@@ -302,7 +312,7 @@ class LiDAR(Sensor):
                             physicsClientId=self.client_id,
                         )
 
-    def add_position(
+    def _update_position_data(
         self,
         loitering_munition_position: np.ndarray = np.array([]),
         obstacle_position: np.ndarray = np.array([]),
@@ -313,19 +323,19 @@ class LiDAR(Sensor):
             self.__add_end_position(
                 loitering_munition_position,
                 current_position,
-                self.__get_flag("LOITERING_MUNITION"),
+                self._get_flag(EntityTypes.LOITERING_MUNITION),
             )
 
         if len(obstacle_position) > 0:
             self.__add_end_position(
-                obstacle_position, current_position, self.__get_flag("OBSTACLE")
+                obstacle_position, current_position, self._get_flag(EntityTypes.OBSTACLE)
             )
 
         if len(loyalwingman_position) > 0:
             self.__add_end_position(
                 loyalwingman_position,
                 current_position,
-                self.__get_flag("LOYAL_WINGMAN"),
+                self._get_flag(EntityTypes.LOYAL_WINGMAN),
             )
 
         if self.debug:
@@ -337,14 +347,27 @@ class LiDAR(Sensor):
     def read_data(self) -> Dict:
         return {"lidar": self.sphere}
 
-    def update_data(self):
-        pass
-    
     def buffer_flight_state_data(self, message: Dict, publisher_id: int):
         self.buffer[str(publisher_id)] = message
-    #TODO: lidar tem que se adptar ao padrão sensor.
-    #TODO: import class QuadcopterType(Enum): from quadcopter.py
-    #QUADCOPTER = auto()
-    #LOYALWINGMAN = auto()
-    #LOITERINGMUNITION = auto()
+
+    def clear_buffer_data(self, publisher_id: int) -> None:
+        """
+        Clear data for a specific publisher_id from the buffer.
+        """
+        self.buffer.pop(str(publisher_id), None)
+
+    def update_data(self) -> None:
+        buffer_data = self.buffer_manager.get_all_data()
+        for publisher_id, message in buffer_data.items():
+            entity_type = EntityTypes(message.get("type"))
+            position = message.get("position")
+
+            if entity_type == EntityTypes.LOITERING_MUNITION:
+                self._update_position_data(loitering_munition_position=position)
+            elif entity_type == EntityTypes.LOYAL_WINGMAN:
+                self._update_position_data(loyalwingman_position=position)
+            elif entity_type == EntityTypes.OBSTACLE:
+                self._update_position_data(obstacle_position=position)
+    
+    
 
