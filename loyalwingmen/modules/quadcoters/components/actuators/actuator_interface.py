@@ -6,3 +6,4 @@ class ActuatorInterface(ABC):
     def apply(self, *args, **kwargs) -> None:
         """Apply the actuator's primary function."""
         pass
+

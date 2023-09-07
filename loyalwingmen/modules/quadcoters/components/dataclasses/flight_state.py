@@ -3,18 +3,15 @@ import numpy as np
 from typing import Union, List, Dict, Any
 
 
-class FlightState:
+class FlightStateManager:
     def __init__(self):
         # Initialize a dictionary to store sensor readings
-        self.data = {
-            # "position": np.zeros(3),
-            # "velocity": np.zeros(3),
-            # "attitude": np.zeros(3),
-            # "quaternions": np.zeros(4),
-            # "angular_rate": np.zeros(3),
-            # ... other predefined fields ...
-        }
+        self.reset()
 
+    def reset(self):
+        """Reset the flight state to default values."""
+        self.data = {}
+        
     def update_data(self, sensor_data: dict):
         """Update the flight state with new sensor data."""
         self.data.update(sensor_data)
@@ -28,11 +25,19 @@ class FlightState:
         
         # If key is a string, check if it exists and then return the corresponding value.
         if isinstance(key, str):
-            return {key: self.data[key]} if key in self.data else {}
+            return {key: self.data.get(key)}  # This will return the value for the key if it exists, or None if it doesn't
         
         # If key is a list of strings, return a dictionary of corresponding values for existing keys.
         if isinstance(key, list):
-            return {k: self.data[k] for k in key if k in self.data}
+            return {k: self.data.get(k) for k in key}
+        
+        return {}
+        
+    def get_inertial_data(self) -> Dict[str, Any]:
+        """Retrieve data related to the inertial measurement unit (IMU)."""
+        inertial_keys = ["position", "velocity", "attitude", "quaternions", "angular_rate"]
+        return self.get_data(inertial_keys) or {key: None for key in inertial_keys}
+
 
     # Additional states can be added as needed, such as:
     # - Accelerations (linear and angular)

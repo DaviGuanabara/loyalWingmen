@@ -347,8 +347,8 @@ class LiDAR(Sensor):
     def read_data(self) -> Dict:
         return {"lidar": self.sphere}
 
-    def buffer_flight_state_data(self, message: Dict, publisher_id: int):
-        self.buffer[str(publisher_id)] = message
+    def buffer_publisher_flight_state(self, flight_state: Dict, publisher_id: int):
+        self.buffer[str(publisher_id)] = flight_state
 
     def clear_buffer_data(self, publisher_id: int) -> None:
         """
