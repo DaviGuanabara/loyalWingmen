@@ -91,6 +91,17 @@ class DirectVelocityApplier(Propulsion):
         velocity: np.ndarray,
         angularVelocity: np.ndarray = np.zeros(3),
     ):
+        
+        
+        p.applyExternalForce(
+            self.drone_id,
+            -1,
+            forceObj=np.array([0, 0, self.drone_specs.WEIGHT]),
+            posObj=[0, 0, 0],
+            flags=p.LINK_FRAME,
+            physicsClientId=self.client_id,
+        )
+        
         p.resetBaseVelocity(
             self.drone_id,
             linearVelocity=velocity,

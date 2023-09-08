@@ -4,16 +4,16 @@ import pybullet as p
 from typing import Dict
 from enum import Enum, auto
 
-from .components.dataclasses.quadcopter_specs import QuadcopterSpecs
-from .components.dataclasses.operational_constraints import OperationalConstraints
+from ..components.dataclasses.quadcopter_specs import QuadcopterSpecs
+from ..components.dataclasses.operational_constraints import OperationalConstraints
 
-from .components.sensors.lidar import LiDAR
-from .components.sensors.imu import InertialMeasurementUnit
+from ..components.sensors.lidar import LiDAR
+from ..components.sensors.imu import InertialMeasurementUnit
 
-from .components.dataclasses.flight_state import FlightStateManager
-from .components.actuators.propulsion import PropulsionSystem
+from ..components.dataclasses.flight_state import FlightStateManager
+from ..components.actuators.propulsion import PropulsionSystem
 
-from ..environments.dataclasses.environment_parameters import EnvironmentParameters
+from ...environments.dataclasses.environment_parameters import EnvironmentParameters
 
 from loyalwingmen.modules.utils.enums import DroneModel
 from loyalwingmen.modules.events.message_hub import MessageHub

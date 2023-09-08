@@ -21,3 +21,4 @@ class QuadcopterSpecs:
     DW_COEFF_1: float
     DW_COEFF_2: float
     DW_COEFF_3: float
+    WEIGHT: float

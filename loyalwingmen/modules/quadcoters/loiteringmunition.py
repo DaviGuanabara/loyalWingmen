@@ -1,46 +1,92 @@
 import numpy as np
 import pybullet as p
-from modules.models.drone import Drone
 
+from loyalwingmen.modules.environments.dataclasses.environment_parameters import EnvironmentParameters
+from loyalwingmen.modules.quadcoters.base.quadcopter import QuadcopterType
+from loyalwingmen.modules.quadcoters.components.dataclasses.operational_constraints import OperationalConstraints
+from loyalwingmen.modules.quadcoters.components.dataclasses.quadcopter_specs import QuadcopterSpecs
+from loyalwingmen.modules.utils.enums import DroneModel
+from .base.quadcopter import Quadcopter, FlightStateManager
 
-################################################################################
-# Action
-################################################################################
+from enum import Enum
 
+class Behavior(Enum):
+    FROZEN = 1
+    STRAIGHT_LINE = 2
+    CIRCLE = 3
 
-class LoiteringMunition(Drone):
+class LoiteringMunition(Quadcopter):
+    
+    def __init__(self, id: int, model: DroneModel, droneSpecs: QuadcopterSpecs, operationalConstraints: OperationalConstraints, quadcopter_name: str, environment_parameters: EnvironmentParameters):
+        use_direct_velocity: bool = True
+        super().__init__(id, model, droneSpecs, operationalConstraints, environment_parameters, QuadcopterType.LOITERINGMUNITION, use_direct_velocity)
+        self.quadcopter_name: str = quadcopter_name
+        
+        self.behavior_map = {
+            Behavior.FROZEN: self._frozen,
+            Behavior.STRAIGHT_LINE: self._straight_line,
+            Behavior.CIRCLE: self._circle
+        }
+        
+        self.set_behavior(Behavior.FROZEN)
+        
+    def _frozen(self, flight_state: FlightStateManager):
+        return np.array([0,0,0,0])
+    
+    def _straight_line(self, flight_state: FlightStateManager, direction, intensity):
+        return np.array([*direction, intensity])
+    
+    def _circle(self, flight_state: FlightStateManager, radius=1, origin: np.ndarray = np.array([0,0,0]), velocity: np.ndarray = np.array([0,0,0])):
+        
+        timeset_period = self.environment_parameters.timestep_period
+        aggregate_physics_steps = self.environment_parameters.aggregate_physics_steps
+        
+        quad_position = flight_state.get_data("position")["position"] or np.array([0,0,0])
+        quad_velocity = velocity
+        
+        #Calculate center of circle
+        distance_to_origin = np.linalg.norm(quad_position)
+        
+        center_direction = (origin - 1 * quad_position) / distance_to_origin
+        center = quad_position + center_direction * radius
+        
+        #Calculate Aceleration:
+        quad_velocity_intensity = np.linalg.norm(quad_velocity)
+        aceleration_direction = (center - quad_position) / np.linalg.norm(center - quad_position)
+        aceleration_intensity = quad_velocity_intensity ** 2 / radius
+        aceleration = aceleration_direction * aceleration_intensity
+        
+        #Calculate new velocity
+        period = timeset_period * aggregate_physics_steps
+        new_velocity = quad_velocity + aceleration * period
+        
+        #Calculate New Command
+        new_intensity = np.linalg.norm(new_velocity)
+        new_direction = new_velocity / np.linalg.norm(new_intensity)
+        
+        return np.concatenate([new_direction, new_intensity])    
 
-    # def __init__(self):
-    #    super().__init__()
+    def set_behavior(self, behavior: Behavior):
+        if behavior == Behavior.FROZEN:
+            self.behavior_function = lambda flight_state: self.behavior_map[behavior](flight_state)
+        
+        elif behavior == Behavior.STRAIGHT_LINE:
+            direction = np.random.rand(3)
+            intensity = np.random.uniform(0.01, 0.5)
+            self.behavior_function = lambda flight_state: self.behavior_map[behavior](flight_state, direction, intensity)
+            
+        elif behavior == Behavior.CIRCLE:
+            radius = 1
+            origin = np.array([0,0,0])
+            direction = np.random.rand(3)
+            intensity = np.random.uniform(0.01, 0.5)
+            self.behavior_function = lambda flight_state: self.behavior_map[behavior](flight_state, radius, origin, velocity=intensity*direction)
+            
+        self.current_behavior = behavior   
 
-    def apply_frozen_behavior(self):
-        weigth = self.environment_parameters.G * self.parameters.M
-        self.apply_force(np.array([0, 0, weigth]))
-        self.apply_velocity(velocity=np.array([0, 0, 0]), angular_velocity=np.array([0, 0, 0]))
-
-    def apply_constant_velocity_behavior(self):
-        self.apply_frozen_behavior()
-        self.apply_velocity(
-            velocity=np.array([.1, .1, 0]), angular_velocity=np.array([0, 0, 0]))
-
-    def apply_force(self, force):
-        p.applyExternalForce(
-            self.id,
-            -1,
-            forceObj=force,
-            posObj=[0, 0, 0],
-            flags=p.LINK_FRAME,
-            physicsClientId=self.environment_parameters.client_id,
-        )
-
-    def apply_velocity(
-        self,
-        velocity: np.ndarray,
-        angular_velocity: np.ndarray,
-    ):
-        p.resetBaseVelocity(
-            self.id,
-            velocity,
-            angular_velocity,
-            physicsClientId=self.environment_parameters.client_id,
-        )
+    def execute_behavior(self):
+        flight_state_manager = self.flight_state_manager
+        command = self.behavior_function(flight_state_manager)
+        self.drive(command)
+        
+    
