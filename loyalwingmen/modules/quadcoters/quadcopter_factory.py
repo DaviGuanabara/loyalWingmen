@@ -25,6 +25,7 @@ class DroneURDFHandler:
     def __init__(self, drone_model: DroneModel, environment_parameters: EnvironmentParameters):
         self.environment_parameters = environment_parameters
         self.drone_model = drone_model
+        self.i:int = 0
         
     def load_model(self, initial_position, initial_quaternion):
         """Load the drone model and return its ID and parameters."""
@@ -192,7 +193,8 @@ class DroneFactory():
         id, parameters = self.drone_urdf_handler.load_model(initial_position, initial_angular_position)
         operational_constraints  = self.__compute_OperationalConstraints(parameters)
         environment_parameters = self.environment_parameters
-        
+        self.i += 1
+        quadcopter_name = f"{self.i}"
         return (
             id,
             self.drone_model,
