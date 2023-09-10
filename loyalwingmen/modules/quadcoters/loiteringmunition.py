@@ -17,7 +17,7 @@ from .base.quadcopter import Quadcopter, FlightStateManager
 from enum import Enum
 
 
-class Behavior(Enum):
+class LoiteringMunitionBehavior(Enum):
     FROZEN = 1
     STRAIGHT_LINE = 2
     CIRCLE = 3
@@ -47,12 +47,12 @@ class LoiteringMunition(Quadcopter):
         self.quadcopter_name: str = quadcopter_name
 
         self.behavior_map = {
-            Behavior.FROZEN: self._frozen,
-            Behavior.STRAIGHT_LINE: self._straight_line,
-            Behavior.CIRCLE: self._circle,
+            LoiteringMunitionBehavior.FROZEN: self._frozen,
+            LoiteringMunitionBehavior.STRAIGHT_LINE: self._straight_line,
+            LoiteringMunitionBehavior.CIRCLE: self._circle,
         }
 
-        self.set_behavior(Behavior.FROZEN)
+        self.set_behavior(LoiteringMunitionBehavior.FROZEN)
 
     def _frozen(self, flight_state: FlightStateManager):
         return np.array([0, 0, 0, 0])
@@ -99,20 +99,20 @@ class LoiteringMunition(Quadcopter):
 
         return np.concatenate([new_direction, new_intensity])
 
-    def set_behavior(self, behavior: Behavior):
-        if behavior == Behavior.FROZEN:
+    def set_behavior(self, behavior: LoiteringMunitionBehavior):
+        if behavior == LoiteringMunitionBehavior.FROZEN:
             self.behavior_function = lambda flight_state: self.behavior_map[behavior](
                 flight_state
             )
 
-        elif behavior == Behavior.STRAIGHT_LINE:
+        elif behavior == LoiteringMunitionBehavior.STRAIGHT_LINE:
             direction = np.random.rand(3)
             intensity = np.random.uniform(0.01, 0.5)
             self.behavior_function = lambda flight_state: self.behavior_map[behavior](
                 flight_state, direction, intensity
             )
 
-        elif behavior == Behavior.CIRCLE:
+        elif behavior == LoiteringMunitionBehavior.CIRCLE:
             radius = 1
             origin = np.array([0, 0, 0])
             direction = np.random.rand(3)

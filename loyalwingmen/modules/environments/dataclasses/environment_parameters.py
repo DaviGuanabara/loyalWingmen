@@ -5,7 +5,7 @@ from gymnasium import spaces
 
 
 @dataclass
-class EnvironmentParameters():
+class EnvironmentParameters:
     G: float
     NEIGHBOURHOOD_RADIUS: float
     simulation_frequency: int
@@ -16,3 +16,4 @@ class EnvironmentParameters():
     max_distance: float
     error: float
     debug: bool = False
+    max_episode_time: float = 20

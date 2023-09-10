@@ -11,14 +11,16 @@ from typing import Union
 
 from .base.quadcopter import (
     Quadcopter,
+    FlightStateDataType,
     QuadcopterSpecs,
     OperationalConstraints,
     QuadcopterType,
     DroneModel,
 )
+
 from ..environments.dataclasses.environment_parameters import EnvironmentParameters
 from .loyalwingman import LoyalWingman
-from .loiteringmunition import LoiteringMunition
+from .loiteringmunition import LoiteringMunition, LoiteringMunitionBehavior
 from enum import Enum, auto
 
 
@@ -157,7 +159,9 @@ class QuadcopterFactory:
         self.n_loyalwingmen = 0
         self.n_loiteringmunitions = 0
 
-    def __compute_OperationalConstraints(self, parameters: QuadcopterSpecs):
+    def __compute_OperationalConstraints(
+        self, parameters: QuadcopterSpecs
+    ) -> OperationalConstraints:
         gravity_acceleration = self.environment_parameters.G
         KMH_TO_MS = 1000 / 3600
         VELOCITY_LIMITER = 1
