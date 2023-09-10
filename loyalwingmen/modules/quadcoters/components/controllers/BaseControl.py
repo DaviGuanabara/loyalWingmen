@@ -10,7 +10,7 @@ from modules.utils.enums import DroneModel
 import inspect
 
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs
-from loyalwingmen.modules.environments.dataclasses.environment_parameters import (
+from ....environments.dataclasses.environment_parameters import (
     EnvironmentParameters,
 )
 

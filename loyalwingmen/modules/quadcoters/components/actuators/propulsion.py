@@ -14,19 +14,13 @@ from ..controllers.DSLPIDControl import DSLPIDControl
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs
 
 
-
 from ..dataclasses.flight_state import FlightStateManager
-
-from loyalwingmen.modules.environments.dataclasses.environment_parameters import EnvironmentParameters
-
+from ....environments.dataclasses.environment_parameters import EnvironmentParameters
 
 from modules.utils.enums import DroneModel
 from typing import List, TYPE_CHECKING, Union, Optional
 
 from .actuator_interface import ActuatorInterface
-
-
-
 
 
 class Propulsion(ActuatorInterface):
@@ -91,17 +85,18 @@ class DirectVelocityApplier(Propulsion):
         velocity: np.ndarray,
         angularVelocity: np.ndarray = np.zeros(3),
     ):
-        
-        
-        p.applyExternalForce(
-            self.drone_id,
-            -1,
-            forceObj=np.array([0, 0, self.drone_specs.WEIGHT]),
-            posObj=[0, 0, 0],
-            flags=p.LINK_FRAME,
-            physicsClientId=self.client_id,
-        )
-        
+        print("DirectVelocityApplier, velocity", velocity, "drone_id:", self.drone_id)
+        # A força é a plicada, mas não consegue compensar a gravidade não sei o motivo
+        # assim, prefiro deixar comentado, sem gravidade, sem compensação.
+        # p.applyExternalForce(
+        #    self.drone_id,
+        #    -1,
+        #    forceObj=np.array([0, 0, self.drone_specs.WEIGHT]),
+        #    posObj=[0, 0, 0],
+        #    flags=p.LINK_FRAME,
+        #    physicsClientId=self.client_id,
+        # )
+
         p.resetBaseVelocity(
             self.drone_id,
             linearVelocity=velocity,
@@ -110,43 +105,48 @@ class DirectVelocityApplier(Propulsion):
         )
 
 
-    
 class PropulsionSystem:
-    def __init__(self, drone_id: int, model: DroneModel, droneSpecs: QuadcopterSpecs, environment_parameters: EnvironmentParameters, quadcopter_name: str= "",use_direct_velocity: bool = False):
-        
+    def __init__(
+        self,
+        drone_id: int,
+        model: DroneModel,
+        droneSpecs: QuadcopterSpecs,
+        environment_parameters: EnvironmentParameters,
+        quadcopter_name: str = "",
+        use_direct_velocity: bool = False,
+    ):
         self.quadcopter_name = quadcopter_name
         self.environment_parameters = environment_parameters
         self.use_direct_velocity = use_direct_velocity
-        
+
         if use_direct_velocity:
             self.direct_velocity_applier = DirectVelocityApplier(
                 drone_id=drone_id,
                 drone_specs=droneSpecs,
-                client_id=environment_parameters.client_id
+                client_id=environment_parameters.client_id,
             )
         else:
-            self.controller = DSLPIDControl(model, droneSpecs, environment_parameters)  # default or custom controller
+            self.controller = DSLPIDControl(
+                model, droneSpecs, environment_parameters
+            )  # default or custom controller
             self.motors = Motors(
                 drone_id=drone_id,
                 drone_specs=droneSpecs,
-                client_id=environment_parameters.client_id
+                client_id=environment_parameters.client_id,
             )
-            
 
-    def _apply_controller(self, target_velocity: np.ndarray, flight_state_manager: FlightStateManager):
-        
-        
+    def _apply_controller(
+        self, target_velocity: np.ndarray, flight_state_manager: FlightStateManager
+    ):
         inertial_data = flight_state_manager.get_inertial_data()
         print(inertial_data)
-        yaw = inertial_data["attitude"][2]
+        yaw = (inertial_data["attitude"] or np.zeros(3))[2]
         target_rpy = np.array([0, 0, yaw])
-        
+
         aggregate_physics_steps = self.environment_parameters.aggregate_physics_steps
         timestep_period = self.environment_parameters.timestep_period
         control_timestep = aggregate_physics_steps * timestep_period
 
-
-        
         rpm, _, _ = self.controller.computeControl(
             control_timestep,
             inertial_data["position"],
@@ -157,10 +157,12 @@ class PropulsionSystem:
             target_rpy=target_rpy,  # keep current yaw,
             target_vel=target_velocity,
         )
-            
+
         return rpm
-    
-    def _apply_controller_propulsion(self, velocity: np.ndarray, flight_state_manager: FlightStateManager):
+
+    def _apply_controller_propulsion(
+        self, velocity: np.ndarray, flight_state_manager: FlightStateManager
+    ):
         rpm = self._apply_controller(velocity, flight_state_manager)
         self.motors.apply(rpm)
 
@@ -168,7 +170,8 @@ class PropulsionSystem:
         self.direct_velocity_applier.apply(velocity)
 
     def propel(self, velocity: np.ndarray, flight_state_manager: FlightStateManager):
-        if self.use_direct_velocity:
+        if not self.use_direct_velocity:
             self._apply_controller_propulsion(velocity, flight_state_manager)
         else:
+            print("_apply_direct_velocity_propulsion, velocity", velocity)
             self._apply_direct_velocity_propulsion(velocity)

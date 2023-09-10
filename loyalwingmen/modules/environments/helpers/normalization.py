@@ -12,10 +12,10 @@ def normalize_flight_state(
     dome_radius: float,
 ) -> Dict:
     """Normalize the flight state of the loyal wingman."""
-    position = flight_state["position"] or np.zeros(3)
-    velocity = flight_state["velocity"] or np.zeros(3)
-    attitude = flight_state["attitude"] or np.zeros(3)
-    angular_rate = flight_state["angular_rate"] or np.zeros(3)
+    position = flight_state.get("position", np.zeros(3))
+    velocity = flight_state.get("velocity", np.zeros(3))
+    attitude = flight_state.get("attitude", np.zeros(3))
+    angular_rate = flight_state.get("angular_rate", np.zeros(3))
 
     norm_position = normalize_position(position, dome_radius)
     norm_velocity = normalize_velocity(velocity, operational_constraints.speed_limit)

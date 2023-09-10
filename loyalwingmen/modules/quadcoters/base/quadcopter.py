@@ -15,11 +15,10 @@ from ..components.dataclasses.flight_state import (
     FlightStateDataType,
 )
 from ..components.actuators.propulsion import PropulsionSystem
-
 from ...environments.dataclasses.environment_parameters import EnvironmentParameters
 
-from loyalwingmen.modules.utils.enums import DroneModel
-from loyalwingmen.modules.events.message_hub import MessageHub
+from ...utils.enums import DroneModel
+from ...events.message_hub import MessageHub
 
 
 class QuadcopterType(Enum):
@@ -42,9 +41,8 @@ class Quadcopter:
         quadcopter_name: str = "",
         use_direct_velocity: bool = False,
     ):
-
         self.check_quadcopter_type(quadcopter_type)
-        
+
         self.id: int = id
         self.model: DroneModel = model
         self.droneSpecs: QuadcopterSpecs = droneSpecs
@@ -58,8 +56,6 @@ class Quadcopter:
         self.debug: bool = environment_parameters.debug
 
         self._setup()
-        
-        
 
     def check_quadcopter_type(self, quadcopter_type):
         """

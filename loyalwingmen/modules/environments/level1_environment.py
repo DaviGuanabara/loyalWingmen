@@ -24,7 +24,9 @@ from gymnasium import spaces, Env
 
 from typing import Dict, List, Tuple, Union, Optional
 from .dataclasses.environment_parameters import EnvironmentParameters
-from .simulations.level1_simulation import DroneChaseStaticTargetSimulation as Level1Simulation
+from .simulations.level1_simulation import (
+    DroneChaseStaticTargetSimulation as Level1Simulation,
+)
 
 
 class Level1(Env):
@@ -45,7 +47,6 @@ class Level1(Env):
         GUI: bool = False,
         debug: bool = False,
     ):
-
         self.setup_Parameteres(simulation_frequency, rl_frequency, GUI, debug)
         self.simulation = Level1Simulation(dome_radius, self.environment_parameters)
 
@@ -85,9 +86,6 @@ class Level1(Env):
     def get_parameteres(self):
         return self.environment_parameters
 
-    def apply_target_behavior(self, obstacle):
-        obstacle.apply_frozen_behavior()
-
     def reset(self, seed=1):
         """Resets the environment.
         Returns
@@ -97,14 +95,20 @@ class Level1(Env):
             in each subclass for its format.
         """
 
+        print("Resetting environment")
         observation, info = self.simulation.reset()
+
+        print("Reset Observation: ", observation)
+        print(observation.shape)
+
         return observation, info
 
     ################################################################################
 
     def step(self, rl_action: np.ndarray):
-        
-        observation, reward, terminated, Truncated, info = self.simulation.step(rl_action)
+        observation, reward, terminated, Truncated, info = self.simulation.step(
+            rl_action
+        )
         return observation, reward, terminated, Truncated, info
 
     ################################################################################
@@ -112,7 +116,6 @@ class Level1(Env):
     def close(self):
         """Terminates the environment."""
 
-        
         self.simulation.close()
 
     ################################################################################
@@ -125,7 +128,6 @@ class Level1(Env):
             The PyBullet Client Id.
         """
         return self.environment_parameters.client_id
-
 
     ################################################################################
 
@@ -144,32 +146,33 @@ class Level1(Env):
         -------
         ndarray
             A Box() shape composed by:
-            
+
             loyal wingman inertial data: (3,)
             loitering munition inertial data: (3,)
             direction to the target: (3,)
             distance to the target: (1,)
             last action: (4,)
-            
+
         Last Action is the last action applied to the loyal wingman.
         Its three first elements are the direction of the velocity vector and the last element is the intensity of the velocity vector.
-        the direction varies from -1 to 1, and the intensity from 0 to 1.    
+        the direction varies from -1 to 1, and the intensity from 0 to 1.
 
         the other elements of the Box() shape varies from -1 to 1.
-            
+
         """
 
-
         size = self.simulation.observation_size()
-        
+
+        print("Observation size: ", size)
         low = -1 * np.ones(size)
-        low[:-1] = 0
-        
+        low[-1] = 0
+
         high = np.ones(size)
-        
+
         return spaces.Box(
             low=low,
             high=high,
+            shape=(size,),
             dtype=np.float32,
         )
 

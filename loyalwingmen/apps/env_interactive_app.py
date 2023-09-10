@@ -1,6 +1,7 @@
 import time
 import os
 import sys
+
 sys.path.append("..")
 from stable_baselines3 import PPO
 from modules.factories.callback_factory import callbacklist
@@ -25,17 +26,22 @@ import numpy as np
 debug = True
 
 env = Level1(GUI=True, rl_frequency=15, debug=debug)
-keyboard_listener = KeyboardListener(env.get_keymap())
+# check_env(env)
+print("env created")
 
+# keyboard_listener = KeyboardListener(env.get_keymap())
+print("keyboard_listener created")
 
+print("waiting for reset")
 observation, info = env.reset()
-for steps in range(50_000):
-    action = keyboard_listener.get_action()
-    #action = np.array([-0.14996707, -0.44416678, -0.5607476,   0.7638135 ])
+print(f"observation:{observation}, ")
+for _ in range(50_000):
+    print("waiting for action")
+    # action = keyboard_listener.get_action()
+    # print("action received", action)
+    action = np.array([0.1, 0.1, 0.1, 0.1])
     observation, reward, terminated, truncated, info = env.step(action)
-    
-    
-    #logging.debug(f"(main) reward: {reward}")
     print(f"reward:{reward:.2f} - action:{action} - observation:{observation}, ")
+
     if terminated:
         observation, info = env.reset()

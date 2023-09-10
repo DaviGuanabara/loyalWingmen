@@ -1,18 +1,15 @@
 import numpy as np
 import pybullet as p
 
-from loyalwingmen.modules.environments.dataclasses.environment_parameters import (
+from .base.quadcopter import (
+    Quadcopter,
+    FlightStateManager,
     EnvironmentParameters,
-)
-from loyalwingmen.modules.quadcoters.base.quadcopter import QuadcopterType
-from loyalwingmen.modules.quadcoters.components.dataclasses.operational_constraints import (
+    QuadcopterType,
     OperationalConstraints,
-)
-from loyalwingmen.modules.quadcoters.components.dataclasses.quadcopter_specs import (
     QuadcopterSpecs,
+    DroneModel,
 )
-from loyalwingmen.modules.utils.enums import DroneModel
-from .base.quadcopter import Quadcopter, FlightStateManager
 
 from enum import Enum
 
@@ -127,4 +124,5 @@ class LoiteringMunition(Quadcopter):
     def drive_via_behavior(self):
         flight_state_manager = self.flight_state_manager
         command = self.behavior_function(flight_state_manager)
+        print(f"loitering munition command: {command}")
         self.drive(command)

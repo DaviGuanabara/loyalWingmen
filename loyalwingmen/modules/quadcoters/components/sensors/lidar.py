@@ -7,11 +7,13 @@ from .sensor_interface import Sensor
 
 
 from enum import Enum, auto
-from loyalwingmen.modules.enums.entity_types import EntityTypes
+from ....enums.entity_types import EntityTypes
+
 
 class Channels(Enum):
     DISTANCE_CHANNEL = 0
     FLAG_CHANNEL = 1
+
 
 class LiDARBufferManager:
     def __init__(self):
@@ -25,6 +27,7 @@ class LiDARBufferManager:
 
     def get_all_data(self) -> Dict:
         return self.buffer
+
 
 class CoordinateConverter:
     @staticmethod
@@ -42,8 +45,6 @@ class CoordinateConverter:
         theta = np.arccos(z / radius)
         phi = np.arctan2(y, x)
         return np.array([radius, theta, phi])
-    
-    
 
 
 class LiDAR(Sensor):
@@ -94,15 +95,16 @@ class LiDAR(Sensor):
 
         self.n_theta_points, self.n_phi_points = self.__count_points(radius, resolution)
         self.sphere: np.ndarray = self.__gen_sphere(
-            self.n_theta_points, self.n_phi_points, self.n_channels)
-        
+            self.n_theta_points, self.n_phi_points, self.n_channels
+        )
+
         self.buffer_manager = LiDARBufferManager()
 
     def _get_flag(self, entity_type: EntityTypes) -> float:
         flag_mapping = {
             EntityTypes.LOITERING_MUNITION: 0,
             EntityTypes.LOYAL_WINGMAN: 0.3,
-            EntityTypes.OBSTACLE: 0.6
+            EntityTypes.OBSTACLE: 0.6,
         }
         return flag_mapping.get(entity_type, 1)
 
@@ -328,7 +330,9 @@ class LiDAR(Sensor):
 
         if len(obstacle_position) > 0:
             self.__add_end_position(
-                obstacle_position, current_position, self._get_flag(EntityTypes.OBSTACLE)
+                obstacle_position,
+                current_position,
+                self._get_flag(EntityTypes.OBSTACLE),
             )
 
         if len(loyalwingman_position) > 0:
@@ -368,6 +372,3 @@ class LiDAR(Sensor):
                 self._update_position_data(loyalwingman_position=position)
             elif entity_type == EntityTypes.OBSTACLE:
                 self._update_position_data(obstacle_position=position)
-    
-    
-
