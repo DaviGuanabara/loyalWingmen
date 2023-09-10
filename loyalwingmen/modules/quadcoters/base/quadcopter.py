@@ -39,26 +39,29 @@ class Quadcopter:
         operational_constraints: OperationalConstraints,
         environment_parameters: EnvironmentParameters,
         quadcopter_type=QuadcopterType.QUADCOPTER,
+        quadcopter_name: str = "",
         use_direct_velocity: bool = False,
     ):
-        # ... other initializations ...
 
-        self.check_quadcopter_type()
-
+        self.check_quadcopter_type(quadcopter_type)
+        
         self.id: int = id
         self.model: DroneModel = model
         self.droneSpecs: QuadcopterSpecs = droneSpecs
         self.operational_constraints: OperationalConstraints = operational_constraints
         self.environment_parameters: EnvironmentParameters = environment_parameters
         self.quadcopter_type = quadcopter_type
+        self.quadcopter_name = quadcopter_name
         self.use_direct_velocity = use_direct_velocity
 
         self.client_id: int = environment_parameters.client_id
         self.debug: bool = environment_parameters.debug
 
         self._setup()
+        
+        
 
-    def check_quadcopter_type(self):
+    def check_quadcopter_type(self, quadcopter_type):
         """
         Ensure that the quadcopter type is valid.
 
@@ -66,7 +69,7 @@ class Quadcopter:
             ValueError: If the quadcopter type is invalid.
         """
         # Allowing for future quadcopter types besides LW and LM
-        if self.quadcopter_type == QuadcopterType.QUADCOPTER:
+        if quadcopter_type == QuadcopterType.QUADCOPTER:
             raise ValueError(
                 f"You should choose a quadcopter type, not {self.quadcopter_type}"
             )
@@ -89,6 +92,7 @@ class Quadcopter:
             self.model,
             self.droneSpecs,
             self.environment_parameters,
+            self.quadcopter_name,
             self.use_direct_velocity,
         )
 

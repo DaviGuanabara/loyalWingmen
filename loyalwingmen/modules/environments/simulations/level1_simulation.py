@@ -1,4 +1,5 @@
 import pybullet as p
+import pybullet_data
 import numpy as np
 import random
 from typing import Tuple, Optional, Union, Dict
@@ -21,8 +22,9 @@ from time import time
 
 class DroneChaseStaticTargetSimulation:
     def __init__(
-        self, dome_radius: float, environment_parameters: EnvironmentParameters
+        self,  dome_radius: float, environment_parameters: EnvironmentParameters,
     ):
+
         self.dome_radius = dome_radius
 
         self.environment_parameters = environment_parameters
@@ -31,14 +33,71 @@ class DroneChaseStaticTargetSimulation:
     def init_simulation(self):
         """Initialize the simulation and entities."""
         # Initialize pybullet, load plane, gravity, etc.
-        # TODO: Add pybullet initialization here
+        
+        if self.environment_parameters.GUI:
+            client_id = self.setup_pybulley_GUI()
 
+        else:
+            client_id = self.setup_pybullet_DIRECT()
+            self.debug = False
+        
+        self.environment_parameters.client_id = client_id
         self.factory = QuadcopterFactory(self.environment_parameters)
         self.loyal_wingman: Optional[LoyalWingman] = None
         self.loitering_munition: Optional[LoiteringMunition] = None
         self.last_action: np.ndarray = np.zeros(4)
 
         self.reset()
+        
+    def setup_pybullet_DIRECT(self):
+        return p.connect(p.DIRECT)
+
+    def setup_pybulley_GUI(self):
+        client_id = p.connect(p.GUI)
+        for i in [
+            p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+            p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+            p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+        ]:
+            p.configureDebugVisualizer(i, 0, physicsClientId=client_id)
+        p.resetDebugVisualizerCamera(
+            cameraDistance=3,
+            cameraYaw=-30,
+            cameraPitch=-30,
+            cameraTargetPosition=[0, 0, 0],
+            physicsClientId=client_id,
+        )
+        ret = p.getDebugVisualizerCamera(physicsClientId=client_id)
+
+        return client_id    
+        
+    def _reset_simulation(self):
+        """Housekeeping function.
+        Allocation and zero-ing of the variables and PyBullet's parameters/objects
+        in the `reset()` function.
+        """
+
+        #### Set PyBullet's parameters #############################
+        p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
+
+        p.setGravity(
+            0,
+            0,
+            -self.environment_parameters.G,
+            physicsClientId=self.environment_parameters.client_id,
+        )
+        p.setRealTimeSimulation(
+            0, physicsClientId=self.environment_parameters.client_id
+        )  # No Realtime Sync
+        p.setTimeStep(
+            self.environment_parameters.timestep_period,
+            physicsClientId=self.environment_parameters.client_id,
+        )
+
+        p.setAdditionalSearchPath(
+            pybullet_data.getDataPath(),
+            physicsClientId=self.environment_parameters.client_id,
+        )    
 
     def gen_initial_position(self) -> Tuple[np.ndarray, np.ndarray]:
         """Generate a random position within the dome."""
@@ -48,28 +107,31 @@ class DroneChaseStaticTargetSimulation:
 
         return position, ang_position
 
-    def reset(self):
-        """Reset the simulation to its initial state."""
-
+    def _housekeeping(self):
         pos, ang_pos = self.gen_initial_position()
         target_pos, target_ang_pos = np.array([0, 0, 0]), np.array([0, 0, 0])
 
-        if self.loyal_wingman is not None:
-            self.loyal_wingman.detach_from_simulation()
-
-        if self.loitering_munition is not None:
-            self.loitering_munition.detach_from_simulation()
-
         self.loyal_wingman = self.factory.create_loyalwingman(
-            position=pos, ang_position=ang_pos
+            position=pos, ang_position=ang_pos, use_direct_velocity=True, quadcopter_name="agent"
         )
         self.loitering_munition = self.factory.create_loiteringmunition(
-            position=target_pos, ang_position=target_ang_pos
+            position=target_pos, ang_position=target_ang_pos, quadcopter_name="target"
         )
 
         self.loitering_munition.set_behavior(LoiteringMunitionBehavior.FROZEN)
 
         self.start_time = time()
+        
+    def reset(self):
+        """Reset the simulation to its initial state."""
+
+        self._reset_simulation()
+        self._housekeeping()
+        
+        observation = self.compute_observation()
+        info = self.compute_info()
+        
+        return observation, info
 
     def compute_observation(self) -> np.ndarray:
         """Return the observation of the simulation."""
@@ -82,19 +144,21 @@ class DroneChaseStaticTargetSimulation:
         lw_state = lw.flight_state_by_type(FlightStateDataType.INERTIAL)
         lm_state = lm.flight_state_by_type(FlightStateDataType.INERTIAL)
 
-        distance_vector = self._extracted_from_compute_reward_12(lw_state, lm_state)
+        distance_vector = self._distance_vector(lw_state, lm_state)
         distance_to_target = np.linalg.norm(distance_vector)
         direction_to_target = distance_vector / max(float(distance_to_target), 1e-9)
 
-        lw_norm = normalize_flight_state(
+        lw_inertial_data_normalized = normalize_flight_state(
             lw_state, lw.operational_constraints, self.dome_radius
         )
-        lm_norm = normalize_flight_state(
+        lm_inertial_data_normalized = normalize_flight_state(
             lm_state, lm.operational_constraints, self.dome_radius
         )
 
-        lw_values = self.convert_dict_to_array(lw_norm)
-        lm_values = self.convert_dict_to_array(lm_norm)
+        print(lw_inertial_data_normalized)
+        print(lm_inertial_data_normalized)
+        lw_values = self.convert_dict_to_array(lw_inertial_data_normalized)
+        lm_values = self.convert_dict_to_array(lm_inertial_data_normalized)
 
         return np.array(
             [
@@ -108,22 +172,30 @@ class DroneChaseStaticTargetSimulation:
         )
 
     def distance(self, lw_state: Dict, lm_state: Dict) -> float:
-        distance_vector = self._extracted_from_compute_reward_12(lw_state, lm_state)
+        distance_vector = self._distance_vector(lw_state, lm_state)
         return float(np.linalg.norm(distance_vector))
 
-    def observation_shape(self):
-        lw_array_shape = 3
-        lm_array_shape = 3
-        last_action_shape = 4
+    def observation_size(self):
+
+        position = 3
+        velocity = 3
+        attitude = 3
+        angular_rate = 3
+            
+        lw_inertial_data_shape = position + velocity + attitude + angular_rate
+        lm_inertial_data_shape = position + velocity + attitude + angular_rate
+        
         direction_to_target_shape = 3
         distance_to_target_shape = 1
+        last_action_shape = 4
 
         return (
-            lw_array_shape
-            + lm_array_shape
-            + last_action_shape
+            lw_inertial_data_shape
+            + lm_inertial_data_shape
+            
             + direction_to_target_shape
             + distance_to_target_shape
+            + last_action_shape
         )
 
     def compute_termination(self) -> bool:
@@ -142,16 +214,13 @@ class DroneChaseStaticTargetSimulation:
 
     def step(self, rl_action: np.ndarray):
         """Execute a step in the simulation based on the RL action."""
-        # Convert RL action to quadcopter commands
-        # TODO: Convert action to quadcopter commands
 
-        # Check distances and positions
         assert self.loyal_wingman is not None, "Loyal wingman is not initialized"
         assert self.loitering_munition is not None
 
         self.last_action = rl_action
         self.loyal_wingman.drive(rl_action)
-        self.loitering_munition.execute_behavior()
+        self.loitering_munition.drive_via_behavior()
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             p.stepSimulation()
@@ -198,7 +267,7 @@ class DroneChaseStaticTargetSimulation:
         lw_flight_state = self.loyal_wingman.flight_state
         lm_flight_state = self.loitering_munition.flight_state
 
-        distance_vector = self._extracted_from_compute_reward_12(
+        distance_vector = self._distance_vector(
             lw_flight_state, lm_flight_state
         )
         distance = np.linalg.norm(distance_vector)
@@ -214,7 +283,7 @@ class DroneChaseStaticTargetSimulation:
         return score + bonus - penalty
 
     # TODO Rename this here and in `compute_observation`, `distance` and `compute_reward`
-    def _extracted_from_compute_reward_12(self, arg0, arg1):
+    def _distance_vector(self, arg0, arg1):
         lw_pos = arg0["position"] or np.zeros(3)
         lm_pos = arg1["position"] or np.zeros(3)
         return lm_pos - lw_pos
@@ -243,10 +312,13 @@ class DroneChaseStaticTargetSimulation:
         pass
 
     def convert_dict_to_array(self, dictionary: Dict) -> np.ndarray:
-        # pairs in the dictionary
-        result = dictionary.items()
+        
+        array = np.array([])
+        for key in dictionary:
+            value: np.ndarray = dictionary[key] if dictionary[key] is not None else np.array([])
+            array = np.concatenate((array, value)) 
 
-        # Convert object to a list
-        data = list(result)
-
-        return np.array(data)
+        return array
+    
+    def close(self):
+        p.disconnect(physicsClientId=self.environment_parameters.client_id)

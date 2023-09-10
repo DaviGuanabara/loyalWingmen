@@ -42,6 +42,7 @@ class LoiteringMunition(Quadcopter):
             operationalConstraints,
             environment_parameters,
             QuadcopterType.LOITERINGMUNITION,
+            quadcopter_name,
             use_direct_velocity,
         )
         self.quadcopter_name: str = quadcopter_name
@@ -123,7 +124,7 @@ class LoiteringMunition(Quadcopter):
 
         self.current_behavior = behavior
 
-    def execute_behavior(self):
+    def drive_via_behavior(self):
         flight_state_manager = self.flight_state_manager
         command = self.behavior_function(flight_state_manager)
         self.drive(command)

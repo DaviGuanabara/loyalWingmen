@@ -112,9 +112,9 @@ class DirectVelocityApplier(Propulsion):
 
     
 class PropulsionSystem:
-    def __init__(self, drone_id: int, model: DroneModel, droneSpecs: QuadcopterSpecs, environment_parameters: EnvironmentParameters, use_direct_velocity: bool = False):
+    def __init__(self, drone_id: int, model: DroneModel, droneSpecs: QuadcopterSpecs, environment_parameters: EnvironmentParameters, quadcopter_name: str= "",use_direct_velocity: bool = False):
         
-        
+        self.quadcopter_name = quadcopter_name
         self.environment_parameters = environment_parameters
         self.use_direct_velocity = use_direct_velocity
         
@@ -137,6 +137,7 @@ class PropulsionSystem:
         
         
         inertial_data = flight_state_manager.get_inertial_data()
+        print(inertial_data)
         yaw = inertial_data["attitude"][2]
         target_rpy = np.array([0, 0, yaw])
         
@@ -167,7 +168,7 @@ class PropulsionSystem:
         self.direct_velocity_applier.apply(velocity)
 
     def propel(self, velocity: np.ndarray, flight_state_manager: FlightStateManager):
-        if self.controller:
+        if self.use_direct_velocity:
             self._apply_controller_propulsion(velocity, flight_state_manager)
         else:
             self._apply_direct_velocity_propulsion(velocity)

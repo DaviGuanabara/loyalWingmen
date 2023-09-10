@@ -46,7 +46,7 @@ class FlightStateManager:
             "position",
             "velocity",
             "attitude",
-            "quaternions",
+            #"quaternions",
             "angular_rate",
         ]
         return self.get_data(inertial_keys) or {key: None for key in inertial_keys}

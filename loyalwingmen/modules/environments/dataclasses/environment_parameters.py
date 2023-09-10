@@ -17,3 +17,4 @@ class EnvironmentParameters:
     error: float
     debug: bool = False
     max_episode_time: float = 20
+    GUI: bool = False

@@ -18,13 +18,13 @@ from stable_baselines3.common.monitor import Monitor
 
 from stable_baselines3.common.env_checker import check_env
 from pathlib import Path
-from modules.environments.drone_chase_level1 import DroneChaseEnvLevel1
+from modules.environments.level1_environment import Level1
 import logging
 import numpy as np
 
 debug = True
 
-env = DroneChaseEnvLevel1(GUI=True, rl_frequency=15, debug=debug)
+env = Level1(GUI=True, rl_frequency=15, debug=debug)
 keyboard_listener = KeyboardListener(env.get_keymap())
 
 

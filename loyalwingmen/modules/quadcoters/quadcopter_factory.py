@@ -68,7 +68,7 @@ class DroneURDFHandler:
     @staticmethod
     def _load_to_pybullet(position, attitude, urdf_file_path, client_id):
         """Load the drone model into pybullet and return its ID."""
-        quarternion = p.quaternionFromEuler(attitude)
+        quarternion = p.getQuaternionFromEuler(attitude)
         return p.loadURDF(
             urdf_file_path,
             position,
@@ -142,6 +142,7 @@ class QuadcopterFactory:
         environment_parameters: EnvironmentParameters,
         drone_model: DroneModel = DroneModel.CF2X,
     ):
+        self.environment_parameters = environment_parameters
         self.client_id: int = environment_parameters.client_id
         self.debug: bool = environment_parameters.debug
 
@@ -149,7 +150,7 @@ class QuadcopterFactory:
         self.drone_urdf_handler = DroneURDFHandler(
             self.drone_model, self.environment_parameters
         )
-        self.environment_parameters = environment_parameters
+        
 
         self.constructor = {
             DroneType.LOYALWINGMAN: LoyalWingman,
@@ -245,7 +246,7 @@ class QuadcopterFactory:
         return quad_constructor(*attributes, quadcopter_name=quadcopter_name)
 
     def create_loyalwingman(
-        self, position: np.ndarray, ang_position: np.ndarray, quadcopter_name: str = ""
+        self, position: np.ndarray, ang_position: np.ndarray, quadcopter_name: str = "", use_direct_velocity: bool = True
     ) -> LoyalWingman:
         i = self.n_loyalwingmen + 1
         self.n_loyalwingmen = i
@@ -256,7 +257,7 @@ class QuadcopterFactory:
         )
 
         attributes = self.load_quad_attributes(position, ang_position)
-        return LoyalWingman(*attributes, quadcopter_name=quadcopter_name)
+        return LoyalWingman(*attributes, quadcopter_name=quadcopter_name, use_direct_velocity=use_direct_velocity)
 
     def create_loiteringmunition(
         self, position: np.ndarray, ang_position: np.ndarray, quadcopter_name: str = ""

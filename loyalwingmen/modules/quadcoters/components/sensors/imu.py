@@ -22,12 +22,12 @@ class InertialMeasurementUnit(Sensor):
         self.update_data()
 
     def reset(self):
-        self.position = np.zeros(3)
-        self.quaternions = np.zeros(4)
-        self.angular_position = np.zeros(3)
+        self.position: np.ndarray = np.zeros(3)
+        self.quaternions: np.ndarray = np.zeros(4)
+        self.angular_position: np.ndarray = np.zeros(3)
 
-        self.velocity = np.zeros(3)
-        self.angular_velocity = np.zeros(3)
+        self.velocity: np.ndarray = np.zeros(3)
+        self.angular_velocity: np.ndarray = np.zeros(3)
         
     def update_data(self):
         position, quaternions = p.getBasePositionAndOrientation(
@@ -38,12 +38,12 @@ class InertialMeasurementUnit(Sensor):
             self.parent_id, physicsClientId=self.client_id
         )
 
-        self.position = position
-        self.quaternions = quaternions
-        self.angular_position = angular_position
+        self.position = np.array(position)
+        self.quaternions = np.array(quaternions)
+        self.angular_position = np.array(angular_position)
 
-        self.velocity = velocity
-        self.angular_velocity = angular_velocity
+        self.velocity = np.array(velocity)
+        self.angular_velocity = np.array(angular_velocity)
 
     def read_data(
         self,
