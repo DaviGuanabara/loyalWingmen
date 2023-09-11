@@ -33,6 +33,7 @@ class InertialMeasurementUnit(Sensor):
         position, quaternions = p.getBasePositionAndOrientation(
             self.parent_id, physicsClientId=self.client_id
         )
+        
         angular_position = p.getEulerFromQuaternion(quaternions)
         velocity, angular_velocity = p.getBaseVelocity(
             self.parent_id, physicsClientId=self.client_id

@@ -1,31 +1,32 @@
 import os
 import sys
-sys.path.append("..")
+
 import logging
 
 from scipy.stats import randint, uniform
 from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecMonitor
 from stable_baselines3.common.evaluation import evaluate_policy
-from modules.environments.drone_chase_env import DroneChaseEnv
-from modules.models.policy import CustomActorCriticPolicy, CustomCNN
-from modules.factories.callback_factory import callbacklist, CallbackType
-from typing import List, Tuple
-from datetime import datetime
 
-from openpyxl import load_workbook, Workbook
-from openpyxl.worksheet.worksheet import Worksheet
+
+from ..modules.policies.policy import CustomActorCriticPolicy, CustomCNN
+from ..modules.factories.callback_factory import callbacklist, CallbackType
+
+from typing import List, Tuple
+
+
+
 import numpy as np
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.vec_env import VecEnv
 from typing import Tuple
-from apps.ml.directory_manager import DirectoryManager
+from .directory_manager import DirectoryManager
 import re
 import platform
 import inspect
 import pandas as pd
 from stable_baselines3.common.logger import configure
-from gymnasium import Env
+
 
 class ReinforcementLearningPipeline:
     @staticmethod

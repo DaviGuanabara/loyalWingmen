@@ -42,7 +42,6 @@ class DroneChaseStaticTargetSimulation:
         else:
             client_id = self.setup_pybullet_DIRECT()
 
-        print("Setting gravity")
         p.setGravity(
             0,
             0,
@@ -50,33 +49,27 @@ class DroneChaseStaticTargetSimulation:
             physicsClientId=client_id,
         )
 
-        print(" setRealTimeSimulation")
         p.setRealTimeSimulation(0, physicsClientId=client_id)  # No Realtime Sync
 
-        print("setting time step")
         p.setTimeStep(
             self.environment_parameters.timestep_period,
             physicsClientId=client_id,
         )
 
-        print("setting additional search path")
         p.setAdditionalSearchPath(
             pybullet_data.getDataPath(),
             physicsClientId=client_id,
         )
 
-        print("ending resetSimulation")
 
         self.environment_parameters.client_id = client_id
         self.factory = QuadcopterFactory(self.environment_parameters)
 
         position, ang_position = self.gen_initial_position()
 
-        print("creating loyal wingman")
         self.loyal_wingman: LoyalWingman = self.factory.create_loyalwingman(
             position, np.zeros(3), quadcopter_name="agent"
         )
-        print("creating loitering munition")
 
         self.loitering_munition: LoiteringMunition = (
             self.factory.create_loiteringmunition(
@@ -117,32 +110,24 @@ class DroneChaseStaticTargetSimulation:
         """
 
         #### Set PyBullet's parameters #############################
-        print(
-            "Calling p.resetSimulation(), client_id",
-            self.environment_parameters.client_id,
-        )
+
         p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
 
     def gen_initial_position(self) -> Tuple[np.ndarray, np.ndarray]:
         """Generate a random position within the dome."""
 
-        print("Generating initial position")
+
         position = np.random.rand(3)  # * (self.dome_radius / 2)
-        print("position", position)
         ang_position = np.random.uniform(0, 2 * np.pi, 3)
-        print("ang_position", ang_position)
 
         return position, ang_position
 
     def _housekeeping(self):
-        print("Housekeeping")
         pos, ang_pos = self.gen_initial_position()
-        print("pos, ang_pos", pos, ang_pos)
 
         target_pos, target_ang_pos = np.array([0, 0, 0]), np.array([0, 0, 0])
 
         if self.loyal_wingman is not None:
-            print("nothing")
             self.loyal_wingman.detach_from_simulation()
 
         if self.loitering_munition is not None:
@@ -283,19 +268,18 @@ class DroneChaseStaticTargetSimulation:
             FlightStateDataType.INERTIAL
         )
 
-        if self.distance(lw_inertial_data, lm_inertial_data) < 0.2:
-            self.replace_loitering_munition()
-
         observation = self.compute_observation()
         reward = self.compute_reward()
         terminated = self.compute_termination()
 
         truncated = self.compute_truncation()
         info = self.compute_info()
+        
+        if self.distance(lw_inertial_data, lm_inertial_data) < 0.2:
+            self.replace_loitering_munition()
 
         return observation, reward, terminated, truncated, info
 
-        # return np.zeros(self.observation_size()), 0, False, False, {}
 
     def compute_truncation(self):
         return False
@@ -318,6 +302,7 @@ class DroneChaseStaticTargetSimulation:
             lw_flight_state, lm_flight_state
         )
         distance = np.linalg.norm(distance_vector)
+        
 
         score = self.dome_radius - distance
 
@@ -327,6 +312,7 @@ class DroneChaseStaticTargetSimulation:
         if distance > self.dome_radius:
             penalty += 1_000
 
+        #print(lw_flight_state.get("position", np.zeros(3)), lm_flight_state.get("position", np.zeros(3)), distance, score + bonus - penalty)
         return score + bonus - penalty
 
     def _calculate_distance_vector(self, lw_state: Dict, lm_state: Dict) -> np.ndarray:

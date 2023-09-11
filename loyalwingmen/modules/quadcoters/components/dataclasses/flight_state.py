@@ -3,6 +3,7 @@ import numpy as np
 from typing import Union, List, Dict, Any
 
 from enum import Enum, auto
+from copy import deepcopy
 
 
 class FlightStateDataType(Enum):
@@ -27,18 +28,18 @@ class FlightStateManager:
     def get_data(self, key: Union[str, List[str], None] = None) -> Dict[str, Any]:
         """Retrieve specific sensor readings or all data."""
 
-        # If key is None or an empty string, return a copy of the entire data.
+        # If key is None or an empty string, return a deep copy of the entire data.
         if not key:
-            return self.data.copy()
+            return deepcopy(self.data)
 
-        # If key is a string, check if it exists and then return the corresponding value.
+        # If key is a string, check if it exists and then return a deep copy of the corresponding value.
         if isinstance(key, str):
             return {
-                key: self.data.get(key)
+                key: deepcopy(self.data.get(key))
             }  # This will return the value for the key if it exists, or None if it doesn't
 
-        # If key is a list of strings, return a dictionary of corresponding values for existing keys.
-        return {k: self.data.get(k) for k in key} if isinstance(key, list) else {}
+        # If key is a list of strings, return a deep copy of the dictionary of corresponding values for existing keys.
+        return {k: deepcopy(self.data.get(k)) for k in key} if isinstance(key, list) else {}
 
     def get_inertial_data(self) -> Dict[str, Any]:
         """Retrieve data related to the inertial measurement unit (IMU)."""

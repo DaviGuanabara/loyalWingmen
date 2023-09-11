@@ -95,11 +95,7 @@ class Level1(Env):
             in each subclass for its format.
         """
 
-        print("Resetting environment")
         observation, info = self.simulation.reset()
-
-        print("Reset Observation: ", observation)
-        print(observation.shape)
 
         return observation, info
 
@@ -162,8 +158,6 @@ class Level1(Env):
         """
 
         size = self.simulation.observation_size()
-
-        print("Observation size: ", size)
         low = -1 * np.ones(size)
         low[-1] = 0
 
@@ -180,17 +174,17 @@ class Level1(Env):
 
     def get_keymap(self):
         keycode = KeyCode()
-        default_action = [0, 0, 0]  # Modify this to your actual default action
+        default_action = [0, 0, 0, 0.001]  # Modify this to your actual default action
 
         key_map = defaultdict(lambda: default_action)
         key_map.update(
             {
-                Key.up: [0, 1, 0],
-                Key.down: [0, -1, 0],
-                Key.left: [-1, 0, 0],
-                Key.right: [1, 0, 0],
-                keycode.from_char("w"): [0, 0, 1],
-                keycode.from_char("s"): [0, 0, -1],
+                Key.up: [0, 1, 0, 0.001],
+                Key.down: [0, -1, 0, 0.001],
+                Key.left: [-1, 0, 0, 0.001],
+                Key.right: [1, 0, 0, 0.001],
+                keycode.from_char("w"): [0, 0, 1, 0.001],
+                keycode.from_char("s"): [0, 0, -1, 0.001],
             }
         )
 

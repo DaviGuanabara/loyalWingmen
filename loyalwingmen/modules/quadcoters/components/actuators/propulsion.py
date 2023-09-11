@@ -85,7 +85,7 @@ class DirectVelocityApplier(Propulsion):
         velocity: np.ndarray,
         angularVelocity: np.ndarray = np.zeros(3),
     ):
-        print("DirectVelocityApplier, velocity", velocity, "drone_id:", self.drone_id)
+
         # A força é a plicada, mas não consegue compensar a gravidade não sei o motivo
         # assim, prefiro deixar comentado, sem gravidade, sem compensação.
         # p.applyExternalForce(
@@ -139,7 +139,7 @@ class PropulsionSystem:
         self, target_velocity: np.ndarray, flight_state_manager: FlightStateManager
     ):
         inertial_data = flight_state_manager.get_inertial_data()
-        print(inertial_data)
+
         yaw = (inertial_data["attitude"] or np.zeros(3))[2]
         target_rpy = np.array([0, 0, yaw])
 
@@ -173,5 +173,4 @@ class PropulsionSystem:
         if not self.use_direct_velocity:
             self._apply_controller_propulsion(velocity, flight_state_manager)
         else:
-            print("_apply_direct_velocity_propulsion, velocity", velocity)
             self._apply_direct_velocity_propulsion(velocity)

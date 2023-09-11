@@ -124,5 +124,4 @@ class LoiteringMunition(Quadcopter):
     def drive_via_behavior(self):
         flight_state_manager = self.flight_state_manager
         command = self.behavior_function(flight_state_manager)
-        print(f"loitering munition command: {command}")
         self.drive(command)

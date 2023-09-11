@@ -75,7 +75,6 @@ class LiDAR(Sensor):
         self.client_id = client_id
         self.debug = debug
         self.debug_line_id = -1
-        # print("in Lidar, debug:", self.debug)
         self.debug_lines_id = []
 
         self.n_channels: int = len(Channels)
@@ -275,7 +274,6 @@ class LiDAR(Sensor):
             self.__add_cartesian(cartesian, distance, flag)
 
     def debug_sphere(self, current_position):
-        # print(self.sphere[self.DISTANCE_CHANNEL])
         for theta_point in range(len(self.sphere[Channels.DISTANCE_CHANNEL.value])):
             for phi_point in range(
                 len(self.sphere[Channels.DISTANCE_CHANNEL.value][theta_point])
@@ -284,7 +282,6 @@ class LiDAR(Sensor):
                     phi_point
                 ]
                 if distance < 1:
-                    # print("distance:", distance)
 
                     end_position = self.convert_angle_point_to_cartesian(
                         theta_point=theta_point,
