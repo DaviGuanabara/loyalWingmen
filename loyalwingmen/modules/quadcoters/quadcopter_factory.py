@@ -63,11 +63,8 @@ class DroneURDFHandler:
 
         
         #base_path = Path(os.getcwd()).parent
-        base_path = Path(__file__).resolve().parent
-        print(base_path)
+        base_path = Path(__file__).resolve().parent.parent.parent
         urdf_name = f"{drone_model.value}.urdf"
-        
-        print(urdf_name)
         return str(base_path / "assets" / urdf_name)
 
     @staticmethod

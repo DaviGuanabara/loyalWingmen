@@ -10,7 +10,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 
 
 from ..modules.policies.policy import CustomActorCriticPolicy, CustomCNN
-from ..modules.factories.callback_factory import callbacklist, CallbackType
+from .callback_factory import callbacklist, CallbackType
 
 from typing import List, Tuple
 
