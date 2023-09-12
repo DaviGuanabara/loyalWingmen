@@ -6,7 +6,7 @@ import numpy as np
 import xml.etree.ElementTree as etxml
 import pkg_resources
 
-from modules.utils.enums import DroneModel
+from ....utils.enums import DroneModel
 import inspect
 
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs

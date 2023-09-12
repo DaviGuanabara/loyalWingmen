@@ -1,26 +1,17 @@
 import numpy as np
 import pybullet as p
-from typing import Dict
-from ..dataclasses.flight_state import FlightStateManager
-from modules.utils.enums import DroneModel
-from ..dataclasses.quadcopter_specs import QuadcopterSpecs
+
 from .actuator_interface import ActuatorInterface
-
-
-from typing import Dict
-
 from ..controllers.DSLPIDControl import DSLPIDControl
 
+from ..dataclasses.flight_state import FlightStateManager
+
+
+from ....environments.dataclasses.environment_parameters import EnvironmentParameters
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs
 
 
-from ..dataclasses.flight_state import FlightStateManager
-from ....environments.dataclasses.environment_parameters import EnvironmentParameters
-
-from modules.utils.enums import DroneModel
-from typing import List, TYPE_CHECKING, Union, Optional
-
-from .actuator_interface import ActuatorInterface
+from ....utils.enums import DroneModel
 
 
 class Propulsion(ActuatorInterface):

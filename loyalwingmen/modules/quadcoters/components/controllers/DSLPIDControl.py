@@ -4,7 +4,7 @@ import pybullet as p
 from scipy.spatial.transform import Rotation
 
 from .BaseControl import BaseControl, EnvironmentParameters
-from modules.utils.enums import DroneModel
+from ....utils.enums import DroneModel
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs
 
 

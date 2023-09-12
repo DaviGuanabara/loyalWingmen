@@ -1,7 +1,7 @@
 import numpy as np
 import pybullet as p
 
-from .base.quadcopter import Quadcopter, QuadcopterType, FlightStateManager, QuadcopterSpecs, OperationalConstraints, EnvironmentParameters, DroneModel
+from .components.base.quadcopter import Quadcopter, QuadcopterType, FlightStateManager, QuadcopterSpecs, OperationalConstraints, EnvironmentParameters, DroneModel
 from dataclasses import dataclass, field, fields
 
 class LoyalWingman(Quadcopter):

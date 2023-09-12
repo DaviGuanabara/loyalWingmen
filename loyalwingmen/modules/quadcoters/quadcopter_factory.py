@@ -9,7 +9,7 @@ from typing import Tuple
 
 from typing import Union
 
-from .base.quadcopter import (
+from .components.base.quadcopter import (
     Quadcopter,
     FlightStateDataType,
     QuadcopterSpecs,

@@ -4,21 +4,23 @@ import pybullet as p
 from typing import Dict
 from enum import Enum, auto
 
-from ..components.dataclasses.quadcopter_specs import QuadcopterSpecs
-from ..components.dataclasses.operational_constraints import OperationalConstraints
+from ....environments.dataclasses.environment_parameters import EnvironmentParameters
 
-from ..components.sensors.lidar import LiDAR
-from ..components.sensors.imu import InertialMeasurementUnit
+from ....utils.enums import DroneModel
+from ....events.message_hub import MessageHub
 
-from ..components.dataclasses.flight_state import (
+from ..dataclasses.quadcopter_specs import QuadcopterSpecs
+from ..dataclasses.operational_constraints import OperationalConstraints
+
+from ..sensors.lidar import LiDAR
+from ..sensors.imu import InertialMeasurementUnit
+
+from ..dataclasses.flight_state import (
     FlightStateManager,
     FlightStateDataType,
 )
-from ..components.actuators.propulsion import PropulsionSystem
-from ...environments.dataclasses.environment_parameters import EnvironmentParameters
+from ..actuators.propulsion import PropulsionSystem
 
-from ...utils.enums import DroneModel
-from ...events.message_hub import MessageHub
 
 
 class QuadcopterType(Enum):

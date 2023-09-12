@@ -1,7 +1,7 @@
 import numpy as np
 import pybullet as p
 
-from .base.quadcopter import (
+from .components.base.quadcopter import (
     Quadcopter,
     FlightStateManager,
     EnvironmentParameters,
