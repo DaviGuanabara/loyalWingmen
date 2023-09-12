@@ -258,8 +258,8 @@ class DroneChaseStaticTargetSimulation:
         self.loyal_wingman.update_imu()
         self.loitering_munition.update_imu()
 
-        #self.loyal_wingman.update_lidar()
-        #self.loitering_munition.update_lidar()
+        self.loyal_wingman.update_lidar()
+        self.loitering_munition.update_lidar()
 
         lw_inertial_data = self.loyal_wingman.flight_state_by_type(
             FlightStateDataType.INERTIAL

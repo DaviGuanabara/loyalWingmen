@@ -86,7 +86,7 @@ def main():
         verbose=0,
         device='cuda',
         policy_kwargs=policy_kwargs,
-        learning_rate=1e-4,
+        learning_rate=1e-5,
     )
 
     print(model.policy)
