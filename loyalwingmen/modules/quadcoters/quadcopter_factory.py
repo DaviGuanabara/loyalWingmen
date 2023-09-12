@@ -61,8 +61,13 @@ class DroneURDFHandler:
     def _create_path(drone_model: DroneModel) -> str:
         """Generate the path for the given drone model's URDF file."""
 
-        base_path = Path(os.getcwd()).parent
+        
+        #base_path = Path(os.getcwd()).parent
+        base_path = Path(__file__).resolve().parent
+        print(base_path)
         urdf_name = f"{drone_model.value}.urdf"
+        
+        print(urdf_name)
         return str(base_path / "assets" / urdf_name)
 
     @staticmethod
