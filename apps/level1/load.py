@@ -18,16 +18,17 @@ from loyalwingmen.modules.environments.level1_environment import Level1
 env = Level1(GUI=True, rl_frequency=30)
 
 #preciso corrigir o caminho do modelo
-model = PPO.load("./ppo_level1_env")
+model = PPO.load("./trained_level1_ppo")
 
 observation, info = env.reset(0)
 for steps in range(50_000):
     action, _ = model.predict(observation, deterministic=True)
     observation, reward, terminated, truncated, info = env.step(action)
+    time.sleep(0.1)
     
     
     #logging.debug(f"(main) reward: {reward}")
-    print(f"reward:{reward:.2f} - action:{action}, observation:{observation}")
+    print(f"reward:{reward:.2f} - action:{action}")
     if terminated:
         print("terminated")
         observation, info = env.reset(0)
