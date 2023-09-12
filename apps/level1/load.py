@@ -14,7 +14,7 @@ import torch as th
 from loyalwingmen.modules.environments.level1_environment import Level1
 
 
-
+#IT NEEDS TO BE FIXED BEFORE USE
 env = Level1(GUI=True, rl_frequency=30)
 
 #preciso corrigir o caminho do modelo
