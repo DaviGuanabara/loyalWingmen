@@ -13,6 +13,7 @@ from ...quadcoters.quadcopter_factory import (
     OperationalConstraints,
     FlightStateDataType,
     LoiteringMunitionBehavior,
+    CommandType,
 )
 
 from ..helpers.normalization import normalize_flight_state
@@ -34,12 +35,18 @@ The controller settings comes from the action chosen by the agent.
 The agent is trying to minimize the difference between the target velocity vector and the quadcopter velocity vector.
 """
 
-class PIDTuningSimulation():
-    def __init__(self, target_velocity, drone_initial_state=None):
+
+class PIDTuningSimulation:
+    def __init__(self, target_velocity):
         super(PIDTuningSimulation, self).__init__()
-        
-        self.target_velocity = np.array(target_velocity)
-        self.drone_initial_state = drone_initial_state if drone_initial_state else self.default_initial_state()
+
+        self.target_velocity = np.ones(3)
+        self.drone_initial_state = np.zeros(3)
+        self.command_type = CommandType.VELOCITY_TO_CONTROLLER
+
+    def generate_target_velocity(self):
+        # Define your target velocity here
+        return np.concatenate((np.random.uniform(-1, 1, 3), np.random.rand(1)))
 
     def default_initial_state(self):
         # Define your default initial state here
@@ -55,19 +62,19 @@ class PIDTuningSimulation():
 
     def step(self, action):
         pid_values = action  # P, I, D values from the action
-        
+
         # Use the PID values to compute control command
         control_command = self.compute_control(pid_values)
-        
+
         # Apply the control command to update the drone's state
         self.update_drone_state(control_command)
-        
+
         # Compute reward
         reward = self.compute_reward()
-        
+
         # Check termination criteria (for instance, if drone crashes or flies too high)
         done = self.is_done()
-        
+
         return self.current_state, reward, done, {}
 
     def compute_control(self, pid_values):
@@ -81,8 +88,12 @@ class PIDTuningSimulation():
         pass
 
     def compute_reward(self):
-        velocity_difference = np.linalg.norm(self.current_state["velocity"] - self.target_velocity)
-        return -velocity_difference  # Negative because we want to minimize this difference
+        velocity_difference = np.linalg.norm(
+            self.current_state["velocity"] - self.target_velocity
+        )
+        return (
+            -velocity_difference
+        )  # Negative because we want to minimize this difference
 
     def is_done(self):
         # Define your termination criteria

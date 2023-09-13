@@ -19,8 +19,7 @@ from ..dataclasses.flight_state import (
     FlightStateManager,
     FlightStateDataType,
 )
-from ..actuators.propulsion import PropulsionSystem
-
+from ..actuators.propulsion import PropulsionSystem, CommandType
 
 
 class QuadcopterType(Enum):
@@ -41,7 +40,7 @@ class Quadcopter:
         environment_parameters: EnvironmentParameters,
         quadcopter_type=QuadcopterType.QUADCOPTER,
         quadcopter_name: str = "",
-        use_direct_velocity: bool = False,
+        command_type: CommandType = CommandType.VELOCITY_DIRECT,
     ):
         self.check_quadcopter_type(quadcopter_type)
 
@@ -52,7 +51,8 @@ class Quadcopter:
         self.environment_parameters: EnvironmentParameters = environment_parameters
         self.quadcopter_type = quadcopter_type
         self.quadcopter_name = quadcopter_name
-        self.use_direct_velocity = use_direct_velocity
+
+        self.command_type = command_type
 
         self.client_id: int = environment_parameters.client_id
         self.debug: bool = environment_parameters.debug
@@ -91,7 +91,7 @@ class Quadcopter:
             self.droneSpecs,
             self.environment_parameters,
             self.quadcopter_name,
-            self.use_direct_velocity,
+            self.command_type,
         )
 
     # =================================================================================================================
