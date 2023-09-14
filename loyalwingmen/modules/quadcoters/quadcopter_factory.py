@@ -16,17 +16,13 @@ from .components.base.quadcopter import (
     OperationalConstraints,
     QuadcopterType,
     DroneModel,
+    CommandType,
 )
 
 from ..environments.dataclasses.environment_parameters import EnvironmentParameters
 from .loyalwingman import LoyalWingman
 from .loiteringmunition import LoiteringMunition, LoiteringMunitionBehavior
 from enum import Enum, auto
-
-
-class DroneType(Enum):
-    LOYALWINGMAN = auto()
-    LOITERINGMUNITION = auto()
 
 
 class DroneURDFHandler:
@@ -61,8 +57,7 @@ class DroneURDFHandler:
     def _create_path(drone_model: DroneModel) -> str:
         """Generate the path for the given drone model's URDF file."""
 
-        
-        #base_path = Path(os.getcwd()).parent
+        # base_path = Path(os.getcwd()).parent
         base_path = Path(__file__).resolve().parent.parent.parent
         urdf_name = f"{drone_model.value}.urdf"
         return str(base_path / "assets" / urdf_name)
@@ -152,12 +147,6 @@ class QuadcopterFactory:
         self.drone_urdf_handler = DroneURDFHandler(
             self.drone_model, self.environment_parameters
         )
-        
-
-        self.constructor = {
-            DroneType.LOYALWINGMAN: LoyalWingman,
-            DroneType.LOITERINGMUNITION: LoiteringMunition,
-        }
 
         self.n_loyalwingmen = 0
         self.n_loiteringmunitions = 0
@@ -203,19 +192,27 @@ class QuadcopterFactory:
         return operational_constraints
 
     def load_quad_attributes(
-        self, initial_position: np.ndarray, initial_angular_position: np.ndarray
+        self,
+        initial_position: np.ndarray,
+        initial_angular_position: np.ndarray,
+        quadcopter_type: QuadcopterType,
+        quadcopter_name: str,
     ) -> Tuple[
         int,
         DroneModel,
         QuadcopterSpecs,
         OperationalConstraints,
         EnvironmentParameters,
+        str,
     ]:
         id, parameters = self.drone_urdf_handler.load_model(
             initial_position, initial_angular_position
         )
         operational_constraints = self.__compute_OperationalConstraints(parameters)
         environment_parameters = self.environment_parameters
+        quadcopter_full_name = self._gen_quadcopter_name(
+            quadcopter_type, quadcopter_name
+        )
 
         return (
             id,
@@ -223,54 +220,40 @@ class QuadcopterFactory:
             parameters,
             operational_constraints,
             environment_parameters,
+            quadcopter_full_name,
         )
-
-    def create(
-        self,
-        type: DroneType,
-        position: np.ndarray,
-        ang_position: np.ndarray,
-        quadcopter_name: str = "",
-    ) -> Union[Quadcopter, LoyalWingman, LoiteringMunition, None]:
-        quad_constructor = self.constructor.get(type)
-
-        i = (
-            self.n_loyalwingmen
-            if type == DroneType.LOYALWINGMAN
-            else self.n_loiteringmunitions
-        )
-        quadcopter_name = quadcopter_name or f"{self.drone_model.name}_{type.name}_{i}"
-
-        if not quad_constructor:
-            raise ValueError(f"Invalid drone type: {type}")
-
-        attributes = self.load_quad_attributes(position, ang_position)
-        return quad_constructor(*attributes, quadcopter_name=quadcopter_name)
 
     def create_loyalwingman(
-        self, position: np.ndarray, ang_position: np.ndarray, quadcopter_name: str = "", use_direct_velocity: bool = True
+        self,
+        position: np.ndarray,
+        ang_position: np.ndarray,
+        command_type: CommandType = CommandType.VELOCITY_DIRECT,
+        quadcopter_name: str = "Drone",
     ) -> LoyalWingman:
-        i = self.n_loyalwingmen + 1
-        self.n_loyalwingmen = i
-
-        quadcopter_name = (
-            quadcopter_name
-            or f"{self.drone_model.name}_{QuadcopterType.LOYALWINGMAN}_{i}"
+        attributes = self.load_quad_attributes(
+            position, ang_position, QuadcopterType.LOYALWINGMAN, quadcopter_name
         )
-
-        attributes = self.load_quad_attributes(position, ang_position)
-        return LoyalWingman(*attributes, quadcopter_name=quadcopter_name, use_direct_velocity=use_direct_velocity)
+        return LoyalWingman(*attributes, command_type=command_type)
 
     def create_loiteringmunition(
-        self, position: np.ndarray, ang_position: np.ndarray, quadcopter_name: str = ""
+        self,
+        position: np.ndarray,
+        ang_position: np.ndarray,
+        command_type: CommandType = CommandType.VELOCITY_DIRECT,
+        quadcopter_name: str = "Drone",
     ) -> LoiteringMunition:
-        i = self.n_loiteringmunitions + 1
-        self.n_loiteringmunitions = i
-
-        quadcopter_name = (
-            quadcopter_name
-            or f"{self.drone_model.name}_{QuadcopterType.LOITERINGMUNITION}_{i}"
+        attributes = self.load_quad_attributes(
+            position, ang_position, QuadcopterType.LOITERINGMUNITION, quadcopter_name
         )
+        return LoiteringMunition(*attributes, command_type=command_type)
 
-        attributes = self.load_quad_attributes(position, ang_position)
-        return LoiteringMunition(*attributes, quadcopter_name=quadcopter_name)
+    def _gen_quadcopter_name(
+        self, quadcopter_type: QuadcopterType, quadcopter_name: str = "Drone"
+    ):
+        if quadcopter_type == QuadcopterType.LOYALWINGMAN:
+            return f"{quadcopter_type}_{self.n_loyalwingmen}_{quadcopter_name}"
+
+        if quadcopter_type == QuadcopterType.LOITERINGMUNITION:
+            return f"{quadcopter_type}_{self.n_loiteringmunitions}_{quadcopter_name}"
+
+        return f"{quadcopter_type}_{quadcopter_name}"

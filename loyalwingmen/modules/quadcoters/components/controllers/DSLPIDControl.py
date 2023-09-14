@@ -6,6 +6,7 @@ from scipy.spatial.transform import Rotation
 from .BaseControl import BaseControl, EnvironmentParameters
 from ....utils.enums import DroneModel
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs
+from typing import Dict, Optional
 
 
 class DSLPIDControl(BaseControl):
@@ -23,6 +24,7 @@ class DSLPIDControl(BaseControl):
         drone_model: DroneModel,
         droneSpecs: QuadcopterSpecs,
         environmentParameters: EnvironmentParameters,
+        pid_coefficients: Optional[Dict[str, np.ndarray]] = None,
     ):
         """Common control classes __init__ method.
 
@@ -40,12 +42,7 @@ class DSLPIDControl(BaseControl):
                 "[ERROR] in DSLPIDControl.__init__(), DSLPIDControl requires DroneModel.CF2X or DroneModel.CF2P"
             )
             exit()
-        self.P_COEFF_FOR = np.array([0.4, 0.4, 1.25])
-        self.I_COEFF_FOR = np.array([0.05, 0.05, 0.05])
-        self.D_COEFF_FOR = np.array([0.2, 0.2, 0.5])
-        self.P_COEFF_TOR = np.array([70000.0, 70000.0, 60000.0])
-        self.I_COEFF_TOR = np.array([0.0, 0.0, 500.0])
-        self.D_COEFF_TOR = np.array([20000.0, 20000.0, 12000.0])
+        self.load_pid_coefficients(pid_coefficients)
         self.PWM2RPM_SCALE = 0.2685
         self.PWM2RPM_CONST = 4070.3
         self.MIN_PWM = 20000
@@ -62,6 +59,26 @@ class DSLPIDControl(BaseControl):
         self.reset()
 
     ################################################################################
+
+    def load_pid_coefficients(self, pid_coefficients: Optional[Dict[str, np.ndarray]]):
+        if pid_coefficients is None:
+            self._default_coefficients()
+        else:
+            self.P_COEFF_FOR = pid_coefficients["P_COEFF_FOR"]
+            self.I_COEFF_FOR = pid_coefficients["I_COEFF_FOR"]
+            self.D_COEFF_FOR = pid_coefficients["D_COEFF_FOR"]
+            self.P_COEFF_TOR = pid_coefficients["P_COEFF_TOR"]
+            self.I_COEFF_TOR = pid_coefficients["I_COEFF_TOR"]
+            self.D_COEFF_TOR = pid_coefficients["D_COEFF_TOR"]
+
+    # TODO Rename this here and in `load_pid_coefficients`
+    def _default_coefficients(self):
+        self.P_COEFF_FOR = np.array([0.4, 0.4, 1.25])
+        self.I_COEFF_FOR = np.array([0.05, 0.05, 0.05])
+        self.D_COEFF_FOR = np.array([0.2, 0.2, 0.5])
+        self.P_COEFF_TOR = np.array([70000.0, 70000.0, 60000.0])
+        self.I_COEFF_TOR = np.array([0.0, 0.0, 500.0])
+        self.D_COEFF_TOR = np.array([20000.0, 20000.0, 12000.0])
 
     def reset(self):
         """Resets the control classes.

@@ -9,6 +9,7 @@ from .components.base.quadcopter import (
     OperationalConstraints,
     QuadcopterSpecs,
     DroneModel,
+    CommandType
 )
 
 from enum import Enum
@@ -29,7 +30,7 @@ class LoiteringMunition(Quadcopter):
         operationalConstraints: OperationalConstraints,
         environment_parameters: EnvironmentParameters,
         quadcopter_name: str,
-        use_direct_velocity: bool = False,
+        command_type: CommandType,
     ):
         use_direct_velocity = True
         super().__init__(
@@ -40,7 +41,7 @@ class LoiteringMunition(Quadcopter):
             environment_parameters,
             QuadcopterType.LOITERINGMUNITION,
             quadcopter_name,
-            use_direct_velocity,
+            command_type,
         )
         self.quadcopter_name: str = quadcopter_name
 

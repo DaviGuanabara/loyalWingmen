@@ -7,12 +7,13 @@ from typing import Tuple, Optional, Union, Dict
 from ...quadcoters.quadcopter_factory import (
     QuadcopterFactory,
     Quadcopter,
-    DroneType,
+    QuadcopterType,
     LoyalWingman,
     LoiteringMunition,
     OperationalConstraints,
     FlightStateDataType,
     LoiteringMunitionBehavior,
+    CommandType,
 )
 
 from ..helpers.normalization import normalize_flight_state
@@ -60,7 +61,6 @@ class DroneChaseStaticTargetSimulation:
             pybullet_data.getDataPath(),
             physicsClientId=client_id,
         )
-
 
         self.environment_parameters.client_id = client_id
         self.factory = QuadcopterFactory(self.environment_parameters)
@@ -116,7 +116,6 @@ class DroneChaseStaticTargetSimulation:
     def gen_initial_position(self) -> Tuple[np.ndarray, np.ndarray]:
         """Generate a random position within the dome."""
 
-
         position = np.random.rand(3)  # * (self.dome_radius / 2)
         ang_position = np.random.uniform(0, 2 * np.pi, 3)
 
@@ -136,7 +135,7 @@ class DroneChaseStaticTargetSimulation:
         self.loyal_wingman = self.factory.create_loyalwingman(
             position=pos,
             ang_position=np.zeros(3),
-            use_direct_velocity=True,
+            command_type=CommandType.VELOCITY_DIRECT,
             quadcopter_name="agent",
         )
         self.loitering_munition = self.factory.create_loiteringmunition(
@@ -274,12 +273,11 @@ class DroneChaseStaticTargetSimulation:
 
         truncated = self.compute_truncation()
         info = self.compute_info()
-        
+
         if self.distance(lw_inertial_data, lm_inertial_data) < 0.2:
             self.replace_loitering_munition()
 
         return observation, reward, terminated, truncated, info
-
 
     def compute_truncation(self):
         return False
@@ -302,7 +300,6 @@ class DroneChaseStaticTargetSimulation:
             lw_flight_state, lm_flight_state
         )
         distance = np.linalg.norm(distance_vector)
-        
 
         score = self.dome_radius - distance
 
@@ -312,7 +309,7 @@ class DroneChaseStaticTargetSimulation:
         if distance > self.dome_radius:
             penalty += 1_000
 
-        #print(lw_flight_state.get("position", np.zeros(3)), lm_flight_state.get("position", np.zeros(3)), distance, score + bonus - penalty)
+        # print(lw_flight_state.get("position", np.zeros(3)), lm_flight_state.get("position", np.zeros(3)), distance, score + bonus - penalty)
         return score + bonus - penalty
 
     def _calculate_distance_vector(self, lw_state: Dict, lm_state: Dict) -> np.ndarray:

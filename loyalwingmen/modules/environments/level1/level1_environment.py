@@ -23,8 +23,8 @@ import gymnasium as gym
 from gymnasium import spaces, Env
 
 from typing import Dict, List, Tuple, Union, Optional
-from .dataclasses.environment_parameters import EnvironmentParameters
-from .simulations.level1_simulation import (
+from ..dataclasses.environment_parameters import EnvironmentParameters
+from .level1_simulation import (
     DroneChaseStaticTargetSimulation as Level1Simulation,
 )
 

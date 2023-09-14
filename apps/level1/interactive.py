@@ -11,7 +11,7 @@ sys.path.append(parent_directory)
 from stable_baselines3.common.env_checker import check_env
 
 from loyalwingmen.modules.utils.keyboard_listener import KeyboardListener
-from loyalwingmen.modules.environments.level1_environment import Level1
+from loyalwingmen.modules.environments.level1.level1_environment import Level1
 from loyalwingmen.modules.utils.displaytext import log
 
 

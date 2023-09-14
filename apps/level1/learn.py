@@ -18,7 +18,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
 from stable_baselines3 import PPO
 
-from loyalwingmen.modules.environments.level1_environment import Level1
+from loyalwingmen.modules.environments.level1.level1_environment import Level1
 
 
 from multiprocessing import cpu_count
@@ -35,12 +35,13 @@ from stable_baselines3.common.vec_env import VecMonitor
 # Setup
 # ===============================================================================
 
+
 def create_output_folder(experiment_name: str):
     # Obter a data atual
     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Criar o nome da pasta com base na data atual
-    #folder_name = f"output/{experiment_name}"
+    # folder_name = f"output/{experiment_name}"
     folder_name = os.path.join("output", experiment_name)
 
     # Criar a pasta se ainda não existir
@@ -51,40 +52,32 @@ def create_output_folder(experiment_name: str):
 
 
 def main():
-    
-    
-            
     output_folder = create_output_folder("demo_training2_app")
     model_path = os.path.join(output_folder, f"models")
     log_path = os.path.join(output_folder, f"logs")
-    
-    
-    number_of_logical_cores = cpu_count()
-    n_envs = int (number_of_logical_cores / 2)
-        
-    env_fns = [lambda: Level1(GUI=False, rl_frequency=30) for _ in range(n_envs)]    
 
-    vectorized_environment = VecMonitor(SubprocVecEnv(env_fns)) # type: ignore
-    
+    number_of_logical_cores = cpu_count()
+    n_envs = int(number_of_logical_cores / 2)
+
+    env_fns = [lambda: Level1(GUI=False, rl_frequency=30) for _ in range(n_envs)]
+
+    vectorized_environment = VecMonitor(SubprocVecEnv(env_fns))  # type: ignore
 
     callback_list = callbacklist(
         vectorized_environment,
         log_path=log_path,
         model_path=model_path,
         save_freq=100_000,
-        
     )
 
     nn_t = [512, 512, 512]
-    policy_kwargs = dict(
-        net_arch=dict(pi=nn_t, vf=nn_t)
-    )
+    policy_kwargs = dict(net_arch=dict(pi=nn_t, vf=nn_t))
 
     model = PPO(
         "MlpPolicy",
         vectorized_environment,
         verbose=0,
-        device='cuda',
+        device="cuda",
         policy_kwargs=policy_kwargs,
         learning_rate=1e-5,
     )
@@ -94,7 +87,7 @@ def main():
     model.save("trained_level1_ppo")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # https://stackoverflow.com/questions/29690091/python2-7-exception-the-freeze-support-line-can-be-omitted-if-the-program
     # freeze_support() here if program needs to be frozen
     main()  # execute this only when run directly, not when imported!

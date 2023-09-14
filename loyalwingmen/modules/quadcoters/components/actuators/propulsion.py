@@ -135,7 +135,7 @@ class PropulsionSystem:
                 velocity
             )
 
-        if command_type == CommandType.VELOCITY_TO_CONTROLLER:
+        elif command_type == CommandType.VELOCITY_TO_CONTROLLER:
             controller = DSLPIDControl(
                 drone_model, drone_specs, environment_parameters
             )  # default or custom controller
@@ -149,7 +149,7 @@ class PropulsionSystem:
                 target_velocity, flight_state_manager, controller, motors
             )
 
-        if command_type == CommandType.RPM:
+        elif command_type == CommandType.RPM:
             motors = Motors(
                 drone_id=drone_id,
                 drone_specs=drone_specs,
@@ -158,7 +158,10 @@ class PropulsionSystem:
 
             return lambda rpm, flight_state_manager: motors.apply(rpm)
 
-        return lambda any_thing, flight_state_manager: print("Invalid command type")
+        else:
+            raise ValueError(f"Invalid command type: {command_type}")
+
+        # return lambda any_thing, flight_state_manager: print("Invalid command type")
 
     def _velocity_to_controller(
         self, target_velocity, flight_state_manager, controller, motors
@@ -194,19 +197,5 @@ class PropulsionSystem:
 
         return rpm
 
-    def _apply_controller_propulsion(
-        self, velocity: np.ndarray, flight_state_manager: FlightStateManager
-    ):
-        rpm = self._apply_controller(velocity, flight_state_manager)
-        self.motors.apply(rpm)
-
-    def _apply_direct_velocity_propulsion(self, velocity: np.ndarray):
-        self.direct_velocity_applier.apply(velocity)
-
     def propel(self, velocity: np.ndarray, flight_state_manager: FlightStateManager):
         self.propeller(velocity, flight_state_manager)
-
-        if not self.use_direct_velocity:
-            self._apply_controller_propulsion(velocity, flight_state_manager)
-        else:
-            self._apply_direct_velocity_propulsion(velocity)
