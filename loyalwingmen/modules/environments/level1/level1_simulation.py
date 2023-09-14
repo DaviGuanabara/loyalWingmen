@@ -18,7 +18,7 @@ from ...quadcoters.quadcopter_factory import (
 
 from ..helpers.normalization import normalize_flight_state
 
-from ..dataclasses.environment_parameters import EnvironmentParameters
+from ..helpers.environment_parameters import EnvironmentParameters
 from time import time
 
 

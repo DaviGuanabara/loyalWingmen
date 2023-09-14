@@ -3,7 +3,7 @@ import numpy as np
 from ...quadcoters.components.dataclasses.operational_constraints import (
     OperationalConstraints,
 )
-from ..dataclasses.environment_parameters import EnvironmentParameters
+from .environment_parameters import EnvironmentParameters
 
 
 def normalize_flight_state(
