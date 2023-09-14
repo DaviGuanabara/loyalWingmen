@@ -82,6 +82,8 @@ class PIDTuningSimulation:
             physicsClientId=client_id,
         )
 
+        self.environment_parameters.client_id = client_id
+
     def setup_pybullet_DIRECT(self):
         return p.connect(p.DIRECT)
 
@@ -187,7 +189,7 @@ class PIDTuningSimulation:
 
         return np.array(
             [
-                *norm_lw_state,
+                *norm_lw_state.values(),
                 *target_velocity,
                 *last_action,
             ],

@@ -1,6 +1,6 @@
 import numpy as np
 from gymnasium import Env, spaces
-from tuning_pid_simulation import PIDTuningSimulation
+from .tuning_pid_simulation import PIDTuningSimulation
 from ..helpers.environment_parameters import EnvironmentParameters
 
 

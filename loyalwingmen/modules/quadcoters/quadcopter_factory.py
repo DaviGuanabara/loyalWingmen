@@ -19,7 +19,7 @@ from .components.base.quadcopter import (
     CommandType,
 )
 
-from ..environments.dataclasses.environment_parameters import EnvironmentParameters
+from ..environments.helpers.environment_parameters import EnvironmentParameters
 from .loyalwingman import LoyalWingman
 from .loiteringmunition import LoiteringMunition, LoiteringMunitionBehavior
 from enum import Enum, auto

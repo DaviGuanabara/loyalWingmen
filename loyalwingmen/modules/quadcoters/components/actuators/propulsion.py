@@ -7,7 +7,7 @@ from ..controllers.DSLPIDControl import DSLPIDControl
 from ..dataclasses.flight_state import FlightStateManager
 
 
-from ....environments.dataclasses.environment_parameters import EnvironmentParameters
+from ....environments.helpers.environment_parameters import EnvironmentParameters
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs
 
 
