@@ -1,5 +1,6 @@
 import pybullet as p
 import numpy as np
+import pybullet_data
 import random
 from typing import Tuple, Optional, Union, Dict, List
 from time import time
@@ -16,6 +17,7 @@ from ...quadcoters.quadcopter_factory import (
     CommandType,
 )
 
+from ..helpers.normalization import normalize_flight_state
 from ...quadcoters.components.controllers.DSLPIDControl import DSLPIDControl
 
 from ..helpers.normalization import normalize_flight_state
@@ -24,13 +26,22 @@ from ..helpers.environment_parameters import EnvironmentParameters
 
 
 class PIDTuningSimulation:
-    def __init__(self, environment_parameters: EnvironmentParameters):
+    def __init__(
+        self,
+        dome_radius: float,
+        environment_parameters: EnvironmentParameters,
+        seed: int = 0,
+    ):
         """
         Initializes the PID tuning simulation.
 
         Args:
         - environment_parameters: Configuration for the environment.
+        - dome_radius: The maximum allowed radius for the drone to travel from its origin.
+        - seed: Random seed for reproducibility.
         """
+
+        np.random.seed(seed)
         self.target_velocity = np.ones(3)
         self.drone_initial_state = np.zeros(3)
         self.command_type = CommandType.VELOCITY_TO_CONTROLLER
@@ -38,7 +49,60 @@ class PIDTuningSimulation:
 
         self.factory = QuadcopterFactory(environment_parameters)
         self.start_time = time()
+        self.dome_radius = dome_radius
+        self.init_simulation()
         self.reset()
+
+    def init_simulation(self):
+        """Initialize the simulation and entities."""
+        # Initialize pybullet, load plane, gravity, etc.
+
+        if self.environment_parameters.GUI:
+            client_id = self.setup_pybulley_GUI()
+
+        else:
+            client_id = self.setup_pybullet_DIRECT()
+
+        p.setGravity(
+            0,
+            0,
+            -self.environment_parameters.G,
+            physicsClientId=client_id,
+        )
+
+        p.setRealTimeSimulation(0, physicsClientId=client_id)  # No Realtime Sync
+
+        p.setTimeStep(
+            self.environment_parameters.timestep_period,
+            physicsClientId=client_id,
+        )
+
+        p.setAdditionalSearchPath(
+            pybullet_data.getDataPath(),
+            physicsClientId=client_id,
+        )
+
+    def setup_pybullet_DIRECT(self):
+        return p.connect(p.DIRECT)
+
+    def setup_pybulley_GUI(self):
+        client_id = p.connect(p.GUI)
+        for i in [
+            p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+            p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+            p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+        ]:
+            p.configureDebugVisualizer(i, 0, physicsClientId=client_id)
+        p.resetDebugVisualizerCamera(
+            cameraDistance=3,
+            cameraYaw=-30,
+            cameraPitch=-30,
+            cameraTargetPosition=[0, 0, 0],
+            physicsClientId=client_id,
+        )
+        ret = p.getDebugVisualizerCamera(physicsClientId=client_id)
+
+        return client_id
 
     def _init_loyalwingman(
         self, initial_position: np.ndarray, initial_angular: np.ndarray
@@ -112,14 +176,29 @@ class PIDTuningSimulation:
         return observation, reward, terminated, {}
 
     def compute_observation(self) -> np.ndarray:
-        """
-        Computes the observation for the agent.
-        """
-        inertial_data = self.loyalwingman.flight_state_by_type(
-            FlightStateDataType.INERTIAL
+        lw = self.loyalwingman
+        lw_state = lw.flight_state_by_type(FlightStateDataType.INERTIAL)
+        norm_lw_state = normalize_flight_state(
+            lw_state, lw.operational_constraints, self.dome_radius
         )
-        # This is just an example, modify as per the desired observation
-        return inertial_data["velocity"]
+
+        target_velocity = self.target_velocity
+        last_action = self.last_action
+
+        return np.array(
+            [
+                *norm_lw_state,
+                *target_velocity,
+                *last_action,
+            ],
+            dtype=np.float32,
+        )
+
+    def observation_size(self):
+        lw_state = 12
+        target_velocity = 3
+        last_action = 18
+        return lw_state + target_velocity + last_action
 
     def _preprocesss_action(self, action: List[float]) -> Dict[str, np.ndarray]:
         """
@@ -148,15 +227,19 @@ class PIDTuningSimulation:
         # Generating a 3D velocity vector
         return np.random.uniform(-1, 1, 3)
 
-    def reset(self) -> None:
+    def reset(self):
         """
         Resets the simulation environment.
         """
         initial_position = np.zeros(3)
         initial_angular_position = np.zeros(3)
         self.target_velocity = np.ones(3)
+        self.last_action = np.zeros(18)
+
         self._init_loyalwingman(initial_position, initial_angular_position)
         self.start_time = time()
+
+        return self.compute_observation(), {}
 
     def compute_reward(self):
         """
@@ -185,7 +268,13 @@ class PIDTuningSimulation:
             FlightStateDataType.INERTIAL
         )
 
+        if np.linalg.norm(inertial_data["position"]) > self.dome_radius:
+            return True
+
         actual_velocity = inertial_data["velocity"]
         velocity_difference = np.linalg.norm(actual_velocity - self.target_velocity)
 
         return bool(velocity_difference > 0.5)
+
+    def close(self):
+        p.disconnect(physicsClientId=self.environment_parameters.client_id)

@@ -4,7 +4,7 @@ import pybullet as p
 from typing import Dict
 from enum import Enum, auto
 
-from ....environments.dataclasses.environment_parameters import EnvironmentParameters
+from ....environments.helpers.environment_parameters import EnvironmentParameters
 
 from ....utils.enums import DroneModel
 from ....events.message_hub import MessageHub
