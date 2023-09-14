@@ -10,7 +10,7 @@ The agent's quadcopter starts at the origin, the `target_velocity` is applied to
 
 Train a reinforcement learning (RL) agent to determine optimal PID coefficients so that a drone can achieve a desired target velocity as quickly and accurately as possible, even from varying initial velocities.
 
-## Environment
+## Environment and Simulation
 
 ### State (Observation):
 
@@ -50,3 +50,7 @@ Train a reinforcement learning (RL) agent to determine optimal PID coefficients 
 - **Variable Naming**: Ensure variable names are descriptive. Short variable names can be hard to understand out of context. Consider more descriptive names.
 - **State Initialization**: Ensure that the drone's initial state (position, velocity, etc.) is consistently initialized at the beginning of each episode. This consistency is crucial for the RL agent to learn effectively.
 - **Reward Engineering**: Monitor the agent's performance and be prepared to adjust the rewards if necessary.
+
+
+
+It was chosen 100.000 to be the maxium gain of the pid coefficients.

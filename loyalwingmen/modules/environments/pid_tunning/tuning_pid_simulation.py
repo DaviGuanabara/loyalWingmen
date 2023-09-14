@@ -20,7 +20,7 @@ from ...quadcoters.components.controllers.DSLPIDControl import DSLPIDControl
 
 from ..helpers.normalization import normalize_flight_state
 
-from ..dataclasses.environment_parameters import EnvironmentParameters
+from ..helpers.environment_parameters import EnvironmentParameters
 
 
 class PIDTuningSimulation:
@@ -125,6 +125,8 @@ class PIDTuningSimulation:
         """
         Processes the raw action into PID coefficients.
         """
+
+        MAX_PID_COEFF = 100_000
         keys = [
             "P_COEFF_FOR",
             "I_COEFF_FOR",
@@ -135,7 +137,8 @@ class PIDTuningSimulation:
         ]
         assert len(action) == 3 * len(keys), "Invalid action length"
         return {
-            keys[i]: np.array(action[3 * i : 3 * (i + 1)]) for i in range(len(keys))
+            keys[i]: MAX_PID_COEFF * np.array(action[3 * i : 3 * (i + 1)])
+            for i in range(len(keys))
         }
 
     def generate_target_velocity(self) -> np.ndarray:
@@ -155,7 +158,7 @@ class PIDTuningSimulation:
         self._init_loyalwingman(initial_position, initial_angular_position)
         self.start_time = time()
 
-    def compute_reward(self) -> float:
+    def compute_reward(self):
         """
         Computes the reward for the current state.
         """
@@ -164,11 +167,13 @@ class PIDTuningSimulation:
         )
 
         actual_velocity = inertial_data["velocity"]
-        velocity_difference = np.linalg.norm(actual_velocity - self.target_velocity)
+        velocity_difference = float(
+            np.linalg.norm(actual_velocity - self.target_velocity)
+        )
 
-        return float(-velocity_difference)
+        return -velocity_difference
 
-    def is_done(self) -> bool:
+    def is_done(self):  # sourcery skip: remove-unnecessary-cast
         """
         Determines if the episode should terminate.
         """
