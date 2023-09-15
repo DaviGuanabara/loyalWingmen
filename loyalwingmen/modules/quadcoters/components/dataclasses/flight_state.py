@@ -40,7 +40,11 @@ class FlightStateManager:
             }  # This will return the value for the key if it exists, or None if it doesn't
 
         # If key is a list of strings, return a deep copy of the dictionary of corresponding values for existing keys.
-        return {k: deepcopy(self.data.get(k)) for k in key} if isinstance(key, list) else {}
+        return (
+            {k: deepcopy(self.data.get(k)) for k in key}
+            if isinstance(key, list)
+            else {}
+        )
 
     def get_inertial_data(self) -> Dict[str, Any]:
         """Retrieve data related to the inertial measurement unit (IMU)."""
@@ -48,8 +52,10 @@ class FlightStateManager:
             "position",
             "velocity",
             "attitude",
-            #"quaternions",
+            # "quaternions",
             "angular_rate",
+            "acceleration",
+            "angular_acceleration",
         ]
         return self.get_data(inertial_keys) or {key: None for key in inertial_keys}
 

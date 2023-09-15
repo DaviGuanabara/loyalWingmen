@@ -73,7 +73,7 @@ class PIDTuningSimulation:
         p.setRealTimeSimulation(0, physicsClientId=client_id)  # No Realtime Sync
 
         p.setTimeStep(
-            self.environment_parameters.timestep_period,
+            self.environment_parameters.timestep,
             physicsClientId=client_id,
         )
 
@@ -135,8 +135,8 @@ class PIDTuningSimulation:
         target_rpy = np.array([0, 0, yaw])
 
         aggregate_physics_steps = self.environment_parameters.aggregate_physics_steps
-        timestep_period = self.environment_parameters.timestep_period
-        control_timestep = aggregate_physics_steps * timestep_period
+        timestep = self.environment_parameters.timestep
+        control_timestep = aggregate_physics_steps * timestep
 
         rpm, _, _ = controller.computeControl(
             control_timestep,
@@ -158,7 +158,7 @@ class PIDTuningSimulation:
         pid_coefficientes = self._preprocesss_action(action)
         controller = DSLPIDControl(
             self.loyalwingman.model,
-            self.loyalwingman.droneSpecs,
+            self.loyalwingman.quadcopter_specs,
             self.environment_parameters,
             pid_coefficientes,
         )
@@ -197,7 +197,7 @@ class PIDTuningSimulation:
         )
 
     def observation_size(self):
-        lw_state = 12
+        lw_state = 18
         target_velocity = 3
         last_action = 18
         return lw_state + target_velocity + last_action

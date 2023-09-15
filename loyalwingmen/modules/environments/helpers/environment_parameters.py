@@ -10,7 +10,7 @@ class EnvironmentParameters:
     NEIGHBOURHOOD_RADIUS: float
     simulation_frequency: int
     rl_frequency: int
-    timestep_period: float
+    timestep: float
     aggregate_physics_steps: int
     client_id: int
     max_distance: float

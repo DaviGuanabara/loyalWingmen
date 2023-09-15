@@ -35,7 +35,7 @@ class Quadcopter:
         self,
         id: int,
         model: DroneModel,
-        droneSpecs: QuadcopterSpecs,
+        quadcopter_specs: QuadcopterSpecs,
         operational_constraints: OperationalConstraints,
         environment_parameters: EnvironmentParameters,
         quadcopter_type=QuadcopterType.QUADCOPTER,
@@ -46,7 +46,7 @@ class Quadcopter:
 
         self.id: int = id
         self.model: DroneModel = model
-        self.droneSpecs: QuadcopterSpecs = droneSpecs
+        self.quadcopter_specs: QuadcopterSpecs = quadcopter_specs
         self.operational_constraints: OperationalConstraints = operational_constraints
         self.environment_parameters: EnvironmentParameters = environment_parameters
         self.quadcopter_type = quadcopter_type
@@ -78,7 +78,9 @@ class Quadcopter:
         This includes initializing the flight state manager, sensors, message hub, and propulsion system.
         """
         self.flight_state_manager: FlightStateManager = FlightStateManager()
-        self.imu = InertialMeasurementUnit(self.id, client_id=self.client_id)
+        self.imu = InertialMeasurementUnit(
+            self.id, self.client_id, self.environment_parameters
+        )
         self.lidar = LiDAR(self.id, client_id=self.client_id)
 
         self.messageHub = MessageHub()
@@ -88,7 +90,7 @@ class Quadcopter:
         self.propulsion_system = PropulsionSystem(
             self.id,
             self.model,
-            self.droneSpecs,
+            self.quadcopter_specs,
             self.environment_parameters,
             self.quadcopter_name,
             self.command_type,

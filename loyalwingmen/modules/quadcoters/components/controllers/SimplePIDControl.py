@@ -9,9 +9,8 @@ from modules.utils.utils import nnlsRPM
 
 from modules.utils.enums import DroneModel
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs
-from loyalwingmen.modules.environments.dataclasses.environment_parameters import (
-    EnvironmentParameters,
-)
+
+from ....environments.helpers.environment_parameters import EnvironmentParameters
 
 
 class SimplePIDControl(BaseControl):

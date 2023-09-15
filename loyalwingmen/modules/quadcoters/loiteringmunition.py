@@ -9,7 +9,7 @@ from .components.base.quadcopter import (
     OperationalConstraints,
     QuadcopterSpecs,
     DroneModel,
-    CommandType
+    CommandType,
 )
 
 from enum import Enum
@@ -66,7 +66,7 @@ class LoiteringMunition(Quadcopter):
         origin: np.ndarray = np.array([0, 0, 0]),
         velocity: np.ndarray = np.array([0, 0, 0]),
     ):
-        timeset_period = self.environment_parameters.timestep_period
+        timeset_period = self.environment_parameters.timestep
         aggregate_physics_steps = self.environment_parameters.aggregate_physics_steps
 
         quad_position = flight_state.get_data("position")["position"] or np.array(

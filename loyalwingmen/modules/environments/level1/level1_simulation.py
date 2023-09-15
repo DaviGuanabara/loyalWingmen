@@ -53,7 +53,7 @@ class DroneChaseStaticTargetSimulation:
         p.setRealTimeSimulation(0, physicsClientId=client_id)  # No Realtime Sync
 
         p.setTimeStep(
-            self.environment_parameters.timestep_period,
+            self.environment_parameters.timestep,
             physicsClientId=client_id,
         )
 
@@ -207,9 +207,25 @@ class DroneChaseStaticTargetSimulation:
         velocity = 3
         attitude = 3
         angular_rate = 3
+        acceleration = 3
+        angular_acceleration = 3
 
-        lw_inertial_data_shape = position + velocity + attitude + angular_rate
-        lm_inertial_data_shape = position + velocity + attitude + angular_rate
+        lw_inertial_data_shape = (
+            position
+            + velocity
+            + attitude
+            + angular_rate
+            + acceleration
+            + angular_acceleration
+        )
+        lm_inertial_data_shape = (
+            position
+            + velocity
+            + attitude
+            + angular_rate
+            + acceleration
+            + angular_acceleration
+        )
 
         direction_to_target_shape = 3
         distance_to_target_shape = 1
@@ -236,10 +252,7 @@ class DroneChaseStaticTargetSimulation:
         if self.is_outside_dome(self.loitering_munition):
             return True
 
-        if self.is_outside_dome(self.loyal_wingman):
-            return True
-
-        return False
+        return bool(self.is_outside_dome(self.loyal_wingman))
 
     def step(self, rl_action: np.ndarray):
         """Execute a step in the simulation based on the RL action."""

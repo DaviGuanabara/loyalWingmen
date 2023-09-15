@@ -60,7 +60,7 @@ class Level1(Env):
             NEIGHBOURHOOD_RADIUS=np.inf,
             simulation_frequency=simulation_frequency,
             rl_frequency=rl_frequency,
-            timestep_period=1 / simulation_frequency,
+            timestep=1 / simulation_frequency,
             aggregate_physics_steps=int(simulation_frequency / rl_frequency),
             max_distance=100,
             error=0.5,
