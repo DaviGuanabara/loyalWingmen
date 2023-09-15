@@ -36,6 +36,16 @@ class Motors(Propulsion):
     def __init__(self, drone_id: int, drone_specs: QuadcopterSpecs, client_id: int):
         super().__init__(drone_id, drone_specs, client_id)
 
+        """
+            This data were extracted from dls_pid_control.py.
+        """
+        self.PWM2RPM_SCALE = 0.2685
+        self.PWM2RPM_CONST = 4070.3
+        self.MIN_PWM = 20000
+        self.MAX_PWM = 65535
+        self.minimum_rpm = (self.MIN_PWM - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE
+        self.maximum_rpm = (self.MAX_PWM - self.PWM2RPM_CONST) / self.PWM2RPM_SCALE
+
     def apply(
         self,
         rpm: np.ndarray,
