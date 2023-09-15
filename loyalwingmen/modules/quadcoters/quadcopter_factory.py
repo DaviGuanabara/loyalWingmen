@@ -276,67 +276,6 @@ class QuadcopterFactory:
         self.n_loyalwingmen = 0
         self.n_loiteringmunitions = 0
 
-    def __compute_OperationalConstraints(
-        self, parameters: QuadcopterSpecs
-    ) -> OperationalConstraints:
-        gravity_acceleration = self.environment_parameters.G
-        timestep = self.environment_parameters.timestep
-
-        KMH_TO_MS = 1000 / 3600
-        VELOCITY_LIMITER = 1
-
-        L = parameters.L
-        M = parameters.M
-        KF = parameters.KF
-        KM = parameters.KM
-        PROP_RADIUS = parameters.PROP_RADIUS
-        GND_EFF_COEFF = parameters.GND_EFF_COEFF
-        THRUST2WEIGHT_RATIO = parameters.THRUST2WEIGHT_RATIO
-
-        weight = gravity_acceleration * M
-        max_rpm = np.sqrt((THRUST2WEIGHT_RATIO * weight) / (4 * KF))
-        max_thrust = 4 * KF * max_rpm**2
-        max_z_torque = 2 * KM * max_rpm**2
-        hover_rpm = np.sqrt(weight / (4 * KF))
-        speed_limit = VELOCITY_LIMITER * parameters.MAX_SPEED_KMH * KMH_TO_MS
-        gnd_eff_h_clip = (
-            0.25
-            * PROP_RADIUS
-            * np.sqrt((15 * max_rpm**2 * KF * GND_EFF_COEFF) / max_thrust)
-        )
-        max_xy_torque = (2 * L * KF * max_rpm**2) / np.sqrt(2)
-
-        # acceleration to reach max speed from inverse direction per expected_timestep, expected_timestep = 1/240.
-        # I know that this may be not the correct way to compute the accelerations and velocity limits, but it is the best I can do for now.
-        I_x = I_y = (1 / 12) * M * L**2
-        I_z = (1 / 6) * M * L**2
-
-        alpha_x = alpha_y = max_xy_torque / I_x
-        alpha_z = max_z_torque / I_z
-        angular_acceleration_limit = max(alpha_x, alpha_z)
-        angular_speed_limit = angular_acceleration_limit * timestep
-
-        acceleration_limit = max_thrust / M
-
-        # Saving constraints
-        operational_constraints = OperationalConstraints()
-        operational_constraints.weight = weight
-        operational_constraints.max_rpm = max_rpm
-        operational_constraints.max_thrust = max_thrust
-        operational_constraints.max_z_torque = max_z_torque
-        operational_constraints.hover_rpm = hover_rpm
-
-        operational_constraints.speed_limit = speed_limit
-        operational_constraints.acceleration_limit = acceleration_limit
-
-        operational_constraints.angular_speed_limit = angular_speed_limit
-        operational_constraints.angular_acceleration_limit = angular_acceleration_limit
-
-        operational_constraints.gnd_eff_h_clip = gnd_eff_h_clip
-        operational_constraints.max_xy_torque = max_xy_torque
-
-        return operational_constraints
-
     def load_quad_attributes(
         self,
         initial_position: np.ndarray,
