@@ -17,10 +17,8 @@ from ...quadcoters.quadcopter_factory import (
     CommandType,
 )
 
-from ..helpers.normalization import normalize_flight_state
+from ..helpers.normalization import normalize_inertial_data
 from ...quadcoters.components.controllers.DSLPIDControl import DSLPIDControl
-
-from ..helpers.normalization import normalize_flight_state
 
 from ..helpers.environment_parameters import EnvironmentParameters
 
@@ -180,7 +178,7 @@ class PIDTuningSimulation:
     def compute_observation(self) -> np.ndarray:
         lw = self.loyalwingman
         lw_state = lw.flight_state_by_type(FlightStateDataType.INERTIAL)
-        norm_lw_state = normalize_flight_state(
+        norm_lw_state = normalize_inertial_data(
             lw_state, lw.operational_constraints, self.dome_radius
         )
 

@@ -22,7 +22,7 @@ from ..helpers.environment_parameters import EnvironmentParameters
 from time import time
 
 
-class DroneChaseStaticTargetSimulation:
+class DroneChaseStaticTargetSimulation2:
     def __init__(
         self,
         dome_radius: float,
@@ -46,7 +46,7 @@ class DroneChaseStaticTargetSimulation:
         p.setGravity(
             0,
             0,
-            0,  # -self.environment_parameters.G,
+            -self.environment_parameters.G,
             physicsClientId=client_id,
         )
 
@@ -68,7 +68,7 @@ class DroneChaseStaticTargetSimulation:
         position, ang_position = self.gen_initial_position()
 
         self.loyal_wingman: LoyalWingman = self.factory.create_loyalwingman(
-            position, np.zeros(3), quadcopter_name="agent"
+            position, np.zeros(3), quadcopter_name="agent", command_type=CommandType.RPM
         )
 
         self.loitering_munition: LoiteringMunition = (
