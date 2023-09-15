@@ -5,9 +5,7 @@ import os
 from pathlib import Path
 
 import xml.etree.ElementTree as etxml
-from typing import Tuple
-
-from typing import Union
+from typing import Union, Tuple
 
 from .components.base.quadcopter import (
     Quadcopter,
@@ -133,6 +131,133 @@ class DroneURDFHandler:
         )
 
 
+class OperationalConstraintsCalculator:
+    @staticmethod
+    def compute_max_torque(max_rpm, L, KF, KM):
+        max_z_torque = 2 * KM * max_rpm**2
+        max_xy_torque = (2 * L * KF * max_rpm**2) / np.sqrt(2)
+
+        return max_xy_torque, max_z_torque
+
+    @staticmethod
+    def compute_thrust(max_rpm, KF, M):
+        max_thrust = 4 * KF * max_rpm**2
+        acceleration_limit = max_thrust / M
+        return max_thrust, acceleration_limit
+
+    @staticmethod
+    def compute_rpm(weight, KF, THRUST2WEIGHT_RATIO):
+        max_rpm = np.sqrt((THRUST2WEIGHT_RATIO * weight) / (4 * KF))
+        hover_rpm = np.sqrt(weight / (4 * KF))
+
+        return max_rpm, hover_rpm
+
+    @staticmethod
+    def compute_speed_limit(parameters: QuadcopterSpecs):
+        KMH_TO_MS = 1000 / 3600
+        VELOCITY_LIMITER = 1
+
+        return VELOCITY_LIMITER * parameters.MAX_SPEED_KMH * KMH_TO_MS
+
+    @staticmethod
+    def compute_gnd_eff_h_clip(max_rpm, KF, GND_EFF_COEFF, max_thrust, PROP_RADIUS):
+        return (
+            0.25
+            * PROP_RADIUS
+            * np.sqrt((15 * max_rpm**2 * KF * GND_EFF_COEFF) / max_thrust)
+        )
+
+    @staticmethod
+    def compute_moment_of_inertia(M, L):
+        # I know that this may be not the correct way to compute the accelerations and velocity limits, but it is the best I can do for now.
+        I_x = I_y = (1 / 12) * M * L**2
+        I_z = (1 / 6) * M * L**2
+
+        return I_x, I_y, I_z
+
+    @staticmethod
+    def compute_angular_acceleration_limit(
+        max_xy_torque, max_z_torque, I_x, I_z
+    ) -> float:
+        alpha_x = alpha_y = max_xy_torque / I_x
+        alpha_z = max_z_torque / I_z
+        return max(alpha_x, alpha_z)
+
+    @staticmethod
+    def compute_angular_speed_limit(angular_acceleration_limit, timestep) -> float:
+        return angular_acceleration_limit * timestep
+
+    @staticmethod
+    def compute(
+        parameters: QuadcopterSpecs, environment_parameters: EnvironmentParameters
+    ) -> OperationalConstraints:
+        # Your operational constraints logic here
+        gravity_acceleration = environment_parameters.G
+        timestep = environment_parameters.timestep
+
+        KMH_TO_MS = 1000 / 3600
+        VELOCITY_LIMITER = 1
+
+        L = parameters.L
+        M = parameters.M
+        KF = parameters.KF
+        KM = parameters.KM
+        PROP_RADIUS = parameters.PROP_RADIUS
+        GND_EFF_COEFF = parameters.GND_EFF_COEFF
+        THRUST2WEIGHT_RATIO = parameters.THRUST2WEIGHT_RATIO
+
+        WEIGHT = gravity_acceleration * M
+
+        max_rpm, hover_rpm = OperationalConstraintsCalculator.compute_rpm(
+            WEIGHT, KF, THRUST2WEIGHT_RATIO
+        )
+
+        speed_limit = OperationalConstraintsCalculator.compute_speed_limit(parameters)
+        (
+            max_thrust,
+            acceleration_limit,
+        ) = OperationalConstraintsCalculator.compute_thrust(max_rpm, KF, M)
+        (
+            max_xy_torque,
+            max_z_torque,
+        ) = OperationalConstraintsCalculator.compute_max_torque(max_rpm, L, KF, KM)
+
+        gnd_eff_h_clip = OperationalConstraintsCalculator.compute_gnd_eff_h_clip(
+            max_rpm, KF, GND_EFF_COEFF, max_thrust, PROP_RADIUS
+        )
+
+        I_x, I_y, I_z = OperationalConstraintsCalculator.compute_moment_of_inertia(M, L)
+        angular_acceleration_limit = (
+            OperationalConstraintsCalculator.compute_angular_acceleration_limit(
+                max_xy_torque, max_z_torque, I_x, I_z
+            )
+        )
+        angular_speed_limit = (
+            OperationalConstraintsCalculator.compute_angular_speed_limit(
+                angular_acceleration_limit, timestep
+            )
+        )
+
+        # Saving constraints
+        operational_constraints = OperationalConstraints()
+        operational_constraints.weight = WEIGHT
+        operational_constraints.max_rpm = max_rpm
+        operational_constraints.max_thrust = max_thrust
+        operational_constraints.max_z_torque = max_z_torque
+        operational_constraints.hover_rpm = hover_rpm
+
+        operational_constraints.speed_limit = speed_limit
+        operational_constraints.acceleration_limit = acceleration_limit
+
+        operational_constraints.angular_speed_limit = angular_speed_limit
+        operational_constraints.angular_acceleration_limit = angular_acceleration_limit
+
+        operational_constraints.gnd_eff_h_clip = gnd_eff_h_clip
+        operational_constraints.max_xy_torque = max_xy_torque
+
+        return operational_constraints
+
+
 class QuadcopterFactory:
     def __init__(
         self,
@@ -229,7 +354,11 @@ class QuadcopterFactory:
         id, parameters = self.drone_urdf_handler.load_model(
             initial_position, initial_angular_position
         )
-        operational_constraints = self.__compute_OperationalConstraints(parameters)
+
+        operational_constraints = OperationalConstraintsCalculator.compute(
+            parameters, self.environment_parameters
+        )
+
         environment_parameters = self.environment_parameters
         quadcopter_full_name = self._gen_quadcopter_name(
             quadcopter_type, quadcopter_name
