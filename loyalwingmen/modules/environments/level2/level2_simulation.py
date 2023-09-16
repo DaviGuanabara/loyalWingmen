@@ -27,13 +27,14 @@ class DroneChaseStaticTargetSimulation2:
         self,
         dome_radius: float,
         environment_parameters: EnvironmentParameters,
+        interactive_mode: bool = False,
     ):
         self.dome_radius = dome_radius
 
         self.environment_parameters = environment_parameters
-        self.init_simulation()
+        self.init_simulation(interactive_mode)
 
-    def init_simulation(self):
+    def init_simulation(self, interactive_mode: bool = False):
         """Initialize the simulation and entities."""
         # Initialize pybullet, load plane, gravity, etc.
 
@@ -46,7 +47,7 @@ class DroneChaseStaticTargetSimulation2:
         p.setGravity(
             0,
             0,
-            -self.environment_parameters.G,
+            0,  # -self.environment_parameters.G,
             physicsClientId=client_id,
         )
 
@@ -65,10 +66,18 @@ class DroneChaseStaticTargetSimulation2:
         self.environment_parameters.client_id = client_id
         self.factory = QuadcopterFactory(self.environment_parameters)
 
+        """
         position, ang_position = self.gen_initial_position()
 
+        if interactive_mode:
+            print("INTERACTIVE MODE IS ON. MAKE SURE YOU ARE NOT TRAINING IT")
+            command_type = CommandType.VELOCITY_DIRECT
+        else:
+            print("RPM IS ON. IT SUPPOSED BEING IN TRAINING")
+            command_type = CommandType.RPM
+
         self.loyal_wingman: LoyalWingman = self.factory.create_loyalwingman(
-            position, np.zeros(3), quadcopter_name="agent", command_type=CommandType.RPM
+            position, np.zeros(3), quadcopter_name="agent", command_type=command_type
         )
 
         self.loitering_munition: LoiteringMunition = (
@@ -78,6 +87,7 @@ class DroneChaseStaticTargetSimulation2:
         )
 
         self.last_action: np.ndarray = np.zeros(4)
+        """
 
         self.reset()
 
@@ -126,27 +136,40 @@ class DroneChaseStaticTargetSimulation2:
 
         target_pos, target_ang_pos = np.array([0, 0, 0]), np.array([0, 0, 0])
 
-        if self.loyal_wingman is not None:
+        if hasattr(self, "loyal_wingman") and self.loyal_wingman is not None:
             self.loyal_wingman.detach_from_simulation()
 
-        if self.loitering_munition is not None:
+        if hasattr(self, "loitering_munition") and self.loitering_munition is not None:
             self.loitering_munition.detach_from_simulation()
 
-        self.loyal_wingman = self.factory.create_loyalwingman(
+        self.loyal_wingman: LoyalWingman = self.factory.create_loyalwingman(
             position=pos,
             ang_position=np.zeros(3),
-            command_type=CommandType.VELOCITY_DIRECT,
+            command_type=CommandType.RPM,
             quadcopter_name="agent",
         )
-        self.loitering_munition = self.factory.create_loiteringmunition(
-            position=target_pos, ang_position=target_ang_pos, quadcopter_name="target"
+        self.loitering_munition: LoiteringMunition = (
+            self.factory.create_loiteringmunition(
+                position=target_pos,
+                ang_position=target_ang_pos,
+                quadcopter_name="target",
+            )
         )
 
         self.loyal_wingman.update_imu()
         self.loitering_munition.update_imu()
 
         self.loitering_munition.set_behavior(LoiteringMunitionBehavior.FROZEN)
+        self.last_action = np.zeros(4)
+
         self.start_time = time()
+
+        lw_state = self.loyal_wingman.flight_state_by_type(FlightStateDataType.INERTIAL)
+        lm_state = self.loitering_munition.flight_state_by_type(
+            FlightStateDataType.INERTIAL
+        )
+        distance_vector = self._calculate_distance_vector(lw_state, lm_state)
+        self.last_distance_to_target = np.linalg.norm(distance_vector)
 
     def reset(self):
         """Reset the simulation to its initial state."""
@@ -312,7 +335,18 @@ class DroneChaseStaticTargetSimulation2:
         distance_vector = self._calculate_distance_vector(
             lw_flight_state, lm_flight_state
         )
+
         distance = np.linalg.norm(distance_vector)
+
+        angular_velocity = np.linalg.norm(
+            lw_flight_state.get("angular_velocity", np.zeros(3))
+        )  # compute the angular speed
+        penalty += angular_velocity
+
+        if distance < self.last_distance_to_target:
+            bonus += self.last_distance_to_target - distance
+
+        self.last_distance_to_target = distance
 
         score = self.dome_radius - distance
 

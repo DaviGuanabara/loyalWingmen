@@ -20,9 +20,9 @@ Requires-Dist: tensorboard==2.12.2
 Requires-Dist: tensorboard-data-server==0.7.0
 Requires-Dist: tensorboard-plugin-wit==1.8.1
 Requires-Dist: tensorboardX==2.6
-Requires-Dist: torch==2.0.0
-Requires-Dist: torchaudio==2.0.1
-Requires-Dist: torchvision==0.15.1
+Requires-Dist: torch==2.0.1+cu118
+Requires-Dist: torchaudio==2.0.2+cu118
+Requires-Dist: torchvision==0.15.2+cu118
 Requires-Dist: tqdm==4.65.0
 Requires-Dist: typing_extensions==4.5.0
 Requires-Dist: vcstool==0.3.0

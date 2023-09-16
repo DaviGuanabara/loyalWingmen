@@ -1,5 +1,7 @@
 import sys
 import os
+import cProfile
+import pstats
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_directory)
@@ -52,13 +54,13 @@ def create_output_folder(experiment_name: str):
 
 def main():
     output_folder = create_output_folder("demo_training2_app")
-    model_path = os.path.join(output_folder, f"models")
-    log_path = os.path.join(output_folder, f"logs")
+    model_path = os.path.join(output_folder, "models")
+    log_path = os.path.join(output_folder, "logs")
 
     number_of_logical_cores = cpu_count()
-    n_envs = int(number_of_logical_cores / 2)
+    n_envs = int(number_of_logical_cores)
 
-    env_fns = [lambda: Level2(GUI=False, rl_frequency=30) for _ in range(n_envs)]
+    env_fns = [lambda: Level2(GUI=False, rl_frequency=60) for _ in range(n_envs)]
 
     vectorized_environment = VecMonitor(SubprocVecEnv(env_fns))  # type: ignore
 
@@ -69,7 +71,7 @@ def main():
         save_freq=100_000,
     )
 
-    nn_t = [512, 512, 512, 512]
+    nn_t = [512, 512, 512, 512, 512]
     policy_kwargs = dict(net_arch=dict(pi=nn_t, vf=nn_t))
 
     model = PPO(
@@ -78,15 +80,24 @@ def main():
         verbose=0,
         device="cuda",
         policy_kwargs=policy_kwargs,
-        learning_rate=1e-5,
+        learning_rate=1e-6,
+        batch_size=64,  # 16_384,  # 8192,  # 4096,  # 1024,  # 8_192,  # 4096,  # default is 64 8_192
     )
 
     print(model.policy)
     model.learn(total_timesteps=4_000_000, callback=callback_list)
-    model.save("trained_level2_ppo")
+    model.save("trained_level2_ppo_RPM_ON")
 
 
 if __name__ == "__main__":
     # https://stackoverflow.com/questions/29690091/python2-7-exception-the-freeze-support-line-can-be-omitted-if-the-program
     # freeze_support() here if program needs to be frozen
-    main()  # execute this only when run directly, not when imported!
+
+    cProfile.run("main()", "result_with_lidar.prof")
+
+    stats = pstats.Stats("result.prof")
+    stats.sort_stats("cumulative").print_stats(
+        50
+    )  # Show the top 10 functions by cumulative time
+
+    # main()  # execute this only when run directly, not when imported!

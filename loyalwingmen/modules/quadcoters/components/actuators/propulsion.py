@@ -9,7 +9,7 @@ from ..dataclasses.flight_state import FlightStateManager
 
 from ....environments.helpers.environment_parameters import EnvironmentParameters
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs
-
+from ..dataclasses.operational_constraints import OperationalConstraints
 
 from ....utils.enums import DroneModel
 
@@ -120,19 +120,50 @@ class PropulsionSystem:
         drone_model: DroneModel,
         drone_specs: QuadcopterSpecs,
         environment_parameters: EnvironmentParameters,
+        operational_constraints: OperationalConstraints,
         quadcopter_name: str = "",
         command_type: CommandType = CommandType.VELOCITY_TO_CONTROLLER,
     ):
         self.quadcopter_name = quadcopter_name
         self.environment_parameters = environment_parameters
         self.command_type = command_type
+        self.operational_constraints = operational_constraints
+
+        self.max_rpm = operational_constraints.max_rpm
+        self.min_rpm = 0
+
+        self.max_action_rpm = 1
+        self.min_action_rpm = -1
 
         self.propeller = self._init_propeller(
             command_type, drone_id, drone_specs, drone_model, environment_parameters
         )
 
+    def _compute_velocity_from_command(self, motion_command: np.ndarray) -> np.ndarray:
+        """
+        Compute the velocity vector from a given motion command.
+
+        Parameters:
+        - motion_command: The motion command where the first three elements represent direction,
+        and the fourth element represents intensity or magnitude.
+
+        Returns:
+        - velocity: The computed velocity vector.
+        """
+        norm = np.linalg.norm(motion_command[:3])
+        if norm == 0:
+            return np.array([0, 0, 0])
+
+        intensity = self.operational_constraints.speed_limit * motion_command[3]
+        return intensity * motion_command[:3] / norm
+
     def _init_propeller(
-        self, command_type, drone_id, drone_specs, drone_model, environment_parameters
+        self,
+        command_type,
+        drone_id,
+        drone_specs,
+        drone_model,
+        environment_parameters: EnvironmentParameters,
     ):
         if command_type == CommandType.VELOCITY_DIRECT:
             direct_velocity_applier = DirectVelocityApplier(
@@ -141,8 +172,10 @@ class PropulsionSystem:
                 client_id=environment_parameters.client_id,
             )
 
-            return lambda velocity, flight_state_manager: direct_velocity_applier.apply(
-                velocity
+            # print("_init_propeller - Direct velocity applier")
+
+            return lambda velocity_command, flight_state_manager: self._directly_apply_velocity(
+                velocity_command, flight_state_manager, direct_velocity_applier
             )
 
         elif command_type == CommandType.VELOCITY_TO_CONTROLLER:
@@ -155,8 +188,9 @@ class PropulsionSystem:
                 client_id=environment_parameters.client_id,
             )
 
-            return lambda target_velocity, flight_state_manager: self._velocity_to_controller(
-                target_velocity, flight_state_manager, controller, motors
+            # print("_init_propeller - Velocity to controller")
+            return lambda velocity_command, flight_state_manager: self._velocity_to_controller(
+                velocity_command, flight_state_manager, controller, motors
             )
 
         elif command_type == CommandType.RPM:
@@ -166,17 +200,42 @@ class PropulsionSystem:
                 client_id=environment_parameters.client_id,
             )
 
-            return lambda rpm, flight_state_manager: motors.apply(rpm)
+            # print("_init_propeller - RPM")
+            return lambda rpm, flight_state_manager: self._rl_to_rpm(
+                rpm, flight_state_manager, motors
+            )
 
         else:
             raise ValueError(f"Invalid command type: {command_type}")
 
         # return lambda any_thing, flight_state_manager: print("Invalid command type")
 
-    def _velocity_to_controller(
-        self, target_velocity, flight_state_manager, controller, motors
+    def _directly_apply_velocity(
+        self,
+        velocity_command,
+        flight_state_manager,
+        direct_velocity_applier: DirectVelocityApplier,
     ):
-        rpms = self._apply_controller(target_velocity, flight_state_manager, controller)
+        velocity = self._compute_velocity_from_command(velocity_command)
+        direct_velocity_applier.apply(velocity)
+
+    def _rl_to_rpm(
+        self, action_rpm, flight_state_manager: FlightStateManager, motors: Motors
+    ):
+        # ((action_rpm - self.min_action_rpm) / (self.max_action_rpm - self.min_action_rpm)) = rpm - self.min_rpm / (self.max_rpm - self.min_rpm)
+        # rpm = ((action_rpm - self.min_action_rpm) / (self.max_action_rpm - self.min_action_rpm)) * (self.max_rpm - self.min_rpm) + self.min_rpm
+        # rpm = action_rpm * self.max_rpm
+        action_rpm_normalized = (action_rpm - self.min_action_rpm) / (
+            self.max_action_rpm - self.min_action_rpm
+        )
+        rpm = action_rpm_normalized * (self.max_rpm - self.min_rpm) + self.min_rpm
+        motors.apply(rpm)
+
+    def _velocity_to_controller(
+        self, velocity_command, flight_state_manager, controller, motors
+    ):
+        velocity = self._compute_velocity_from_command(velocity_command)
+        rpms = self._apply_controller(velocity, flight_state_manager, controller)
         motors.apply(rpms)
 
     def _apply_controller(

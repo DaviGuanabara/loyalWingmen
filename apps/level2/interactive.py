@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(current_directory)
@@ -17,8 +18,8 @@ from loyalwingmen.modules.environments.level2.level2_environment import Level2
 from loyalwingmen.modules.utils.displaytext import log
 
 
-env = Level2(GUI=True, rl_frequency=15, debug=True)
-check_env(env)
+env = Level2(GUI=True, rl_frequency=15, debug=True, interactive_mode=False)
+# check_env(env)
 
 
 keyboard_listener = KeyboardListener(env.get_keymap())
@@ -29,7 +30,11 @@ for _ in range(50_000):
     action = keyboard_listener.get_action()
     observation, reward, terminated, truncated, info = env.step(action)
 
-    log(f"reward:{reward:.2f}")
+    # log(f"reward:{reward:.2f}")
+    # log(str(observation[:18]))
+
+    log(string=f"action:{str(action)}")
+    time.sleep(0.1)
 
     if terminated:
         observation, info = env.reset()

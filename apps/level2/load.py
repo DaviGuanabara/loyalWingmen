@@ -16,7 +16,7 @@ from loyalwingmen.modules.environments.level2.level2_environment import Level2
 
 
 # IT NEEDS TO BE FIXED BEFORE USE
-env = Level2(GUI=True, rl_frequency=30)
+env = Level2(GUI=True, rl_frequency=15)
 
 # preciso corrigir o caminho do modelo
 model = PPO.load("./trained_level2_ppo")

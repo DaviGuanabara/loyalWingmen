@@ -46,9 +46,12 @@ class Level2(Env):
         dome_radius: float = 20,
         GUI: bool = False,
         debug: bool = False,
+        interactive_mode: bool = False,
     ):
         self.setup_Parameteres(simulation_frequency, rl_frequency, GUI, debug)
-        self.simulation = Level2Simulation(dome_radius, self.environment_parameters)
+        self.simulation = Level2Simulation(
+            dome_radius, self.environment_parameters, interactive_mode=interactive_mode
+        )
 
         #### Create action and observation spaces ##################
         self.action_space = self._action_space()
@@ -130,8 +133,8 @@ class Level2(Env):
     def _action_space(self):
         # direction and intensity fo velocity
         return spaces.Box(
-            low=np.array([-1, -1, -1, 0]),
-            high=np.array([1, 1, 1, 1]),
+            low=-np.ones(4),  # np.array([-1, -1, -1, -1]),
+            high=np.ones(4),  # np.array([1, 1, 1, 1]),
             shape=(4,),
             dtype=np.float32,
         )
@@ -158,8 +161,7 @@ class Level2(Env):
         """
 
         size = self.simulation.observation_size()
-        low = -1 * np.ones(size)
-        low[-1] = 0
+        low = -np.ones(size)
 
         high = np.ones(size)
 

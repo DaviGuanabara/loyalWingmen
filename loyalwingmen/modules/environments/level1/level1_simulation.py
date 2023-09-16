@@ -342,13 +342,28 @@ class DroneChaseStaticTargetSimulation:
 
         position, ang_position = self.gen_initial_position()
 
-        assert self.loitering_munition is not None
-        self.loitering_munition.detach_from_simulation()
-        self.loitering_munition = self.factory.create_loiteringmunition(
-            position=position, ang_position=ang_position
+        # assert self.loitering_munition is not None
+        # self.loitering_munition.detach_from_simulation()
+        # self.loitering_munition = self.factory.create_loiteringmunition(
+        #    position=position, ang_position=ang_position
+        # )
+
+        quaternion = p.getQuaternionFromEuler(ang_position)
+        p.resetBasePositionAndOrientation(
+            self.loitering_munition.id,
+            position,
+            quaternion,
+            physicsClientId=self.environment_parameters.client_id,
         )
 
         self.loitering_munition.update_imu()
+        behaviors = [
+            LoiteringMunitionBehavior.STRAIGHT_LINE,
+            LoiteringMunitionBehavior.CIRCLE,
+            LoiteringMunitionBehavior.FROZEN,
+        ]
+        random_behavior = random.choice(behaviors)
+        self.loitering_munition.set_behavior(LoiteringMunitionBehavior.CIRCLE)
 
     def convert_dict_to_array(self, dictionary: Dict) -> np.ndarray:
         array = np.array([])
