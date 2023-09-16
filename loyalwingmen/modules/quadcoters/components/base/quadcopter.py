@@ -119,6 +119,9 @@ class Quadcopter:
         self._update_flight_state(lidar_data)
         # Note: We don't publish the flight state here
 
+    def get_lidar_shape(self) -> tuple:
+        return self.lidar.get_data_shape()
+
     def reset_sensors(self):
         self.imu.reset()
         self.lidar.reset()

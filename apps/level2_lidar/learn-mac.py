@@ -18,12 +18,16 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
 from stable_baselines3 import PPO
 
-from loyalwingmen.modules.environments.level2.level2_environment import Level2
+from loyalwingmen.modules.environments.level2_lidar.level2_environment import (
+    Level2_lidar,
+)
+
 
 from multiprocessing import cpu_count
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
 from loyalwingmen.rl_tools.callback_factory import callbacklist
+from loyalwingmen.rl_tools.policies.ppo_policies import LidarInertialActionExtractor
 import torch.nn as nn
 import torch as th
 import math
@@ -52,13 +56,13 @@ def create_output_folder(experiment_name: str):
 
 def main():
     output_folder = create_output_folder("demo_training2_app")
-    model_path = os.path.join(output_folder, f"models")
-    log_path = os.path.join(output_folder, f"logs")
+    model_path = os.path.join(output_folder, "models")
+    log_path = os.path.join(output_folder, "logs")
 
     number_of_logical_cores = cpu_count()
     n_envs = int(number_of_logical_cores / 2)
 
-    env_fns = [lambda: Level2(GUI=False, rl_frequency=30) for _ in range(n_envs)]
+    env_fns = [lambda: Level2_lidar(GUI=False, rl_frequency=30) for _ in range(n_envs)]
 
     vectorized_environment = VecMonitor(SubprocVecEnv(env_fns))  # type: ignore
 
@@ -69,21 +73,26 @@ def main():
         save_freq=100_000,
     )
 
-    nn_t = [512, 512, 512, 512]
-    policy_kwargs = dict(net_arch=dict(pi=nn_t, vf=nn_t))
+    nn_t = [512, 512, 512]
+
+    policy_kwargs = dict(
+        features_extractor_class=LidarInertialActionExtractor,
+        features_extractor_kwargs=dict(features_dim=128),
+        net_arch=dict(pi=nn_t, vf=nn_t),
+    )
 
     model = PPO(
-        "MlpPolicy",
+        "MultiInputPolicy",
         vectorized_environment,
         verbose=0,
-        device="mps",
+        device="auto",
         policy_kwargs=policy_kwargs,
         learning_rate=1e-5,
     )
 
     print(model.policy)
-    model.learn(total_timesteps=4_000_000, callback=callback_list)
-    model.save("trained_level2_ppo")
+    model.learn(total_timesteps=1_000_000, callback=callback_list)
+    model.save("trained_level1_ppo")
 
 
 if __name__ == "__main__":

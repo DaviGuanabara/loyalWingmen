@@ -282,7 +282,6 @@ class LiDAR(Sensor):
                     phi_point
                 ]
                 if distance < 1:
-
                     end_position = self.convert_angle_point_to_cartesian(
                         theta_point=theta_point,
                         phi_point=phi_point,
@@ -369,3 +368,6 @@ class LiDAR(Sensor):
                 self._update_position_data(loyalwingman_position=position)
             elif entity_type == EntityTypes.OBSTACLE:
                 self._update_position_data(obstacle_position=position)
+
+    def get_data_shape(self) -> Tuple:
+        return self.sphere.shape

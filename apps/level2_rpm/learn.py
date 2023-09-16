@@ -20,7 +20,7 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from gymnasium import spaces
 from stable_baselines3 import PPO
 
-from loyalwingmen.modules.environments.level2.level2_environment import Level2
+from loyalwingmen.modules.environments.level2_rpm.level2_environment import Level2
 
 from multiprocessing import cpu_count
 from stable_baselines3.common.vec_env import SubprocVecEnv

@@ -2,7 +2,7 @@ import cProfile
 import sys
 import os
 import time
-
+import tqdm as tqdm_renamed
 from tqdm import tqdm
 
 current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -16,7 +16,9 @@ sys.path.append(grand_parent_directory)
 
 from stable_baselines3.common.env_checker import check_env
 from loyalwingmen.modules.utils.keyboard_listener import KeyboardListener
-from loyalwingmen.modules.environments.level2.level2_environment import Level2
+from loyalwingmen.modules.environments.level2_lidar.level2_environment import (
+    Level2_lidar,
+)
 from loyalwingmen.modules.utils.displaytext import log
 import numpy as np
 import pstats
@@ -25,23 +27,25 @@ from stable_baselines3.common.vec_env import VecMonitor
 from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3 import PPO
 import torch
+from loyalwingmen.rl_tools.policies.ppo_policies import LidarInertialActionExtractor
 
-
-env = Level2(GUI=False, rl_frequency=30, debug=True)
-print(torch.cuda.is_available())
-print(torch.cuda.get_device_name(0))
-model = PPO("MlpPolicy", env, verbose=1)
+env = Level2_lidar(GUI=False, rl_frequency=30, debug=True)
+nn_t = [512, 512, 512]
+policy_kwargs = dict(
+    features_extractor_class=LidarInertialActionExtractor,
+    features_extractor_kwargs=dict(features_dim=128),
+    net_arch=dict(pi=nn_t, vf=nn_t),
+)
+model = PPO("MultiInputPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
 check_env(env)
 
 
 def on_avaluation_step():
     n = 1_000
-    # number_of_logical_cores = cpu_count()
-    # n_envs = int(number_of_logical_cores)
-    # env_fns = [lambda: Level2(GUI=False, rl_frequency=30) for _ in range(n_envs)]
-    # vectorized_environment = VecMonitor(SubprocVecEnv(env_fns))  # type: ignore
-    # vectorized_environment = Level2(GUI=False, rl_frequency=30)
-    print("Not vec env")
+    number_of_logical_cores = cpu_count()
+    n_envs = int(number_of_logical_cores / 2)
+    env_fns = [lambda: Level2_lidar(GUI=False, rl_frequency=30) for _ in range(n_envs)]
+    vectorized_environment = VecMonitor(SubprocVecEnv(env_fns))  # type: ignore
     max_allowed_time = (
         1 / env.environment_parameters.rl_frequency
     )  # Convert frequency to time. For 30Hz, this is about 0.0333 seconds.
@@ -54,9 +58,9 @@ def on_avaluation_step():
     for _ in tqdm(range(n), desc="Processing", ncols=100):
         start_time = time.time()
         # vectorized_environment.step(np.zeros(4))
-        # actions = np.array([np.random.rand(4) for _ in range(n_envs)])
-        # vectorized_environment.step(actions)
-        env.step(np.zeros(4))
+        actions = np.array([np.random.rand(4) for _ in range(n_envs)])
+        vectorized_environment.step(actions)
+
         end_time = time.time()
 
         elapsed_time = end_time - start_time
@@ -100,7 +104,7 @@ def main():
 
     stats = pstats.Stats("result.prof")
     stats.sort_stats("cumulative").print_stats(
-        50
+        20
     )  # Show the top 10 functions by cumulative time
 
 

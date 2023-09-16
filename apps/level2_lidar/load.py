@@ -12,14 +12,14 @@ from loyalwingmen.modules.utils.utils import sync, str2bool
 import torch
 from stable_baselines3.common.env_util import make_vec_env
 import torch as th
-from loyalwingmen.modules.environments.level2.level2_environment import Level2
+from loyalwingmen.modules.environments.level1.level1_environment import Level1
 
 
 # IT NEEDS TO BE FIXED BEFORE USE
-env = Level2(GUI=True, rl_frequency=15)
+env = Level1(GUI=True, rl_frequency=30)
 
 # preciso corrigir o caminho do modelo
-model = PPO.load("./trained_level2_ppo")
+model = PPO.load("./trained_level1_ppo")
 
 observation, info = env.reset(0)
 for steps in range(50_000):

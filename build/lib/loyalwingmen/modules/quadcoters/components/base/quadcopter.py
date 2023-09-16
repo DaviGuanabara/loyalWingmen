@@ -92,6 +92,7 @@ class Quadcopter:
             self.model,
             self.quadcopter_specs,
             self.environment_parameters,
+            self.operational_constraints,
             self.quadcopter_name,
             self.command_type,
         )
@@ -117,6 +118,9 @@ class Quadcopter:
         lidar_data = self.lidar.read_data()
         self._update_flight_state(lidar_data)
         # Note: We don't publish the flight state here
+
+    def get_lidar_shape(self) -> tuple:
+        return self.lidar.get_data_shape()
 
     def reset_sensors(self):
         self.imu.reset()
@@ -169,24 +173,6 @@ class Quadcopter:
     # Actuators
     # =================================================================================================================
 
-    def _compute_velocity_from_command(self, motion_command: np.ndarray) -> np.ndarray:
-        """
-        Compute the velocity vector from a given motion command.
-
-        Parameters:
-        - motion_command: The motion command where the first three elements represent direction,
-        and the fourth element represents intensity or magnitude.
-
-        Returns:
-        - velocity: The computed velocity vector.
-        """
-        norm = np.linalg.norm(motion_command[:3])
-        if norm == 0:
-            return np.array([0, 0, 0])
-
-        intensity = self.operational_constraints.speed_limit * motion_command[3]
-        return intensity * motion_command[:3] / norm
-
     def drive(self, motion_command: np.ndarray):
         """
         Apply the given motion command to the quadcopter's propulsion system.
@@ -194,8 +180,7 @@ class Quadcopter:
         - motion_command: The command to be applied. This could be RPM values, thrust levels, etc.
         """
 
-        velocity = self._compute_velocity_from_command(motion_command)
-        self.propulsion_system.propel(velocity, self.flight_state_manager)
+        self.propulsion_system.propel(motion_command, self.flight_state_manager)
 
     # =================================================================================================================
     # Delete or Destroy
