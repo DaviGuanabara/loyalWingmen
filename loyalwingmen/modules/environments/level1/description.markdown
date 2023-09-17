@@ -11,6 +11,7 @@ In this level, a loyalwingman has to engage a loitering munition that is passing
 **PHYSICS AND GRAVITY ARE DISABLED**, so, the action, the direction and intensity of the velocity, is directly applied to the quadcopter by the
  'pybullet reset base velocity'. 
 
+
 ## **Inspiration**:
 The design is inspired by the [`gym-pybullet-drones`](https://github.com/utiasDSL/gym-pybullet-drones) project on GitHub, and the CTEDS project by the Instituto Tecnológico de Aeronáutica.
 

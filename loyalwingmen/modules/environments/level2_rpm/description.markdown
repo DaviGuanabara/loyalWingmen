@@ -73,3 +73,49 @@ Distinct design philosophies are evident:
 
 
 # Environment Observations
+
+### `compute_reward` Function Description
+
+The `compute_reward` function calculates the reward for a reinforcement learning agent guiding a flight vehicle towards a target. This function takes into account various metrics to determine rewards and penalties, with the aim to optimize the agent's performance and behavior.
+
+- **Initialization**:
+  - `max_bonus`: The maximum bonus that can be achieved in any given timestep (10,000).
+  - `max_penalty`: The maximum penalty that can be applied in any given timestep (10,000).
+
+- **Inertial Data Retrieval**:
+  - Retrieves the inertial data for both the loyal wingman (`lw_inertial_data`) and the loitering munition (`lm_inertial_data`).
+  - Computes the position vectors for each, and calculates the distance vector between them (`distance_vector`). It then calculates the magnitude of this distance, `distance_intensity`.
+
+- **Basic Scoring**:
+  - `score`: A reward is given based on the difference between the dome's radius and the `distance_intensity`. This reward mechanism promotes being alive and inside the dome, with added benefits for proximity to the target.
+
+- **Bonus/Penalty for Proximity**:
+  - Bonuses are provided for moving closer to the target when compared with the previous timestep.
+  - If the `distance_intensity` is less than 0.2 units, a maximum bonus is awarded.
+  - A maximum penalty is applied if the distance exceeds the dome's radius.
+
+- **Bonus for Velocity Towards Target**:
+  - Computes the direction vector towards the target and determines the velocity component in that direction.
+  - A bonus is awarded based on the magnitude of this velocity.
+
+- **Bonus/Penalty for Stability**:
+  - The function uses the timestep data (`t`) which is adjusted by the aggregate number of physics steps to more accurately measure time.
+  - Using the `get_angular_data` function, it obtains angular attributes such as attitude, angular velocity, and angular acceleration. From this data, the function predicts the next attitude.
+  - Penalties are applied if the attitude deviates by more than 5 degrees from the desired position, while bonuses are awarded for maintaining stability.
+
+- **Penalty for Energy Expenditure**:
+  - Encourages smoother actions with less intensity by penalizing based on the magnitude of the current action.
+
+- **Penalty for Jerkiness**:
+  - The change in action from the previous timestep to the current one is calculated, and penalties are applied based on its magnitude. This further encourages smoother movements.
+
+- **Final Calculation**:
+  - Both bonus and penalty values are constrained to their respective maximums.
+  - The net reward is returned as the sum of the basic score, bonus, and negative penalty.
+
+```python
+def compute_reward(self):
+    ...
+```
+
+This function represents a detailed reward structure aimed at training a reinforcement learning agent to achieve precise, stable, and efficient flight behaviors.

@@ -22,7 +22,7 @@ from ..helpers.environment_parameters import EnvironmentParameters
 from time import time
 
 
-class DroneChaseStaticTargetSimulation2:
+class L2RPMDroneChaseSimulation:
     def __init__(
         self,
         dome_radius: float,
@@ -161,6 +161,7 @@ class DroneChaseStaticTargetSimulation2:
 
         self.loitering_munition.set_behavior(LoiteringMunitionBehavior.FROZEN)
         self.last_action = np.zeros(4)
+        self.current_action = np.zeros(4)
 
         self.start_time = time()
 
@@ -216,7 +217,7 @@ class DroneChaseStaticTargetSimulation2:
                 *lm_values,
                 *direction_to_target,
                 distance_to_target_normalized,
-                *self.last_action,
+                *self.current_action,
             ],
             dtype=np.float32,
         )
@@ -283,7 +284,8 @@ class DroneChaseStaticTargetSimulation2:
         # assert self.loyal_wingman is not None, "Loyal wingman is not initialized"
         # assert self.loitering_munition is not None
 
-        self.last_action = rl_action
+        self.last_action = self.current_action
+        self.current_action = rl_action
         self.loyal_wingman.drive(rl_action)
         self.loitering_munition.drive_via_behavior()
 
@@ -321,42 +323,155 @@ class DroneChaseStaticTargetSimulation2:
     def compute_info(self):
         return {}
 
+    def get_angular_data(
+        self, inertial_data: Dict
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        attitude = inertial_data.get("attitude", np.zeros(3))
+        angular_velocity = inertial_data.get("angular_velocity", np.zeros(3))
+        angular_acceleration = inertial_data.get("angular_acceleration", np.zeros(3))
+
+        return attitude, angular_velocity, angular_acceleration
+
+    def angular_difference(self, attitude1, attitude2):
+        """
+        Compute the element-wise difference between two attitude arrays in radians.
+        Each result will be in [-pi, pi].
+        """
+        diff = attitude1 - attitude2
+
+        diff[diff > np.pi] -= 2 * np.pi
+        diff[diff < -np.pi] += 2 * np.pi
+
+        return diff
+
     def compute_reward(self):
-        # assert self.loyal_wingman is not None, "Loyal wingman is not initialized"
-        # assert self.loitering_munition is not None
+        max_bonus = 10_000
+        max_penalty = 10_000
 
-        bonus = 0
-        penalty = 0
-        score = 0
+        penalty: float = 0
+        bonus: float = 0
+        score: float = 0
 
-        lw_flight_state = self.loyal_wingman.flight_state
-        lm_flight_state = self.loitering_munition.flight_state
-
-        distance_vector = self._calculate_distance_vector(
-            lw_flight_state, lm_flight_state
+        lw_inertial_data = self.loyal_wingman.flight_state_by_type(
+            FlightStateDataType.INERTIAL
         )
 
-        distance = np.linalg.norm(distance_vector)
+        lm_inertial_data = self.loitering_munition.flight_state_by_type(
+            FlightStateDataType.INERTIAL
+        )
 
-        angular_velocity = np.linalg.norm(
-            lw_flight_state.get("angular_velocity", np.zeros(3))
-        )  # compute the angular speed
-        penalty += angular_velocity
+        lw_position = lw_inertial_data.get("position", np.zeros(3))
+        lm_position = lm_inertial_data.get("position", np.zeros(3))
+        distance_vetor = lm_position - lw_position
+        distance_intensity = np.linalg.norm(distance_vetor)
 
-        if distance < self.last_distance_to_target:
-            bonus += self.last_distance_to_target - distance
+        # ====================================================
+        # Basic Pontuation
+        #   - Pontuation for proximity to the target,
+        #     a reward for being alive and inside the dome
+        #
+        # ====================================================
 
-        self.last_distance_to_target = distance
+        score = float(self.dome_radius - distance_intensity)
 
-        score = self.dome_radius - distance
+        # ====================================================
+        # Bonus for being closer to the target
+        #   - Huge bonus for < 0.2
+        #
+        # Penalty for being outside the dome
+        #  - Huge penalty for > dome_radius
+        #
+        # ====================================================
 
-        if distance < 0.2:
-            bonus += 1_000
+        if distance_intensity < self.last_distance_to_target:
+            bonus += float(self.last_distance_to_target - distance_intensity)
 
-        if distance > self.dome_radius:
-            penalty += 1_000
+        self.last_distance_to_target = distance_intensity
 
-        # print(lw_flight_state.get("position", np.zeros(3)), lm_flight_state.get("position", np.zeros(3)), distance, score + bonus - penalty)
+        if distance_intensity < 0.2:
+            bonus += max_bonus
+
+        if distance_intensity > self.dome_radius:
+            penalty += max_penalty
+
+        # ====================================================
+        # Bonus for how fast it gets close the target
+        # - Velocity factor that lies in
+        #   the direction of the target
+        # ====================================================
+
+        direction = (
+            distance_vetor / distance_intensity
+            if distance_intensity > 0
+            else np.zeros(3)
+        )
+
+        velocity = lw_inertial_data.get("velocity", np.zeros(3))
+
+        velocity_component = np.dot(velocity, direction)
+        velocity_towards_target = max(velocity_component, 0)
+
+        bonus += float(np.linalg.norm(x=velocity_towards_target))
+
+        # ====================================================
+        # Bonus for stability
+        # - Attitude <= 0.1
+        #
+        # Penalty for Unstability
+        #  - Attitude > 0.1
+        #  - Angular Velocity that amplifies attitude
+        #  - Angular Acceleration that amplifies attitude
+        #
+        # ====================================================
+        t = (
+            self.environment_parameters.timestep
+            * self.environment_parameters.aggregate_physics_steps
+        )
+        attitude, ang_vel, ang_acc = self.get_angular_data(lw_inertial_data)
+        next_attitude = attitude + ang_vel * t + ang_acc * (t**2) / 2
+
+        attitude_intensity = np.linalg.norm(attitude)
+
+        # penalize for more than 5 degrees
+        if attitude_intensity > 5 * 2 * np.pi / 360:
+            penalty += float(attitude_intensity)
+        else:
+            bonus += 1
+
+        direction_to_stable = np.zeros(3) - attitude
+        directional_change = next_attitude - attitude
+        is_becoming_stable = np.dot(direction_to_stable, directional_change) > 0
+
+        if not is_becoming_stable:
+            diff_to_next = np.abs(self.angular_difference(attitude, next_attitude))
+            diff_to_stable = np.abs(self.angular_difference(np.zeros(3), next_attitude))
+            penalty += float(np.linalg.norm(diff_to_next - diff_to_stable))
+
+        # ====================================================
+        # Penalty for expending energy
+        # - i am looking for smoothier moviments
+        #   so, i think that reducing the intensity
+        #   of the actions is a good idea
+        #
+        #
+        # ====================================================
+
+        penalty += float(0.1 * np.linalg.norm(self.current_action))
+
+        # ====================================================
+        # Penalty for jerkiness
+        # - i am looking for smoothier moviments
+        #   so, i think that reducing the intensity
+        #   of the actions is a good idea
+        #
+        #
+        # ====================================================
+
+        action_change = self.last_action - self.current_action
+        penalty += float(np.linalg.norm(action_change))
+
+        bonus = min(bonus, max_bonus)
+        penalty = min(penalty, max_penalty)
         return score + bonus - penalty
 
     def _calculate_distance_vector(self, lw_state: Dict, lm_state: Dict) -> np.ndarray:
