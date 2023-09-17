@@ -1,5 +1,10 @@
 # **Environment Name**: Level1
 
+## **Development Status**: 
+
+Finished. 
+The environment is ready to be used with RL libraries, particularly Stable Baselines 3 (version 2.0.0 or higher).
+
 ## **Purpose**:
 The `Level1` class simulates an engagement scenario between one Loyal Wingman and one Loitering Munition. It's designed for compatibility with Reinforcement Learning (RL) libraries, particularly Stable Baselines 3 (version 2.0.0 or higher).
 In this level, a loyalwingman has to engage a loitering munition that is passing through the environment area. 

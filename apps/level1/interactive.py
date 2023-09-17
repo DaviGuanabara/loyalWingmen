@@ -27,7 +27,7 @@ for _ in range(50_000):
     action = keyboard_listener.get_action()
     observation, reward, terminated, truncated, info = env.step(action)
 
-    # log(f"reward:{reward:.2f}")
+    log(f"reward:{reward:.2f}")
 
     if terminated:
         observation, info = env.reset()
