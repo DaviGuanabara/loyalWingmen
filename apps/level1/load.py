@@ -25,7 +25,7 @@ observation, info = env.reset(0)
 for steps in range(50_000):
     action, _ = model.predict(observation, deterministic=True)
     observation, reward, terminated, truncated, info = env.step(action)
-    time.sleep(0.1)
+    time.sleep(0.08)
 
     # logging.debug(f"(main) reward: {reward}")
     print(f"reward:{reward:.2f} - action:{action}")

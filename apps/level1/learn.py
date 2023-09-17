@@ -53,11 +53,11 @@ def create_output_folder(experiment_name: str):
 
 def main():
     output_folder = create_output_folder("demo_training2_app")
-    model_path = os.path.join(output_folder, f"models")
-    log_path = os.path.join(output_folder, f"logs")
+    model_path = os.path.join(output_folder, "models")
+    log_path = os.path.join(output_folder, "logs")
 
     number_of_logical_cores = cpu_count()
-    n_envs = int(number_of_logical_cores / 2)
+    n_envs = int(number_of_logical_cores)
 
     env_fns = [lambda: Level1(GUI=False, rl_frequency=30) for _ in range(n_envs)]
 
@@ -79,11 +79,12 @@ def main():
         verbose=0,
         device="cuda",
         policy_kwargs=policy_kwargs,
-        learning_rate=1e-5,
+        learning_rate=1e-4,
+        batch_size=1024,
     )
 
     print(model.policy)
-    model.learn(total_timesteps=1_000_000, callback=callback_list)
+    model.learn(total_timesteps=2_000_000, callback=callback_list)
     model.save("trained_level1_ppo")
 
 

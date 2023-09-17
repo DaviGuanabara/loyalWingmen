@@ -31,6 +31,7 @@ class DroneChaseStaticTargetSimulation:
         self.dome_radius = dome_radius
 
         self.environment_parameters = environment_parameters
+        print("level 1 simulation")
         self.init_simulation()
 
     def init_simulation(self):
@@ -68,14 +69,23 @@ class DroneChaseStaticTargetSimulation:
         position, ang_position = self.gen_initial_position()
 
         self.loyal_wingman: LoyalWingman = self.factory.create_loyalwingman(
-            position, np.zeros(3), quadcopter_name="agent"
+            position,
+            np.zeros(3),
+            CommandType.VELOCITY_DIRECT,
+            "Agent",
+            quadcopter_role="Interceptor",
         )
 
         self.loitering_munition: LoiteringMunition = (
             self.factory.create_loiteringmunition(
-                np.zeros(3), np.zeros(3), quadcopter_name="target"
+                np.zeros(3),
+                np.zeros(3),
+                quadcopter_name="target",
+                quadcopter_role="Infiltrator",
             )
         )
+
+        self.loitering_munition.set_behavior(LoiteringMunitionBehavior.FROZEN)
 
         self.last_action: np.ndarray = np.zeros(4)
 
@@ -137,16 +147,31 @@ class DroneChaseStaticTargetSimulation:
             ang_position=np.zeros(3),
             command_type=CommandType.VELOCITY_DIRECT,
             quadcopter_name="agent",
+            quadcopter_role="Interceptor",
         )
         self.loitering_munition = self.factory.create_loiteringmunition(
-            position=target_pos, ang_position=target_ang_pos, quadcopter_name="target"
+            position=target_pos,
+            ang_position=target_ang_pos,
+            quadcopter_name="target",
+            quadcopter_role="Infiltrator",
         )
 
         self.loyal_wingman.update_imu()
         self.loitering_munition.update_imu()
 
+        if self.environment_parameters.GUI:
+            self.loyal_wingman.show_name()
+
         self.loitering_munition.set_behavior(LoiteringMunitionBehavior.FROZEN)
         self.start_time = time()
+
+        lw_flight_state = self.loyal_wingman.flight_state
+        lm_flight_state = self.loitering_munition.flight_state
+
+        distance_vector = self._calculate_distance_vector(
+            lw_flight_state, lm_flight_state
+        )
+        self.last_distance = np.linalg.norm(distance_vector)
 
     def reset(self):
         """Reset the simulation to its initial state."""
@@ -314,6 +339,20 @@ class DroneChaseStaticTargetSimulation:
         )
         distance = np.linalg.norm(distance_vector)
 
+        velocity = lw_flight_state.get("velocity", np.zeros(3))
+
+        if distance < self.last_distance:
+            direction = self.last_distance - distance
+            direction_normalized = (
+                direction / np.linalg.norm(direction)
+                if np.linalg.norm(direction) > 0
+                else np.zeros(3)
+            )
+            component_in_direction = (
+                np.dot(velocity, direction_normalized) * direction_normalized
+            )
+            bonus += 10 * np.linalg.norm(component_in_direction)
+
         score = self.dome_radius - distance
 
         if distance < 0.2:
@@ -363,7 +402,7 @@ class DroneChaseStaticTargetSimulation:
             LoiteringMunitionBehavior.FROZEN,
         ]
         random_behavior = random.choice(behaviors)
-        self.loitering_munition.set_behavior(LoiteringMunitionBehavior.CIRCLE)
+        self.loitering_munition.set_behavior(random_behavior)
 
     def convert_dict_to_array(self, dictionary: Dict) -> np.ndarray:
         array = np.array([])
