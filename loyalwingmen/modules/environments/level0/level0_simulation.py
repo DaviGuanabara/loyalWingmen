@@ -51,6 +51,13 @@ class L0DroneChaseStaticTargetSimulation:
             physicsClientId=client_id,
         )
 
+        for i in [
+            p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+            p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+            p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+        ]:
+            p.configureDebugVisualizer(i, 0, physicsClientId=client_id)
+
         p.setRealTimeSimulation(0, physicsClientId=client_id)  # No Realtime Sync
 
         p.setTimeStep(
@@ -263,6 +270,7 @@ class L0DroneChaseStaticTargetSimulation:
         self.last_action = rl_action
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
+            self.loyal_wingman.update_imu()
             self.loyal_wingman.drive(rl_action)
             self.loitering_munition.drive_via_behavior()
             p.stepSimulation()

@@ -1,18 +1,12 @@
 import os
-import platform
-from pathlib import Path
-
 import numpy as np
 import xml.etree.ElementTree as etxml
 import pkg_resources
 
 from ....utils.enums import DroneModel
-import inspect
-
+from ..dataclasses.operational_constraints import OperationalConstraints
 from ..dataclasses.quadcopter_specs import QuadcopterSpecs
-from ....environments.helpers.environment_parameters import (
-    EnvironmentParameters,
-)
+from ....environments.helpers.environment_parameters import EnvironmentParameters
 
 
 class BaseControl(object):
@@ -28,8 +22,9 @@ class BaseControl(object):
     def __init__(
         self,
         drone_model: DroneModel,
-        droneSpecs: QuadcopterSpecs,
-        environmentParameters: EnvironmentParameters,
+        operational_constraints: OperationalConstraints,
+        environment_parameters: EnvironmentParameters,
+        quadcopter_specs: QuadcopterSpecs,
     ):
         """Common control classes __init__ method.
 
@@ -41,16 +36,22 @@ class BaseControl(object):
             The gravitational acceleration in m/s^2.
 
         """
+        self.environment_parameters: EnvironmentParameters = environment_parameters
+        self.operational_constraints: OperationalConstraints = operational_constraints
+        self.quadcopter_specs: QuadcopterSpecs = quadcopter_specs
+
+        weight = self.operational_constraints.weight
         #### Set general use constants #############################
         self.DRONE_MODEL = drone_model
         """DroneModel: The type of drone to control."""
-        self.GRAVITY = environmentParameters.G * droneSpecs.M
+        self.GRAVITY = weight
         """float: The gravitational force (M*g) acting on each drone."""
-        self.KF = droneSpecs.KF
+        self.KF = quadcopter_specs.KF  # self._getURDFParameter("kf")
         """float: The coefficient converting RPMs into thrust."""
-        self.KM = droneSpecs.KM
+        self.KM = quadcopter_specs.KM  # self._getURDFParameter("km")
         """float: The coefficient converting RPMs into torque."""
-        self.droneSpecs: QuadcopterSpecs = droneSpecs
+
+        print(f"weight {weight}, KF {self.KF}, KM {self.KM}, drone_model {drone_model}")
         self.reset()
 
     ################################################################################
