@@ -76,5 +76,6 @@ setup(
     package_data={
         "example": ["data/schema.json", "*.txt"],
         "*": ["README.markdown"],
+        "loyalwingmen": ["assets/*"],
     },
 )

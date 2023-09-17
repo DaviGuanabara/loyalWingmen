@@ -282,6 +282,7 @@ class QuadcopterFactory:
         initial_angular_position: np.ndarray,
         quadcopter_type: QuadcopterType,
         quadcopter_name: str,
+        quadcopter_role: str = "general",
     ) -> Tuple[
         int,
         DroneModel,
@@ -300,7 +301,7 @@ class QuadcopterFactory:
 
         environment_parameters = self.environment_parameters
         quadcopter_full_name = self._gen_quadcopter_name(
-            quadcopter_type, quadcopter_name
+            quadcopter_type, quadcopter_name, quadcopter_role
         )
 
         return (
@@ -318,9 +319,14 @@ class QuadcopterFactory:
         ang_position: np.ndarray,
         command_type: CommandType = CommandType.VELOCITY_DIRECT,
         quadcopter_name: str = "Drone",
+        quadcopter_role: str = "general",
     ) -> LoyalWingman:
         attributes = self.load_quad_attributes(
-            position, ang_position, QuadcopterType.LOYALWINGMAN, quadcopter_name
+            position,
+            ang_position,
+            QuadcopterType.LOYALWINGMAN,
+            quadcopter_name,
+            quadcopter_role,
         )
         return LoyalWingman(*attributes, command_type=command_type)
 
@@ -330,19 +336,29 @@ class QuadcopterFactory:
         ang_position: np.ndarray,
         command_type: CommandType = CommandType.VELOCITY_DIRECT,
         quadcopter_name: str = "Drone",
+        quadcopter_role: str = "general",
     ) -> LoiteringMunition:
         attributes = self.load_quad_attributes(
-            position, ang_position, QuadcopterType.LOITERINGMUNITION, quadcopter_name
+            position,
+            ang_position,
+            QuadcopterType.LOITERINGMUNITION,
+            quadcopter_name,
+            quadcopter_role,
         )
         return LoiteringMunition(*attributes, command_type=command_type)
 
     def _gen_quadcopter_name(
-        self, quadcopter_type: QuadcopterType, quadcopter_name: str = "Drone"
+        self,
+        quadcopter_type: QuadcopterType,
+        quadcopter_name: str = "Drone",
+        role: str = "general",
     ):
         if quadcopter_type == QuadcopterType.LOYALWINGMAN:
-            return f"{quadcopter_type}_{self.n_loyalwingmen}_{quadcopter_name}"
+            # return f"{quadcopter_type.name.lower()}_{self.n_loyalwingmen}_{quadcopter_name}"
+            return f"{quadcopter_name}_{role}_{self.n_loyalwingmen}"
 
         if quadcopter_type == QuadcopterType.LOITERINGMUNITION:
-            return f"{quadcopter_type}_{self.n_loiteringmunitions}_{quadcopter_name}"
+            # return f"{quadcopter_type.name.lower()}_{self.n_loiteringmunitions}_{quadcopter_name}"
+            return f"{quadcopter_name}_{role}_{self.n_loiteringmunitions}"
 
-        return f"{quadcopter_type}_{quadcopter_name}"
+        return f"{quadcopter_type.name.lower()}_{quadcopter_name}_{role}"

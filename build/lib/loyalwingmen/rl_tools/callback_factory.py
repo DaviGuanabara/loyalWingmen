@@ -10,7 +10,7 @@ from stable_baselines3.common.callbacks import (
     EvalCallback,
     StopTrainingOnNoModelImprovement,
     ProgressBarCallback,
-    BaseCallback
+    BaseCallback,
 )
 from stable_baselines3 import TD3
 from stable_baselines3.common.vec_env import VecEnv
@@ -23,8 +23,8 @@ from stable_baselines3.common.callbacks import CallbackList
 from stable_baselines3.common.vec_env import VecEnv
 import threading
 
-class CallbackType(Enum):
 
+class CallbackType(Enum):
     EVAL = "eval"
     CHECKPOINT = "checkpoint"
     PROGRESSBAR = "progressbar"
@@ -32,6 +32,7 @@ class CallbackType(Enum):
 
 # Create a mutex to ensure mutual exclusion during directory creation
 mutex = threading.Lock()
+
 
 def create_directories_if_not_exist(path: str) -> bool:
     with mutex:
@@ -44,11 +45,11 @@ def create_directories_if_not_exist(path: str) -> bool:
             print(f"Error creating directories at {path}: {e}")
             return False
 
+
 def check_directories(path: str, path_name: str) -> bool:
-   
     # Check if the paths are writable directories
     try:
-        assert os.access(path, os.W_OK), path_name + " must be a writable directory"
+        assert os.access(path, os.W_OK), f"{path_name} must be a writable directory"
         return True
     except AssertionError as e:
         print(f"Error checking write access: {e}")
@@ -56,28 +57,36 @@ def check_directories(path: str, path_name: str) -> bool:
 
 
 def callbacklist(
-    env: VecEnv, 
+    env: VecEnv,
     log_path: str = "./logs/",
     model_path: str = "./models/",
     save_freq: int = 10_000,
-    callbacks_to_include: List[CallbackType] = [CallbackType.EVAL, CallbackType.CHECKPOINT, CallbackType.PROGRESSBAR],
+    callbacks_to_include: Optional[List[CallbackType]] = None,
     n_eval_episodes: int = 10,
-    debug: bool = False
+    debug: bool = False,
 ) -> CallbackList:
+    if callbacks_to_include is None:
+        callbacks_to_include = [
+            CallbackType.EVAL,
+            CallbackType.CHECKPOINT,
+            CallbackType.PROGRESSBAR,
+        ]
     list_callbacks = []
 
     if CallbackType.EVAL in callbacks_to_include:
         create_directories_if_not_exist(log_path)
         create_directories_if_not_exist(model_path)
-        
+
         check_directories(log_path, "log_path")
         check_directories(model_path, "model_path")
 
         # Check if eval_freq is valid
-        assert isinstance(save_freq, int) and save_freq > 0, "save_freq must be a positive integer"
+        assert (
+            isinstance(save_freq, int) and save_freq > 0
+        ), "save_freq must be a positive integer"
 
         stop_train_callback = StopTrainingOnNoModelImprovement(
-            max_no_improvement_evals=3, min_evals=5, verbose=1#0
+            max_no_improvement_evals=3, min_evals=5, verbose=1  # 0
         )
 
         eval_callback = EvalCallback(
@@ -89,7 +98,7 @@ def callbacklist(
             deterministic=True,
             render=False,
             callback_after_eval=stop_train_callback,
-            verbose=1#int(debug)
+            verbose=1,  # int(debug)
         )
 
         list_callbacks.append(eval_callback)
@@ -98,7 +107,9 @@ def callbacklist(
         # Check if save_path is writable
         assert os.access(model_path, os.W_OK), "model_path must be a writable directory"
 
-        checkpoint_callback = CheckpointCallback(save_freq=save_freq, save_path=model_path)
+        checkpoint_callback = CheckpointCallback(
+            save_freq=save_freq, save_path=model_path
+        )
 
         list_callbacks.append(checkpoint_callback)
 

@@ -123,7 +123,7 @@ class LoiteringMunition(Quadcopter):
 
     def _random_direction_and_intensity(self) -> np.ndarray:
         direction = np.random.uniform(-1, 1, 3)
-        intensity = np.random.uniform(0.0005, 0.001)
+        intensity = np.random.uniform(0.05, 0.5)
 
         return np.append(direction, intensity)
 
@@ -132,3 +132,4 @@ class LoiteringMunition(Quadcopter):
         command = self.behavior_function(flight_state_manager)
 
         self.drive(command)
+        # self.show_name()

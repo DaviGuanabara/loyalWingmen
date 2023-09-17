@@ -10,6 +10,13 @@ loyalwingmen.egg-info/requires.txt
 loyalwingmen.egg-info/top_level.txt
 loyalwingmen.egg-info/zip-safe
 loyalwingmen/assets/__init__.py
+loyalwingmen/assets/architrave.urdf
+loyalwingmen/assets/cf2.dae
+loyalwingmen/assets/cf2p.urdf
+loyalwingmen/assets/cf2x.urdf
+loyalwingmen/assets/example_trace.pkl
+loyalwingmen/assets/hb.urdf
+loyalwingmen/assets/quad.obj
 loyalwingmen/modules/__init__.py
 loyalwingmen/modules/enums/__init__.py
 loyalwingmen/modules/enums/entity_types.py
@@ -26,6 +33,9 @@ loyalwingmen/modules/environments/level2_lidar/level2_simulation.py
 loyalwingmen/modules/environments/level2_rpm/__init__.py
 loyalwingmen/modules/environments/level2_rpm/level2_environment.py
 loyalwingmen/modules/environments/level2_rpm/level2_simulation.py
+loyalwingmen/modules/environments/pid_tunning/__init__.py
+loyalwingmen/modules/environments/pid_tunning/tuning_pid_environment.py
+loyalwingmen/modules/environments/pid_tunning/tuning_pid_simulation.py
 loyalwingmen/modules/events/__init__.py
 loyalwingmen/modules/events/broker.py
 loyalwingmen/modules/events/message_hub.py

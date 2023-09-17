@@ -232,9 +232,10 @@ class PropulsionSystem:
         motors.apply(rpm)
 
     def _velocity_to_controller(
-        self, velocity_command, flight_state_manager, controller, motors
+        self, velocity_command, flight_state_manager, controller, motors: Motors
     ):
         velocity = self._compute_velocity_from_command(velocity_command)
+
         rpms = self._apply_controller(velocity, flight_state_manager, controller)
         motors.apply(rpms)
 
@@ -246,20 +247,23 @@ class PropulsionSystem:
     ):
         inertial_data = flight_state_manager.get_inertial_data()
 
-        yaw = (inertial_data["attitude"] or np.zeros(3))[2]
+        yaw = inertial_data.get("attitude", np.zeros(3))[2]
         target_rpy = np.array([0, 0, yaw])
 
         aggregate_physics_steps = self.environment_parameters.aggregate_physics_steps
         timestep_period = self.environment_parameters.timestep
         control_timestep = aggregate_physics_steps * timestep_period
 
+        quaternions = p.getQuaternionFromEuler(
+            inertial_data.get("attitude", np.array([0, 0, 0, 1]))
+        )
         rpm, _, _ = controller.computeControl(
             control_timestep,
-            inertial_data["position"],
-            inertial_data["quaternions"],
-            inertial_data["velocity"],
-            inertial_data["attitude"],
-            target_pos=inertial_data["position"],
+            inertial_data.get("position", np.zeros(3)),
+            quaternions,
+            inertial_data.get("velocity", np.zeros(3)),
+            inertial_data.get("attitude", np.zeros(3)),
+            target_pos=inertial_data.get("position", np.zeros(3)),
             target_rpy=target_rpy,  # keep current yaw,
             target_vel=target_velocity,
         )

@@ -52,7 +52,12 @@ def normalize_acceleration(acceleration: np.ndarray, max_acceleration: float):
         return acceleration
 
     acceleration /= max_acceleration
-    return np.clip(acceleration, -1, 1)
+    return np.clip(
+        acceleration,
+        -1,
+        1,
+        dtype=np.float32,
+    )
 
 
 def normalize_angular_acceleration(
@@ -63,7 +68,12 @@ def normalize_angular_acceleration(
         return angular_acceleration
 
     angular_acceleration /= max_angular_acceleration
-    return np.clip(angular_acceleration, -1, 1)
+    return np.clip(
+        angular_acceleration,
+        -1,
+        1,
+        dtype=np.float32,
+    )
 
 
 def normalize_position(position: np.ndarray, dome_radius: float):
@@ -72,7 +82,12 @@ def normalize_position(position: np.ndarray, dome_radius: float):
         return position
 
     position /= dome_radius
-    return np.clip(position, -1, 1)
+    return np.clip(
+        position,
+        -1,
+        1,
+        dtype=np.float32,
+    )
 
 
 def normalize_velocity(velocity: np.ndarray, max_velocity: float):
@@ -81,7 +96,12 @@ def normalize_velocity(velocity: np.ndarray, max_velocity: float):
         return velocity
 
     velocity /= max_velocity
-    return np.clip(velocity, -1, 1)
+    return np.clip(
+        velocity,
+        -1,
+        1,
+        dtype=np.float32,
+    )
 
 
 def normalize_attitude(attitude: np.ndarray, max_attitude: float = np.pi):
@@ -90,7 +110,12 @@ def normalize_attitude(attitude: np.ndarray, max_attitude: float = np.pi):
         return attitude
 
     attitude /= max_attitude
-    return np.clip(attitude, -1, 1)
+    return np.clip(
+        attitude,
+        -1,
+        1,
+        dtype=np.float32,
+    )
 
 
 def normalize_angular_rate(angular_rate: np.ndarray, max_angular_rate: float):
@@ -99,4 +124,9 @@ def normalize_angular_rate(angular_rate: np.ndarray, max_angular_rate: float):
         return angular_rate
 
     angular_rate /= max_angular_rate
-    return np.clip(angular_rate, -1, 1)
+    return np.clip(
+        angular_rate,
+        -1,
+        1,
+        dtype=np.float32,
+    )

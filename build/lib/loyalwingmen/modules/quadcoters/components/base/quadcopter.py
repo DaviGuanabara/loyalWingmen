@@ -181,6 +181,7 @@ class Quadcopter:
         """
 
         self.propulsion_system.propel(motion_command, self.flight_state_manager)
+        self.show_name()
 
     # =================================================================================================================
     # Delete or Destroy
@@ -190,3 +191,41 @@ class Quadcopter:
         self.messageHub.terminate(self.id)
         p.removeBody(self.id, physicsClientId=self.client_id)
         self.id = Quadcopter.INVALID_ID
+
+        if hasattr(self, "text_id"):
+            p.removeUserDebugItem(self.text_id)
+
+    def show_name(self):
+        quad_position = self.flight_state_manager.get_data("position").get("position")
+
+        if quad_position is None:
+            return
+        # Place the text slightly below the quadcopter
+
+        text_position = np.array(
+            [quad_position[0], quad_position[1], quad_position[2] - 0.2]
+        )
+        # Add the text, and store its ID for later reference
+        textColorRGB = [0, 1, 0]
+        if self.quadcopter_type == QuadcopterType.LOYALWINGMAN:
+            textColorRGB = [0, 0, 1]
+
+        if self.quadcopter_type == QuadcopterType.LOITERINGMUNITION:
+            textColorRGB = [1, 0, 0]
+
+        if hasattr(self, "text_id"):
+            self.text_id = p.addUserDebugText(
+                self.quadcopter_name,
+                text_position,
+                textSize=1,
+                textColorRGB=textColorRGB,
+                replaceItemUniqueId=self.text_id,
+            )
+
+        else:
+            self.text_id = p.addUserDebugText(
+                self.quadcopter_name,
+                text_position,
+                textSize=0.1,
+                textColorRGB=[1, 0, 0],
+            )

@@ -24,12 +24,12 @@ from gymnasium import spaces, Env
 
 from typing import Dict, List, Tuple, Union, Optional
 from ..helpers.environment_parameters import EnvironmentParameters
-from .level2_simulation import (
-    DroneChaseStaticTargetSimulation as Level1Simulation,
+from .level0_simulation import (
+    L0DroneChaseStaticTargetSimulation as Level0Simulation,
 )
 
 
-class Level2_lidar(Env):
+class Level0(Env):
     """
     This class aims to demonstrate a environment with one Loyal Wingmen and one Loitering Munition,
     in a simplest way possible.
@@ -48,7 +48,7 @@ class Level2_lidar(Env):
         debug: bool = False,
     ):
         self.setup_Parameteres(simulation_frequency, rl_frequency, GUI, debug)
-        self.simulation = Level1Simulation(dome_radius, self.environment_parameters)
+        self.simulation = Level0Simulation(dome_radius, self.environment_parameters)
 
         #### Create action and observation spaces ##################
         self.action_space = self._action_space()
@@ -156,46 +156,37 @@ class Level2_lidar(Env):
         the other elements of the Box() shape varies from -1 to 1.
 
         """
-        observation_shape = self.simulation.observation_shape()
-        return spaces.Dict(
-            {
-                "lidar": spaces.Box(
-                    0,
-                    1,
-                    shape=observation_shape["lidar"],
-                    dtype=np.float32,
-                ),
-                "inertial_data": spaces.Box(
-                    -1,
-                    1,
-                    shape=observation_shape["inertial_data"],
-                    dtype=np.float32,
-                ),
-                "last_action": spaces.Box(
-                    np.array([-1, -1, -1, 0]),
-                    np.array([1, 1, 1, 1]),
-                    shape=observation_shape["last_action"],
-                    dtype=np.float32,
-                ),
-            }
+
+        size = self.simulation.observation_size()
+        low = -1 * np.ones(size)
+        low[-1] = 0
+
+        high = np.ones(size)
+
+        return spaces.Box(
+            low=low,
+            high=high,
+            shape=(size,),
+            dtype=np.float32,
         )
 
     ################################################################################
 
     def get_keymap(self):
         keycode = KeyCode()
-        default_action = [0, 0, 0, 0.001]  # Modify this to your actual default action
+        default_action = [0, 0, 0, 0.1]  # Modify this to your actual default action
 
         key_map = defaultdict(lambda: default_action)
         key_map.update(
             {
-                Key.up: [0, 1, 0, 0.001],
-                Key.down: [0, -1, 0, 0.001],
-                Key.left: [-1, 0, 0, 0.001],
-                Key.right: [1, 0, 0, 0.001],
-                keycode.from_char("w"): [0, 0, 1, 0.001],
-                keycode.from_char("s"): [0, 0, -1, 0.001],
+                Key.up: [0, 1, 0, 1],
+                Key.down: [0, -1, 0, 1],
+                Key.left: [-1, 0, 0, 1],
+                Key.right: [1, 0, 0, 1],
+                keycode.from_char("e"): [0, 0, 1, 1],
+                keycode.from_char("d"): [0, 0, -1, 1],
             }
         )
 
+        print(key_map)
         return key_map

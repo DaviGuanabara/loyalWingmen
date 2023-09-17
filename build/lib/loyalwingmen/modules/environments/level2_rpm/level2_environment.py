@@ -25,7 +25,7 @@ from gymnasium import spaces, Env
 from typing import Dict, List, Tuple, Union, Optional
 from ..helpers.environment_parameters import EnvironmentParameters
 from .level2_simulation import (
-    DroneChaseStaticTargetSimulation2 as Level2Simulation,
+    L2RPMDroneChaseSimulation as Level2Simulation,
 )
 
 

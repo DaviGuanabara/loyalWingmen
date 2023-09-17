@@ -166,17 +166,28 @@ class DroneChaseStaticTargetSimulation:
         lw = self.loyal_wingman
         lw_state = lw.flight_state
 
-        lidar = lw_state.get("lidar", np.zeros(lw.get_lidar_shape()))
+        lidar: np.ndarray = lw_state.get(
+            "lidar",
+            np.zeros(
+                lw.get_lidar_shape(),
+                dtype=np.float32,
+            ),
+        )
+        lidar = np.array(
+            lidar,
+            dtype=np.float32,
+        )
 
         inertial_data_raw = normalize_inertial_data(
             lw_state, self.loyal_wingman.operational_constraints, self.dome_radius
         )
         inertial_data = self.convert_dict_to_array(inertial_data_raw)
+        inertial_data = np.array(inertial_data, dtype=np.float32)
 
         return {
-            "lidar": lidar,
-            "inertial_data": inertial_data,
-            "last_action": self.last_action,
+            "lidar": lidar.astype(np.float32),
+            "inertial_data": inertial_data.astype(np.float32),
+            "last_action": self.last_action.astype(np.float32),
         }
 
     def distance(self, lw_state: Dict, lm_state: Dict) -> float:
@@ -344,7 +355,10 @@ class DroneChaseStaticTargetSimulation:
             value: np.ndarray = (
                 dictionary[key] if dictionary[key] is not None else np.array([])
             )
-            array = np.concatenate((array, value))
+            array = np.concatenate(
+                (array, value),
+                dtype=np.float32,
+            )
 
         return array
 

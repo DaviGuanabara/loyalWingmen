@@ -22,7 +22,7 @@ from ..helpers.environment_parameters import EnvironmentParameters
 from time import time
 
 
-class DroneChaseStaticTargetSimulation:
+class L0DroneChaseStaticTargetSimulation:
     def __init__(
         self,
         dome_radius: float,
@@ -31,7 +31,6 @@ class DroneChaseStaticTargetSimulation:
         self.dome_radius = dome_radius
 
         self.environment_parameters = environment_parameters
-        print("level 1 simulation")
         self.init_simulation()
 
     def init_simulation(self):
@@ -44,10 +43,11 @@ class DroneChaseStaticTargetSimulation:
         else:
             client_id = self.setup_pybullet_DIRECT()
 
+        print(self.environment_parameters.G)
         p.setGravity(
             0,
             0,
-            0,  # -self.environment_parameters.G,
+            -self.environment_parameters.G,
             physicsClientId=client_id,
         )
 
@@ -66,30 +66,7 @@ class DroneChaseStaticTargetSimulation:
         self.environment_parameters.client_id = client_id
         self.factory = QuadcopterFactory(self.environment_parameters)
 
-        position, ang_position = self.gen_initial_position()
-
-        self.loyal_wingman: LoyalWingman = self.factory.create_loyalwingman(
-            position,
-            np.zeros(3),
-            CommandType.VELOCITY_DIRECT,
-            "Agent",
-            quadcopter_role="Interceptor",
-        )
-
-        self.loitering_munition: LoiteringMunition = (
-            self.factory.create_loiteringmunition(
-                np.zeros(3),
-                np.zeros(3),
-                quadcopter_name="target",
-                quadcopter_role="Infiltrator",
-            )
-        )
-
-        self.loitering_munition.set_behavior(LoiteringMunitionBehavior.FROZEN)
-
         self.last_action: np.ndarray = np.zeros(4)
-
-        self.reset()
 
     def setup_pybullet_DIRECT(self):
         return p.connect(p.DIRECT)
@@ -133,22 +110,25 @@ class DroneChaseStaticTargetSimulation:
 
     def _housekeeping(self):
         pos, ang_pos = self.gen_initial_position()
-
         target_pos, target_ang_pos = np.array([0, 0, 0]), np.array([0, 0, 0])
 
-        if self.loyal_wingman is not None:
+        if hasattr(self, "loyal_wingman") and self.loyal_wingman is not None:
             self.loyal_wingman.detach_from_simulation()
 
-        if self.loitering_munition is not None:
+        if hasattr(self, "loitering_munition") and self.loitering_munition is not None:
             self.loitering_munition.detach_from_simulation()
 
         self.loyal_wingman = self.factory.create_loyalwingman(
             position=pos,
             ang_position=np.zeros(3),
-            command_type=CommandType.VELOCITY_DIRECT,
+            command_type=CommandType.VELOCITY_TO_CONTROLLER,
             quadcopter_name="agent",
             quadcopter_role="Interceptor",
         )
+
+        print(self.loyal_wingman.id)
+        print("weight", self.loyal_wingman.operational_constraints.weight)
+
         self.loitering_munition = self.factory.create_loiteringmunition(
             position=target_pos,
             ang_position=target_ang_pos,
@@ -159,8 +139,9 @@ class DroneChaseStaticTargetSimulation:
         self.loyal_wingman.update_imu()
         self.loitering_munition.update_imu()
 
-        if self.environment_parameters.GUI:
-            self.loyal_wingman.show_name()
+        # if self.environment_parameters.GUI:
+        #    self.loyal_wingman.show_name()
+        #    print("deactivated show name")
 
         self.loitering_munition.set_behavior(LoiteringMunitionBehavior.FROZEN)
         self.start_time = time()
@@ -171,7 +152,9 @@ class DroneChaseStaticTargetSimulation:
         distance_vector = self._calculate_distance_vector(
             lw_flight_state, lm_flight_state
         )
+
         self.last_distance = np.linalg.norm(distance_vector)
+        # print(self.last_distance)
 
     def reset(self):
         """Reset the simulation to its initial state."""
@@ -179,10 +162,8 @@ class DroneChaseStaticTargetSimulation:
         # self._reset_simulation()
 
         self._housekeeping()
-
         observation = self.compute_observation()
         info = self.compute_info()
-
         return observation, info
 
     def compute_observation(self) -> np.ndarray:
@@ -190,9 +171,6 @@ class DroneChaseStaticTargetSimulation:
 
         lw = self.loyal_wingman
         lm = self.loitering_munition
-        # assert lw is not None, "Loyal wingman is not initialized"
-        # assert lm is not None
-
         lw_state = lw.flight_state_by_type(FlightStateDataType.INERTIAL)
         lm_state = lm.flight_state_by_type(FlightStateDataType.INERTIAL)
 
@@ -282,14 +260,11 @@ class DroneChaseStaticTargetSimulation:
     def step(self, rl_action: np.ndarray):
         """Execute a step in the simulation based on the RL action."""
 
-        # assert self.loyal_wingman is not None, "Loyal wingman is not initialized"
-        # assert self.loitering_munition is not None
-
         self.last_action = rl_action
-        self.loyal_wingman.drive(rl_action)
-        self.loitering_munition.drive_via_behavior()
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
+            self.loyal_wingman.drive(rl_action)
+            self.loitering_munition.drive_via_behavior()
             p.stepSimulation()
 
         self.loyal_wingman.update_imu()
@@ -324,9 +299,6 @@ class DroneChaseStaticTargetSimulation:
         return {}
 
     def compute_reward(self):
-        # assert self.loyal_wingman is not None, "Loyal wingman is not initialized"
-        # assert self.loitering_munition is not None
-
         bonus = 0
         penalty = 0
         score = 0
@@ -380,12 +352,6 @@ class DroneChaseStaticTargetSimulation:
         """Reset the loitering munition to a random position within the dome."""
 
         position, ang_position = self.gen_initial_position()
-
-        # assert self.loitering_munition is not None
-        # self.loitering_munition.detach_from_simulation()
-        # self.loitering_munition = self.factory.create_loiteringmunition(
-        #    position=position, ang_position=ang_position
-        # )
 
         quaternion = p.getQuaternionFromEuler(ang_position)
         p.resetBasePositionAndOrientation(
