@@ -16,33 +16,38 @@ from ...quadcoters.quadcopter_factory import (
     CommandType,
 )
 
-from ..helpers.normalization import normalize_inertial_data
 
 from ..helpers.environment_parameters import EnvironmentParameters
 from time import time
 from .nova_controladora import QuadcopterController
+from gymnasium import spaces, Env
+import time
 
 
-class PIDAutoTuner:
+class PIDAutoTuner(Env):
     def __init__(
         self,
         dome_radius: float,
         rl_frequency: float,
         simulation_frequency: float,
-        environment_parameters: EnvironmentParameters,
         GUI: bool = False,
     ):
+        print("PIDAutoTuner")
         self.dome_radius = dome_radius
         self.rl_frequency = rl_frequency
         self.simulation_frequency = simulation_frequency
 
-        self.environment_parameters = environment_parameters
+        print("Initializing simulation")
+
         self.setup_Parameteres(
             simulation_frequency,
             rl_frequency,
             GUI,
         )
         self.init_simulation()
+
+        self.observation_space = self._observation_space()
+        self.action_space = self._action_space()
 
     def setup_Parameteres(self, simulation_frequency, rl_frequency, GUI):
         self.environment_parameters = EnvironmentParameters(
@@ -110,9 +115,12 @@ class PIDAutoTuner:
             physicsClientId=client_id,
         )
 
+        print("Simulation initialized")
         self.environment_parameters.client_id = client_id
-
+        print(self.environment_parameters.client_id)
+        print("Initializing factory")
         self.factory = QuadcopterFactory(self.environment_parameters)
+        print("Factory initialized")
 
     def setup_pybullet_DIRECT(self):
         return p.connect(p.DIRECT)
@@ -143,19 +151,22 @@ class PIDAutoTuner:
         """
 
         #### Set PyBullet's parameters #############################
-
-        p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
+        print("Resetting simulation")
+        # p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
         if hasattr(self, "quadcopter"):
             self.quadcopter.detach_from_simulation()
         self.quadcopter: LoyalWingman = self.factory.create_loyalwingman(
             np.zeros(3), np.zeros(3), command_type=CommandType.RPM
         )
 
+        print("Quadcopter created")
         self.controller = QuadcopterController(
             self.quadcopter.operational_constraints,
             self.quadcopter.quadcopter_specs,
             self.environment_parameters,
         )
+
+        print("Controller created")
 
     """
     def convert_command_to_desired_velocity(self, command: np.ndarray):
@@ -179,13 +190,31 @@ class PIDAutoTuner:
         """Execute a step in the simulation based on the RL action."""
         self._reset_simulation()
         self.quadcopter.update_imu()
+
+        print(
+            "beginig:",
+            self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL),
+        )
         for _ in range(self.environment_parameters.aggregate_physics_steps):
-            rpm = self.controller.compute_rpm(
-                desired_velocity, self.quadcopter.flight_state
-            )
-            self.quadcopter.drive(rpm)
-            p.stepSimulation(physicsClientId=self.environment_parameters.client_id)
+            print(self.quadcopter)
             self.quadcopter.update_imu()
+            inertial_data = self.quadcopter.flight_state_by_type(
+                FlightStateDataType.INERTIAL
+            )
+            print("inertial_data", inertial_data)
+            rpm = self.controller.compute_rpm(desired_velocity, inertial_data)
+
+            self.quadcopter.drive(rpm)
+
+            self.quadcopter.update_imu()
+
+            p.stepSimulation(physicsClientId=self.environment_parameters.client_id)
+
+            time.sleep(self.environment_parameters.timestep)
+
+        print(
+            "end:", self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL)
+        )
 
         return self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL)
 
@@ -212,6 +241,7 @@ class PIDAutoTuner:
 
         # TODO: TUNE CONTROLLER
         self.tune_controller(znfo_attitudes, znfo_velocities)
+        print("Controller tuned after 1 cycle")
 
     def tune_controller(self, znfo_attitudes, znfo_velocities):
         mean_kp_attitude = np.mean([params[0] for params in znfo_attitudes])
@@ -262,3 +292,39 @@ class PIDAutoTuner:
         kd = kp * td
 
         return kp, ki, kd
+
+    ################################################################################
+
+    def getPyBulletClient(self):
+        """Returns the PyBullet Client Id.
+        Returns
+        -------
+        int:
+            The PyBullet Client Id.
+        """
+        return self.environment_parameters.client_id
+
+    ################################################################################
+
+    def _action_space(self):
+        # direction and intensity fo velocity
+        return spaces.Box(
+            low=np.array([-1, -1, -1, 0]),
+            high=np.array([1, 1, 1, 1]),
+            shape=(4,),
+            dtype=np.float32,
+        )
+
+    def _observation_space(self):
+        return spaces.Box(
+            low=-1,
+            high=1,
+            shape=(5,),
+            dtype=np.float32,
+        )
+
+    def reset(self, seed: int = 0):
+        return np.zeros(5, dtype=np.float32), {}
+
+    def step(self, action: np.ndarray):
+        return np.zeros(5, dtype=np.float32), 0, False, False, {}

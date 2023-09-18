@@ -113,16 +113,25 @@ class QuadcopterController:
         """
 
         dt = self.dt
-        desired_attitude = np.zeros(3)
+        # desired_attitude = flight_state[]#np.zeros(3)
 
         current_velocity = flight_state["velocity"]
         current_attitude = flight_state["attitude"]
+        desired_attitude = current_attitude
 
+        print(
+            "current_velocity: ",
+            current_velocity,
+            "desired_velocity: ",
+            desired_velocity,
+        )
         desired_forces = self._desired_forces(desired_velocity, current_velocity)
         desired_torques = self._desired_torques(desired_attitude, current_attitude)
         desired_rpm = self.dynamics.forces_torques_to_rpm(
             desired_forces, desired_torques
         )
+
+        print("desired_rpm: ", desired_rpm)
 
         self.dynamics.reset(flight_state)
         simulated_final_state = self.dynamics.compute_dynamics(desired_rpm, dt)
@@ -141,6 +150,10 @@ class QuadcopterController:
 
         self.last_desired_velocity = desired_velocity.copy()
         final_rpms = self.dynamics.forces_torques_to_rpm(final_forces, final_torques)
+        print(
+            "final_rpms",
+            final_rpms,
+        )
         return np.clip(final_rpms, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
 
 
@@ -395,12 +408,21 @@ class QuadcopterDynamics:
 
     def rk4(self, f, state, u, dt):
         """4th order Runge-Kutta integration."""
+
         k1 = f(state, u)
-        k2 = f({key: state[key] + 0.5 * dt * k1[key] for key in state}, u)
-        k3 = f({key: state[key] + 0.5 * dt * k2[key] for key in state}, u)
-        k4 = f({key: state[key] + dt * k3[key] for key in state}, u)
+        k2 = f({key: state[key] + 0.5 * dt * k1.get(key, 0) for key in state}, u)
+        k3 = f({key: state[key] + 0.5 * dt * k2.get(key, 0) for key in state}, u)
+        k4 = f({key: state[key] + dt * k3.get(key, 0) for key in state}, u)
         return {
-            key: state[key] + dt / 6 * (k1[key] + 2 * k2[key] + 2 * k3[key] + k4[key])
+            key: state[key]
+            + dt
+            / 6
+            * (
+                k1.get(key, 0)
+                + 2 * k2.get(key, 0)
+                + 2 * k3.get(key, 0)
+                + k4.get(key, 0)
+            )
             for key in state
         }
 

@@ -16,7 +16,7 @@ sys.path.append(grand_parent_directory)
 
 from stable_baselines3.common.env_checker import check_env
 from loyalwingmen.modules.utils.keyboard_listener import KeyboardListener
-from loyalwingmen.modules.environments.level0.level0_environment import Level0
+from loyalwingmen.modules.environments.level0.pid_auto_tune import PIDAutoTuner
 from loyalwingmen.modules.utils.displaytext import log
 import numpy as np
 import pstats
@@ -27,10 +27,10 @@ from stable_baselines3 import PPO
 import torch
 
 
-env = Level0(GUI=False, rl_frequency=30, debug=True)
+env = PIDAutoTuner(rl_frequency=30, simulation_frequency=240, GUI=False, dome_radius=10)
 print(torch.cuda.is_available())
 print(torch.cuda.get_device_name(0))
-model = PPO("MlpPolicy", env, verbose=1)
+# model = PPO("MlpPolicy", env, verbose=1)
 check_env(env)
 
 
@@ -38,7 +38,12 @@ def on_avaluation_step():
     n = 1_000
     number_of_logical_cores = cpu_count()
     n_envs = int(number_of_logical_cores / 2)
-    env_fns = [lambda: Level0(GUI=False, rl_frequency=30) for _ in range(n_envs)]
+    env_fns = [
+        lambda: PIDAutoTuner(
+            rl_frequency=30, simulation_frequency=240, GUI=False, dome_radius=10
+        )
+        for _ in range(n_envs)
+    ]
     vectorized_environment = VecMonitor(SubprocVecEnv(env_fns))  # type: ignore
     max_allowed_time = (
         1 / env.environment_parameters.rl_frequency
@@ -105,4 +110,5 @@ def main():
 if __name__ == "__main__":
     # https://stackoverflow.com/questions/29690091/python2-7-exception-the-freeze-support-line-can-be-omitted-if-the-program
     # freeze_support() here if program needs to be frozen
-    main()  # execute this only when run directly, not when imported!
+    pass
+    # main()  # execute this only when run directly, not when imported!
