@@ -224,8 +224,9 @@ class PIDAutoTuner:
         # TODO: TUNE CONTROLLER
 
     def analyze_response(self, responses):
-        # Ganho Estável (K)
-        K = max(responses) - responses[0]
+        # Escolha o método de cálculo do ganho estável (K)
+
+        K = max(responses) - min(responses)
 
         # Calculando o tempo constante (T)
         target_value = responses[0] + 0.632 * K
