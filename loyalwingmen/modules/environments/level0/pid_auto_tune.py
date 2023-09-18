@@ -1,18 +1,246 @@
-from ...quadcoters.components.dataclasses.operational_constraints import (
-    OperationalConstraints,
-)
-from ...quadcoters.components.dataclasses.quadcopter_specs import QuadcopterSpecs
-from ..helpers.environment_parameters import EnvironmentParameters
-
-from typing import Dict, List, Tuple, Union, Optional
-
-from ...quadcoters.components.base.quadcopter import DroneModel
+import pybullet as p
+import pybullet_data
 import numpy as np
+import random
+from typing import Tuple, Optional, Union, Dict
+
+from ...quadcoters.quadcopter_factory import (
+    QuadcopterFactory,
+    Quadcopter,
+    QuadcopterType,
+    LoyalWingman,
+    LoiteringMunition,
+    OperationalConstraints,
+    FlightStateDataType,
+    LoiteringMunitionBehavior,
+    CommandType,
+)
+
+from ..helpers.normalization import normalize_inertial_data
+
+from ..helpers.environment_parameters import EnvironmentParameters
+from time import time
+from .nova_controladora import QuadcopterController
 
 
 class PIDAutoTuner:
-    def __init__(self, pid_controller):
-        self.pid = pid_controller
+    def __init__(
+        self,
+        dome_radius: float,
+        rl_frequency: float,
+        simulation_frequency: float,
+        environment_parameters: EnvironmentParameters,
+        GUI: bool = False,
+    ):
+        self.dome_radius = dome_radius
+        self.rl_frequency = rl_frequency
+        self.simulation_frequency = simulation_frequency
+
+        self.environment_parameters = environment_parameters
+        self.setup_Parameteres(
+            simulation_frequency,
+            rl_frequency,
+            GUI,
+        )
+        self.init_simulation()
+
+    def setup_Parameteres(self, simulation_frequency, rl_frequency, GUI):
+        self.environment_parameters = EnvironmentParameters(
+            G=9.8,
+            NEIGHBOURHOOD_RADIUS=np.inf,
+            simulation_frequency=simulation_frequency,
+            rl_frequency=rl_frequency,
+            timestep=1 / simulation_frequency,
+            aggregate_physics_steps=int(simulation_frequency / rl_frequency),
+            max_distance=100,
+            error=0.5,
+            client_id=-1,
+            debug=False,
+            GUI=GUI,
+        )
+
+    def set_frequency(self, simulation_frequency, rl_frequency):
+        self.environment_parameters.simulation_frequency = simulation_frequency
+        self.environment_parameters.rl_frequency = rl_frequency
+
+    def manage_debug_text(self, text: str, debug_text_id=None):
+        return p.addUserDebugText(
+            text,
+            position=np.zeros(3),
+            eplaceItemUniqueId=debug_text_id,
+            textColorRGB=[1, 1, 1],
+            textSize=1,
+            lifeTime=0,
+        )
+
+    def init_simulation(self):
+        """Initialize the simulation and entities."""
+        # Initialize pybullet, load plane, gravity, etc.
+
+        if self.environment_parameters.GUI:
+            client_id = self.setup_pybulley_GUI()
+
+        else:
+            client_id = self.setup_pybullet_DIRECT()
+
+        print(self.environment_parameters.G)
+        p.setGravity(
+            0,
+            0,
+            -self.environment_parameters.G,
+            physicsClientId=client_id,
+        )
+
+        for i in [
+            p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+            p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+            p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+        ]:
+            p.configureDebugVisualizer(i, 0, physicsClientId=client_id)
+
+        p.setRealTimeSimulation(0, physicsClientId=client_id)  # No Realtime Sync
+
+        p.setTimeStep(
+            self.environment_parameters.timestep,
+            physicsClientId=client_id,
+        )
+
+        p.setAdditionalSearchPath(
+            pybullet_data.getDataPath(),
+            physicsClientId=client_id,
+        )
+
+        self.environment_parameters.client_id = client_id
+
+        self.factory = QuadcopterFactory(self.environment_parameters)
+
+    def setup_pybullet_DIRECT(self):
+        return p.connect(p.DIRECT)
+
+    def setup_pybulley_GUI(self):
+        client_id = p.connect(p.GUI)
+        for i in [
+            p.COV_ENABLE_RGB_BUFFER_PREVIEW,
+            p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
+            p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
+        ]:
+            p.configureDebugVisualizer(i, 0, physicsClientId=client_id)
+        p.resetDebugVisualizerCamera(
+            cameraDistance=3,
+            cameraYaw=-30,
+            cameraPitch=-30,
+            cameraTargetPosition=[0, 0, 0],
+            physicsClientId=client_id,
+        )
+        ret = p.getDebugVisualizerCamera(physicsClientId=client_id)
+
+        return client_id
+
+    def _reset_simulation(self):
+        """Housekeeping function.
+        Allocation and zero-ing of the variables and PyBullet's parameters/objects
+        in the `reset()` function.
+        """
+
+        #### Set PyBullet's parameters #############################
+
+        p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
+        if hasattr(self, "quadcopter"):
+            self.quadcopter.detach_from_simulation()
+        self.quadcopter: LoyalWingman = self.factory.create_loyalwingman(
+            np.zeros(3), np.zeros(3), command_type=CommandType.RPM
+        )
+
+        self.controller = QuadcopterController(
+            self.quadcopter.operational_constraints,
+            self.quadcopter.quadcopter_specs,
+            self.environment_parameters,
+        )
+
+    """
+    def convert_command_to_desired_velocity(self, command: np.ndarray):
+        
+        Converte o comando do RL em velocidade desejada.
+
+        :param command: np.ndarray, Comando do RL
+        :return: np.ndarray, Velocidade desejada [vx, vy, vz]
+
+        speed_limit = self.quadcopter.operational_constraints.speed_limit
+        intensity = np.linalg.norm(command[3])
+
+        if np.linalg.norm(command[:3]) > 0:
+            direction = command[:3] / np.linalg.norm(command[:3])
+            return speed_limit * direction * intensity
+
+        return speed_limit * command[:3] * intensity
+    """
+
+    def apply_step_input(self, desired_velocity: np.ndarray = np.ones(3)):
+        """Execute a step in the simulation based on the RL action."""
+        self._reset_simulation()
+        self.quadcopter.update_imu()
+        for _ in range(self.environment_parameters.aggregate_physics_steps):
+            rpm = self.controller.compute_rpm(
+                desired_velocity, self.quadcopter.flight_state
+            )
+            self.quadcopter.drive(rpm)
+            p.stepSimulation(physicsClientId=self.environment_parameters.client_id)
+            self.quadcopter.update_imu()
+
+        return self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL)
+
+    def _preprocess_responses(self, responses):
+        attitudes = np.array([response["attitude"] for response in responses])
+        velocities = np.array([response["velocity"] for response in responses])
+        return attitudes, velocities
+
+    def tune(self):
+        responses = [self.apply_step_input() for _ in range(10)]
+        attitudes, velocites = self._preprocess_responses(responses)
+
+        znfo_attitudes = []
+        for attitude in attitudes:
+            for i in range(3):
+                K, T = self.analyze_response(attitude[i])
+                znfo_attitudes.append(np.array(self.ziegler_nichols_first_order(K, T)))
+
+        znfo_velocities = []
+        for velocity in velocites:
+            for i in range(3):
+                K, T = self.analyze_response(velocity[i])
+                znfo_velocities.append(np.array(self.ziegler_nichols_first_order(K, T)))
+
+        # TODO: TUNE CONTROLLER
+        self.tune_controller(znfo_attitudes, znfo_velocities)
+
+    def tune_controller(self, znfo_attitudes, znfo_velocities):
+        mean_kp_attitude = np.mean([params[0] for params in znfo_attitudes])
+        mean_ki_attitude = np.mean([params[1] for params in znfo_attitudes])
+        mean_kd_attitude = np.mean([params[2] for params in znfo_attitudes])
+
+        mean_kp_velocity = np.mean([params[0] for params in znfo_velocities])
+        mean_ki_velocity = np.mean([params[1] for params in znfo_velocities])
+        mean_kd_velocity = np.mean([params[2] for params in znfo_velocities])
+        # TODO: TUNE CONTROLLER
+
+    def analyze_response(self, responses):
+        # Ganho Estável (K)
+        K = max(responses) - responses[0]
+
+        # Calculando o tempo constante (T)
+        target_value = responses[0] + 0.632 * K
+        for i, response in enumerate(responses):
+            if response >= target_value:
+                T = i * self.environment_parameters.timestep
+                break
+        else:
+            # Se a resposta nunca exceder 63,2% do valor final, então T é indefinido
+            T = float("inf")
+
+        return K, T
+
+    def close(self):
+        p.disconnect(physicsClientId=self.environment_parameters.client_id)
 
     def ziegler_nichols_first_order(self, K, T):
         kp = 0.6 * (T / K)
@@ -33,214 +261,3 @@ class PIDAutoTuner:
         kd = kp * td
 
         return kp, ki, kd
-
-    def auto_tune(self, system, set_point, agent_frequency, method="zn", duration=10):
-        K, T = self.analyze_step_response(system, set_point, agent_frequency, duration)
-        if method == "zn":
-            kp, ki, kd = self.ziegler_nichols_first_order(K, T)
-        elif method == "cc":
-            kp, ki, kd = self.cohen_coon(K, T)
-        else:
-            raise ValueError(
-                "Invalid tuning method. Choose either 'zn' for Ziegler-Nichols or 'cc' for Cohen-Coon."
-            )
-
-        self.pid.update_gains(kp, ki, kd)
-        return kp, ki, kd
-
-    def analyze_step_response(self, system, set_point, agent_frequency, duration=10):
-        dt = 1.0 / agent_frequency
-        max_time_to_settle = 1.0 / agent_frequency
-
-        time_elapsed = 0.0
-        prev_output = system(0)
-        initial_output = prev_output
-
-        while time_elapsed < duration:
-            output = system(set_point)
-
-            if output >= 0.632 * set_point:
-                T = time_elapsed
-                K = (output - initial_output) / (time_elapsed * set_point)
-                break
-
-            prev_output = output
-            time_elapsed += dt
-
-        else:
-            raise ValueError(
-                "The system did not respond as expected within the given duration."
-            )
-
-        if T > max_time_to_settle:
-            raise Warning(
-                f"The system took {T} seconds to reach 63.2% of the set point. It should have taken less than {max_time_to_settle} seconds."
-            )
-
-        return K, T
-
-    def start_tuning(
-        self, system, set_point, agent_frequency, method="zn", duration=10
-    ):
-        kp, ki, kd = self.auto_tune(
-            system, set_point, agent_frequency, method, duration
-        )
-        print(f"Tuned Gains: Kp={kp:.4f}, Ki={ki:.4f}, Kd={kd:.4f}")
-
-    def mysystem(self):
-        pass
-
-
-class QuadcopterDynamics:
-    def __init__(self, specs: QuadcopterSpecs, constraints: OperationalConstraints):
-        self._specifications = specs
-        self._constraints = constraints
-        self._initialize_inertial_state()
-
-    def _initialize_inertial_state(self):
-        self._inertial_state = {
-            "position": np.zeros(3),
-            "euler_angles": np.zeros(3),
-            "linear_velocity": np.zeros(3),
-            "angular_velocity": np.zeros(3),
-            "linear_acceleration": np.zeros(3),
-            "angular_acceleration": np.zeros(3),
-        }
-
-    def _gravitational_force(self) -> np.ndarray:
-        return np.array([0, 0, self._constraints.weight])
-
-    def compute_motor_outputs(self, rpm: np.ndarray) -> tuple:
-        """Compute thrust and body torque based on motor RPM."""
-        motor_thrusts = rpm**2 * self._specifications.KF
-        body_torque = rpm**2 * self._specifications.KM
-        body_torque_sum = np.sum(
-            np.array([(-1) ** i * torque for i, torque in enumerate(body_torque)])
-        )
-        thrust_vectors = [np.array([0, 0, thrust]) for thrust in motor_thrusts]
-        body_torque_vector = np.array([0, 0, body_torque_sum])
-        return thrust_vectors, body_torque_vector
-
-    def euler_to_quaternion(self, roll, pitch, yaw):
-        """Convert Euler angles to a quaternion."""
-        cy = np.cos(yaw * 0.5)
-        sy = np.sin(yaw * 0.5)
-        cp = np.cos(pitch * 0.5)
-        sp = np.sin(pitch * 0.5)
-        cr = np.cos(roll * 0.5)
-        sr = np.sin(roll * 0.5)
-
-        w = cy * cp * cr + sy * sp * sr
-        x = cy * cp * sr - sy * sp * cr
-        y = sy * cp * sr + cy * sp * cr
-        z = sy * cp * cr - cy * sp * sr
-
-        return np.array([w, x, y, z])
-
-    def quaternion_to_euler(self, w, x, y, z):
-        """Convert a quaternion to Euler angles."""
-        t0 = +2.0 * (w * x + y * z)
-        t1 = +1.0 - 2.0 * (x * x + y * y)
-        roll = np.arctan2(t0, t1)
-
-        t2 = +2.0 * (w * y - z * x)
-        t2 = min(t2, +1.0)
-        t2 = max(t2, -1.0)
-        pitch = np.arcsin(t2)
-
-        t3 = +2.0 * (w * z + x * y)
-        t4 = +1.0 - 2.0 * (y * y + z * z)
-        yaw = np.arctan2(t3, t4)
-
-        return np.array([roll, pitch, yaw])
-
-    def integrate_quaternion(self, q, angular_velocity, dt):
-        """Integrate angular velocity to get the updated quaternion."""
-        w, x, y, z = q
-        p, q, r = angular_velocity
-
-        dqdt = np.array(
-            [
-                0.5 * (-x * p - y * q - z * r),
-                0.5 * (w * p + y * r - z * q),
-                0.5 * (w * q - x * r + z * p),
-                0.5 * (w * r + x * q - y * p),
-            ]
-        )
-
-        q_new = q + dqdt * dt
-        return q_new / np.linalg.norm(q_new)
-
-    def linear_dynamics(self, state, thrust_vectors):
-        """Compute linear dynamics derivatives."""
-        total_thrust = np.sum(thrust_vectors, axis=0)
-        gravitational_force = np.array([0, 0, self._constraints.weight])
-        acceleration = (total_thrust - gravitational_force) / self._specifications.M
-        acceleration = np.clip(
-            acceleration,
-            -self._constraints.acceleration_limit,
-            self._constraints.acceleration_limit,
-        )
-        return {"velocity": state["linear_velocity"], "acceleration": acceleration}
-
-    def angular_dynamics(self, state, body_torque):
-        """Compute angular dynamics derivatives."""
-        inertia_tensor = self._specifications.J
-        inv_inertia_tensor = self._specifications.J_INV
-        angular_drag = np.cross(
-            state["angular_velocity"], np.dot(inertia_tensor, state["angular_velocity"])
-        )
-        angular_acceleration = np.dot(inv_inertia_tensor, body_torque - angular_drag)
-        return {
-            "angular_velocity": state["angular_velocity"],
-            "angular_acceleration": angular_acceleration,
-        }
-
-    def rk4(self, f, state, u, dt):
-        """4th order Runge-Kutta integration."""
-        k1 = f(state, u)
-        k2 = f({key: state[key] + 0.5 * dt * k1[key] for key in state}, u)
-        k3 = f({key: state[key] + 0.5 * dt * k2[key] for key in state}, u)
-        k4 = f({key: state[key] + dt * k3[key] for key in state}, u)
-        return {
-            key: state[key] + dt / 6 * (k1[key] + 2 * k2[key] + 2 * k3[key] + k4[key])
-            for key in state
-        }
-
-    def update_dynamics(self, rpm: np.ndarray, timestep: float) -> dict:
-        thrust_vectors, body_torque = self.compute_motor_outputs(rpm)
-
-        linear_state = {
-            "linear_velocity": self._inertial_state["linear_velocity"],
-            "position": self._inertial_state["position"],
-        }
-        updated_linear_state = self.rk4(
-            self.linear_dynamics, linear_state, thrust_vectors, timestep
-        )
-        self._inertial_state["linear_velocity"] = updated_linear_state[
-            "linear_velocity"
-        ]
-        self._inertial_state["position"] = updated_linear_state["position"]
-
-        angular_state = {
-            "angular_velocity": self._inertial_state["angular_velocity"],
-            "euler_angles": self._inertial_state["euler_angles"],
-        }
-        updated_angular_state = self.rk4(
-            self.angular_dynamics, angular_state, body_torque, timestep
-        )
-        self._inertial_state["angular_velocity"] = updated_angular_state[
-            "angular_velocity"
-        ]
-
-        current_quaternion = self.euler_to_quaternion(
-            *self._inertial_state["euler_angles"]
-        )
-        updated_quaternion = self.integrate_quaternion(
-            current_quaternion, self._inertial_state["angular_velocity"], timestep
-        )
-        self._inertial_state["euler_angles"] = self.quaternion_to_euler(
-            *updated_quaternion
-        )
-
-        return self._inertial_state.copy()

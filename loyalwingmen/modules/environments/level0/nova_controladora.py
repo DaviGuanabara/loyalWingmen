@@ -26,7 +26,7 @@ class QuadcopterController:
         self.operational_constraints = operational_constraints
         self.quadcopter_specs = quadcopter_specs
         self.MAX_RPM = operational_constraints.max_rpm
-        self.MAX_RPM = self.MAX_RPM / 2
+        self.MIN_RPM = self.MAX_RPM / 2
         self.HOVER_RPM = operational_constraints.hover_rpm
         self.M = quadcopter_specs.M
         self.L = quadcopter_specs.L
@@ -37,76 +37,111 @@ class QuadcopterController:
         self.J = quadcopter_specs.J
         self.J_INV = quadcopter_specs.J_INV
 
-        self.pid_vx = PID(0.1, 0.1, 0.1)
-        self.pid_vy = PID(0.1, 0.1, 0.1)
-        self.pid_vz = PID(0.1, 0.1, 0.1)
+        self.alpha = 1.0
+        self.alpha_max = 2.0  # Valor máximo para alpha, ajuste conforme necessário
+        self.alpha_min = 0.01  # Valor mínimo para alpha, ajuste conforme necessário
+        self.alpha_step = 0.01
+        self.last_desired_velocity = np.zeros(3)  # Inicialização com vetor zero
 
-        self.pid_roll = PID(
+        self.pid_for_x = PID(0.1, 0.1, 0.1)
+        self.pid_for_y = PID(0.1, 0.1, 0.1)
+        self.pid_for_z = PID(0.1, 0.1, 0.1)
+
+        self.pid_tor_x = PID(
             0.1, 0.1, 0.1
         )  # Exemplo de valores, ajuste conforme necessário
-        self.pid_pitch = PID(0.1, 0.1, 0.1)
-        self.pid_yaw = PID(0.1, 0.1, 0.1)
-        # Inicializa os auto-tuners
-        self.tuner_vx = PIDAutoTuner(self.pid_vx)
-        self.tuner_vy = PIDAutoTuner(self.pid_vy)
-        self.tuner_vz = PIDAutoTuner(self.pid_vz)
+        self.pid_tor_y = PID(0.1, 0.1, 0.1)
+        self.pid_tor_z = PID(0.1, 0.1, 0.1)
 
         # Inicializa a QuadcopterDynamics
         self.dynamics = QuadcopterDynamics(quadcopter_specs, operational_constraints)
 
-    def velocity_to_attitude(self, desired_velocity: np.ndarray):
-        """
-        Calcula a atitude desejada com base na velocidade desejada.
+    def reset(self):
+        pass
 
-        :param desired_velocity: Velocidade desejada.
-        :return: Atitude desejada [roll, pitch, yaw].
-        """
-        # Suposição simplificada: o roll e o pitch desejados são proporcionais às velocidades desejadas em x e y.
-        desired_roll = desired_velocity[
-            0
-        ]  # isso é apenas uma suposição, ajuste conforme necessário!
-        desired_pitch = desired_velocity[1]
-        desired_yaw = 0.0  # supondo que o yaw desejado seja constante
-        return np.array([desired_roll, desired_pitch, desired_yaw])
+    def _desired_forces(
+        self, desired_velocity: np.ndarray, current_velocity
+    ) -> np.ndarray:
+        for_x = self.pid_for_x.compute(
+            desired_velocity[0], current_velocity[0], self.dt
+        )
+        for_y = self.pid_for_y.compute(
+            desired_velocity[1], current_velocity[1], self.dt
+        )
+        for_z = self.pid_for_z.compute(
+            desired_velocity[2], current_velocity[2], self.dt
+        )
+        return np.array([for_x, for_y, for_z + self.quadcopter_specs.WEIGHT])
 
-    def update(
+    def _desired_torques(
+        self, desired_attitude: np.ndarray, current_attitude
+    ) -> np.ndarray:
+        tor_x = self.pid_tor_x.compute(
+            desired_attitude[0], current_attitude[0], self.dt
+        )
+        tor_y = self.pid_tor_y.compute(
+            desired_attitude[1], current_attitude[1], self.dt
+        )
+        tor_z = self.pid_tor_z.compute(
+            desired_attitude[2], current_attitude[2], self.dt
+        )
+        return np.array([tor_x, tor_y, tor_z])
+
+    def update_alpha(self, flight_state: Dict[str, np.ndarray]):
+        if not hasattr(self, "last_desired_velocity"):
+            return
+
+        current_velocity = flight_state["velocity"]
+        last_disered_velocity = self.last_desired_velocity
+        error = np.linalg.norm(current_velocity - last_disered_velocity)
+
+        alpha = self.alpha
+        alpha += float(0.01 * error)
+        self.alpha = max(self.alpha_min, min(alpha, self.alpha_max))
+
+    def compute_rpm(
         self,
         desired_velocity: np.ndarray,
-        current_velocity: np.ndarray,
-        current_attitude: np.ndarray,
+        flight_state: Dict[str, np.ndarray],
     ):
         """
         Atualiza os controladores e retorna os comandos dos motores.
 
         :param desired_velocity: np.ndarray, Velocidade desejada [vx, vy, vz]
-        :param current_velocity: np.ndarray, Velocidade atual [vx, vy, vz]
+        :param flight_state: Dict, Estado atual do voo
         :return: np.ndarray, Comandos dos motores (RPMs)
         """
 
         dt = self.dt
+        desired_attitude = np.zeros(3)
 
-        # Calcule os erros de velocidade e obtenha a saída PID
-        vx_output = self.pid_vx.compute(desired_velocity[0] - current_velocity[0], dt)
-        vy_output = self.pid_vy.compute(desired_velocity[1] - current_velocity[1], dt)
-        vz_output = self.pid_vz.compute(desired_velocity[2] - current_velocity[2], dt)
+        current_velocity = flight_state["velocity"]
+        current_attitude = flight_state["attitude"]
 
-        # Converta a saída PID em forças desejadas (por simplicidade, assumindo que a saída PID representa uma força diretamente)
-        # Note que a direção z pode necessitar de uma força adicional para combater a gravidade
-        desired_forces = np.array(
-            [vx_output, vy_output, vz_output + self.M * self.GRAVITY_ACCELERATION]
+        desired_forces = self._desired_forces(desired_velocity, current_velocity)
+        desired_torques = self._desired_torques(desired_attitude, current_attitude)
+        desired_rpm = self.dynamics.forces_torques_to_rpm(
+            desired_forces, desired_torques
         )
 
-        # Calcule os erros de atitude e obtenha a saída PID
-        roll_output = self.pid_roll.compute(
-            0 - current_attitude[0], dt
-        )  # O valor desejado é 0
-        pitch_output = self.pid_pitch.compute(0 - current_attitude[1], dt)
-        yaw_output = self.pid_yaw.compute(0 - current_attitude[2], dt)
+        self.dynamics.reset(flight_state)
+        simulated_final_state = self.dynamics.compute_dynamics(desired_rpm, dt)
+        simulated_final_velocity = simulated_final_state["velocity"]
+        simulated_final_attitude = simulated_final_state["attitude"]
 
-        # Converta a saída PID em torques desejados
-        desired_torques = np.array([roll_output, pitch_output, yaw_output])
+        compensation_forces = self._desired_forces(
+            desired_velocity, simulated_final_velocity
+        )
+        compensation_torques = self._desired_torques(
+            desired_attitude, simulated_final_attitude
+        )
 
-        return self.dynamics.forces_torques_to_rpm(desired_forces, desired_torques)
+        final_forces = desired_forces + self.alpha * compensation_forces
+        final_torques = desired_torques + self.alpha * compensation_torques
+
+        self.last_desired_velocity = desired_velocity.copy()
+        final_rpms = self.dynamics.forces_torques_to_rpm(final_forces, final_torques)
+        return np.clip(final_rpms, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
 
 
 class PID:
@@ -115,17 +150,21 @@ class PID:
         kp: float,
         ki: float,
         kd: float,
-        setpoint: float = 0.0,
-        output_limits=(float("-inf"), float("inf")),
-        anti_windup=True,
-        integral_limits=(float("-inf"), float("inf")),
+        max_output_value: float = 0.0,
+        min_output_value: float = 0.0,
         deadband=0.0,
+        anti_windup=True,
     ):
         self.kp, self.ki, self.kd = kp, ki, kd
-        self.setpoint = setpoint
-        self.output_limits = output_limits
+
+        self.max_output_value = max_output_value
+        self.min_output_value = min_output_value
+
         self.anti_windup = anti_windup
-        self.integral_limits = integral_limits
+
+        self.integral_limits = (
+            (-10, 10) if anti_windup else (float("-inf"), float("inf"))
+        )
         self.deadband = deadband
 
         self.prev_error = 0.0
@@ -135,11 +174,11 @@ class PID:
         self.filtered_derivative = 0.0
         self.active = True
 
-    def compute(self, current_value: float, dt: float) -> float:
+    def compute(self, desired_value: float, current_value: float, dt: float) -> float:
         if not self.active:
             return 0.0
 
-        error = self.setpoint - current_value
+        error = desired_value - current_value
         if abs(error) < self.deadband:
             error = 0.0
 
@@ -161,13 +200,10 @@ class PID:
         self.prev_error = error
 
         output = proportional + integral_value + derivative_value
-        return max(min(output, self.output_limits[1]), self.output_limits[0])
+        return max(min(output, self.max_output_value), self.min_output_value)
 
     def is_active(self) -> bool:
         return self.active
-
-    def update_set_point(self, set_point: float):
-        self.setpoint = set_point
 
     @classmethod
     def from_config(cls, config: dict):
@@ -185,87 +221,6 @@ class PID:
         self.kp, self.ki, self.kd = kp, ki, kd
 
 
-class PIDAutoTuner:
-    def __init__(self, pid_controller: PID):
-        self.pid = pid_controller
-
-    def reset(self):
-        self.pid.reset()
-
-    def ziegler_nichols_first_order(self, K, T):
-        kp = 0.6 * (T / K)
-        ti = 2 * T
-        td = 0.5 * T
-
-        ki = kp / ti
-        kd = kp * td
-
-        return kp, ki, kd
-
-    def cohen_coon(self, K, T):
-        kp = (4.0 / 3.0) * (T / K)
-        ti = T * ((32.0 + 6 * np.sqrt(6)) / (13.0 + 8 * np.sqrt(6)))
-        td = T * (4.0 / (11.0 + 2 * np.sqrt(6)))
-
-        ki = kp / ti
-        kd = kp * td
-
-        return kp, ki, kd
-
-    def auto_tune(self, system, set_point, agent_frequency, method="zn", duration=10):
-        K, T = self.analyze_step_response(system, set_point, agent_frequency, duration)
-        if method == "zn":
-            kp, ki, kd = self.ziegler_nichols_first_order(K, T)
-        elif method == "cc":
-            kp, ki, kd = self.cohen_coon(K, T)
-        else:
-            raise ValueError(
-                "Invalid tuning method. Choose either 'zn' for Ziegler-Nichols or 'cc' for Cohen-Coon."
-            )
-
-        self.pid.update_gains(kp, ki, kd)
-        return kp, ki, kd
-
-    def analyze_step_response(self, system, set_point, agent_frequency, duration=10):
-        dt = 1.0 / agent_frequency
-        max_time_to_settle = 1.0 / agent_frequency
-
-        time_elapsed = 0.0
-        prev_output = system(0)
-        initial_output = prev_output
-
-        while time_elapsed < duration:
-            output = system(set_point)
-
-            if output >= 0.632 * set_point:
-                T = time_elapsed
-                K = (output - initial_output) / (time_elapsed * set_point)
-                break
-
-            prev_output = output
-            time_elapsed += dt
-
-        else:
-            raise ValueError(
-                "The system did not respond as expected within the given duration."
-            )
-
-        if T > max_time_to_settle:
-            raise Warning(
-                f"The system took {T} seconds to reach 63.2% of the set point. It should have taken less than {max_time_to_settle} seconds."
-            )
-
-        return K, T
-
-    def start_tuning(
-        self, system, set_point, agent_frequency, method="zn", duration=10
-    ):
-        kp, ki, kd = self.auto_tune(
-            system, set_point, agent_frequency, method, duration
-        )
-        print(f"Tuned Gains: Kp={kp:.4f}, Ki={ki:.4f}, Kd={kd:.4f}")
-
-
 class QuadcopterDynamics:
     def __init__(self, specs: QuadcopterSpecs, constraints: OperationalConstraints):
         self._specifications = specs
@@ -275,12 +230,21 @@ class QuadcopterDynamics:
     def _initialize_inertial_state(self):
         self._inertial_state = {
             "position": np.zeros(3),
-            "euler_angles": np.zeros(3),
-            "linear_velocity": np.zeros(3),
+            "attitude": np.zeros(3),
+            "velocity": np.zeros(3),
             "angular_velocity": np.zeros(3),
-            "linear_acceleration": np.zeros(3),
+            "acceleration": np.zeros(3),
             "angular_acceleration": np.zeros(3),
         }
+
+    def reset(self, flight_state: Optional[dict] = None):
+        if flight_state is None:
+            self._initialize_inertial_state()
+        else:
+            # TODO: Flight_state vai acabar adicionando mais coisas no dicionário
+            # Não acredito que isso vá ser um problema
+            # para o bem da simplicidade, vou manter assim.
+            self._inertial_state.update(flight_state)
 
     def _gravitational_force(self) -> np.ndarray:
         return np.array([0, 0, self._constraints.weight])
@@ -414,7 +378,7 @@ class QuadcopterDynamics:
             -self._constraints.acceleration_limit,
             self._constraints.acceleration_limit,
         )
-        return {"velocity": state["linear_velocity"], "acceleration": acceleration}
+        return {"velocity": state["velocity"], "acceleration": acceleration}
 
     def angular_dynamics(self, state, body_torque):
         """Compute angular dynamics derivatives."""
@@ -440,24 +404,22 @@ class QuadcopterDynamics:
             for key in state
         }
 
-    def update_dynamics(self, rpm: np.ndarray, timestep: float) -> dict:
+    def compute_dynamics(self, rpm: np.ndarray, timestep: float) -> dict:
         thrust_vectors, body_torque = self.compute_motor_outputs(rpm)
 
         linear_state = {
-            "linear_velocity": self._inertial_state["linear_velocity"],
+            "velocity": self._inertial_state["velocity"],
             "position": self._inertial_state["position"],
         }
         updated_linear_state = self.rk4(
             self.linear_dynamics, linear_state, thrust_vectors, timestep
         )
-        self._inertial_state["linear_velocity"] = updated_linear_state[
-            "linear_velocity"
-        ]
+        self._inertial_state["velocity"] = updated_linear_state["velocity"]
         self._inertial_state["position"] = updated_linear_state["position"]
 
         angular_state = {
             "angular_velocity": self._inertial_state["angular_velocity"],
-            "euler_angles": self._inertial_state["euler_angles"],
+            "attitude": self._inertial_state["attitude"],
         }
         updated_angular_state = self.rk4(
             self.angular_dynamics, angular_state, body_torque, timestep
@@ -466,14 +428,10 @@ class QuadcopterDynamics:
             "angular_velocity"
         ]
 
-        current_quaternion = self.euler_to_quaternion(
-            *self._inertial_state["euler_angles"]
-        )
+        current_quaternion = self.euler_to_quaternion(*self._inertial_state["attitude"])
         updated_quaternion = self.integrate_quaternion(
             current_quaternion, self._inertial_state["angular_velocity"], timestep
         )
-        self._inertial_state["euler_angles"] = self.quaternion_to_euler(
-            *updated_quaternion
-        )
+        self._inertial_state["attitude"] = self.quaternion_to_euler(*updated_quaternion)
 
         return self._inertial_state.copy()
