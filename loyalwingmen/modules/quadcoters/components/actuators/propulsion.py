@@ -62,8 +62,9 @@ class Motors(Propulsion):
         KF = self.drone_specs.KF
         KM = self.drone_specs.KM
 
-        forces = np.array(rpm**2) * KF
-        torques = np.array(rpm**2) * KM
+        rpm_float = rpm.astype(np.float64)
+        forces = np.array(rpm_float**2) * KF
+        torques = np.array(rpm_float**2) * KM
         z_torque = -torques[0] + torques[1] - torques[2] + torques[3]
 
         for i in range(4):
@@ -136,7 +137,12 @@ class PropulsionSystem:
         self.min_action_rpm = -1
 
         self.propeller = self._init_propeller(
-            command_type, drone_id, drone_specs, drone_model, environment_parameters
+            command_type,
+            drone_id,
+            drone_specs,
+            drone_model,
+            environment_parameters,
+            operational_constraints,
         )
 
     def _compute_velocity_from_command(self, motion_command: np.ndarray) -> np.ndarray:
@@ -150,20 +156,26 @@ class PropulsionSystem:
         Returns:
         - velocity: The computed velocity vector.
         """
+
         norm = np.linalg.norm(motion_command[:3])
         if norm == 0:
             return np.array([0, 0, 0])
+        # self.operational_constraints.speed_limit
+        intensity = 0.25 * motion_command[3]
 
-        intensity = self.operational_constraints.speed_limit * motion_command[3]
+        # print(
+        #    f"_compute_velocity_from_command: {motion_command} \n target_velocity: {intensity * motion_command[:3] / norm}"
+        # )
         return intensity * motion_command[:3] / norm
 
     def _init_propeller(
         self,
         command_type,
         drone_id,
-        drone_specs,
-        drone_model,
+        drone_specs: QuadcopterSpecs,
+        drone_model: DroneModel,
         environment_parameters: EnvironmentParameters,
+        operational_constraints: OperationalConstraints,
     ):
         if command_type == CommandType.VELOCITY_DIRECT:
             direct_velocity_applier = DirectVelocityApplier(
@@ -180,7 +192,10 @@ class PropulsionSystem:
 
         elif command_type == CommandType.VELOCITY_TO_CONTROLLER:
             controller = DSLPIDControl(
-                drone_model, drone_specs, environment_parameters
+                drone_model,
+                operational_constraints,
+                environment_parameters,
+                drone_specs,
             )  # default or custom controller
             motors = Motors(
                 drone_id=drone_id,
@@ -244,7 +259,7 @@ class PropulsionSystem:
         target_velocity: np.ndarray,
         flight_state_manager: FlightStateManager,
         controller: DSLPIDControl,
-    ):
+    ) -> np.ndarray:
         inertial_data = flight_state_manager.get_inertial_data()
 
         yaw = inertial_data.get("attitude", np.zeros(3))[2]
@@ -253,6 +268,8 @@ class PropulsionSystem:
         aggregate_physics_steps = self.environment_parameters.aggregate_physics_steps
         timestep_period = self.environment_parameters.timestep
         control_timestep = aggregate_physics_steps * timestep_period
+        control_timestep = 1 / self.environment_parameters.rl_frequency
+        # print(f"control_timestep: {control_timestep}")
 
         quaternions = p.getQuaternionFromEuler(
             inertial_data.get("attitude", np.array([0, 0, 0, 1]))
@@ -268,6 +285,11 @@ class PropulsionSystem:
             target_vel=target_velocity,
         )
 
+        # print(
+        #    f"codigo 2 \n /begin: \n speedlimit: {0.25} \n control_timestep {control_timestep} \nvelocity: {target_velocity} \n rpm: {rpm} \n /end"
+        # )
+
+        # print(rpm)
         return rpm
 
     def propel(self, velocity: np.ndarray, flight_state_manager: FlightStateManager):
