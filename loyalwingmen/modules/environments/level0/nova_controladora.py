@@ -23,8 +23,9 @@ class QuadcopterController:
         operational_constraints: OperationalConstraints,
         quadcopter_specs: QuadcopterSpecs,
         environmental_parameters: EnvironmentParameters,
+        control_frequency: float = 240.0,
     ):
-        self.dt = environmental_parameters.timestep
+        self.dt = 1 / control_frequency  # environmental_parameters.timestep
         self.operational_constraints = operational_constraints
         self.quadcopter_specs = quadcopter_specs
         self.MAX_RPM = operational_constraints.max_rpm
@@ -140,32 +141,41 @@ class QuadcopterController:
         return np.array([roll, pitch, yaw])
 
     def _desired_forces(
-        self, desired_velocity: np.ndarray, current_velocity
+        self,
+        desired_velocity: np.ndarray,
+        current_velocity: np.ndarray,
+        current_acceleration: np.ndarray,
     ) -> np.ndarray:
         for_x = self.pid_for_x.compute(
-            desired_velocity[0], current_velocity[0], self.dt
+            desired_velocity[0], current_velocity[0], current_acceleration[0], self.dt
         )
         for_y = self.pid_for_y.compute(
-            desired_velocity[1], current_velocity[1], self.dt
+            desired_velocity[1], current_velocity[1], current_acceleration[1], self.dt
         )
         for_z = self.pid_for_z.compute(
-            desired_velocity[2], current_velocity[2], self.dt
+            desired_velocity[2], current_velocity[2], current_acceleration[2], self.dt
         )
         return np.array([for_x, for_y, for_z])
 
     def _desired_torques(
-        self, desired_attitude: np.ndarray, current_attitude
+        self,
+        desired_attitude: np.ndarray,
+        current_attitude: np.ndarray,
+        current_angular_rate: np.ndarray,
     ) -> np.ndarray:
         tor_x = self.pid_tor_x.compute(
-            desired_attitude[0], current_attitude[0], self.dt
+            desired_attitude[0], current_attitude[0], current_angular_rate[0], self.dt
         )
         tor_y = self.pid_tor_y.compute(
-            desired_attitude[1], current_attitude[1], self.dt
+            desired_attitude[1], current_attitude[1], current_angular_rate[1], self.dt
         )
         tor_z = self.pid_tor_z.compute(
-            desired_attitude[2], current_attitude[2], self.dt
+            desired_attitude[2], current_attitude[2], current_angular_rate[2], self.dt
         )
-        return np.array([tor_x, tor_y, tor_z])
+        torques = np.array([tor_x, tor_y, tor_z])
+
+        # This magic values were found in DSLPID CONTROLLER. So, i kept using them.
+        return np.clip(torques, -3200, 3200, dtype=np.float32)
 
     def update_alpha(self, flight_state: Dict[str, np.ndarray]):
         if not hasattr(self, "last_desired_velocity"):
@@ -184,9 +194,11 @@ class QuadcopterController:
         desired_thrust: np.ndarray,
         desired_torques: np.ndarray,
         current_quaternion: np.ndarray,
+        use_quadcopter_model: bool = False,
     ):
         # Combine forces and torques
 
+        self.use_quadcopter_model = use_quadcopter_model
         cur_rotation = np.array(p.getMatrixFromQuaternion(current_quaternion)).reshape(
             3, 3
         )
@@ -214,16 +226,26 @@ class QuadcopterController:
         # desired_attitude = flight_state[]#np.zeros(3)
 
         current_velocity = flight_state["velocity"]
+        current_acceleration = flight_state["acceleration"]
+
         current_attitude = flight_state["attitude"]
         current_quaternion = flight_state["quaternions"]
+        current_angular_rate = flight_state["angular_rate"]
 
-        desired_forces = self._desired_forces(desired_velocity, current_velocity)
+        desired_forces = self._desired_forces(
+            desired_velocity, current_velocity, current_acceleration
+        )
         # the desired forces shows the orientation that the quadcopter should have.
         desired_attitude = self.cartesian_to_euler_angles(desired_forces)
-        desired_torques = self._desired_torques(desired_attitude, current_attitude)
+        desired_torques = self._desired_torques(
+            desired_attitude, current_attitude, current_angular_rate
+        )
         desired_rpm = self.forces_torques_to_rpm(
             desired_forces, desired_torques, current_quaternion
         )
+
+        if not self.use_quadcopter_model:
+            return np.clip(desired_rpm, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
 
         self.dynamics.reset(flight_state)
         simulated_final_state = self.dynamics.compute_dynamics(desired_rpm, dt)
@@ -232,10 +254,10 @@ class QuadcopterController:
         simulated_final_attitude = simulated_final_state["attitude"]
 
         compensation_forces = self._desired_forces(
-            desired_velocity, simulated_final_velocity
+            desired_velocity, simulated_final_velocity, current_angular_rate
         )
         compensation_torques = self._desired_torques(
-            desired_attitude, simulated_final_attitude
+            desired_attitude, simulated_final_attitude, current_angular_rate
         )
 
         final_forces = desired_forces + (self.alpha * compensation_forces)
@@ -246,8 +268,7 @@ class QuadcopterController:
             final_forces, final_torques, current_quaternion
         )
 
-        # return np.clip(final_rpms, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
-        return np.clip(desired_rpm, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
+        return np.clip(final_rpms, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
 
 
 class PID:
@@ -256,10 +277,11 @@ class PID:
         kp: float,
         ki: float,
         kd: float,
-        max_output_value: float = 0.0,
+        max_output_value: float = 100.0,
         min_output_value: float = 0.0,
         deadband=0.0,
-        anti_windup=True,
+        anti_windup=False,
+        derivative_filter_on=False,
     ):
         self.kp, self.ki, self.kd = kp, ki, kd
 
@@ -267,6 +289,7 @@ class PID:
         self.min_output_value = min_output_value
 
         self.anti_windup = anti_windup
+        self.derivative_filter_on = derivative_filter_on
 
         self.integral_limits = (
             (-10, 10) if anti_windup else (float("-inf"), float("inf"))
@@ -280,7 +303,13 @@ class PID:
         self.filtered_derivative = 0.0
         self.active = True
 
-    def compute(self, desired_value: float, current_value: float, dt: float) -> float:
+    def compute(
+        self,
+        desired_value: float,
+        current_value: float,
+        current_value_rate: float,
+        dt: float,
+    ) -> float:
         if not self.active:
             return 0.0
 
@@ -297,11 +326,17 @@ class PID:
             )
         integral_value = self.ki * self.integral
 
-        raw_derivative = (error - self.prev_error) / dt if dt > 0 else 0.0
+        raw_derivative = current_value_rate + (
+            (error - self.prev_error) / dt if dt > 0 else 0.0
+        )
         self.filtered_derivative = (
             1 - self.derivative_filter_alpha
         ) * raw_derivative + self.derivative_filter_alpha * self.filtered_derivative
-        derivative_value = self.kd * self.filtered_derivative
+        derivative_value = (
+            self.kd * self.filtered_derivative
+            if self.derivative_filter_on
+            else self.kd * raw_derivative
+        )
 
         self.prev_error = error
 

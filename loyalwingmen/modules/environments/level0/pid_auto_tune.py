@@ -164,6 +164,7 @@ class PIDAutoTuner(Env):
             self.quadcopter.operational_constraints,
             self.quadcopter.quadcopter_specs,
             self.environment_parameters,
+            control_frequency=self.rl_frequency,
         )
 
         print("Controller created")
@@ -196,25 +197,21 @@ class PIDAutoTuner(Env):
             "beginig:",
             self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL),
         )
+
+        self.quadcopter.update_imu()
+        inertial_data = self.quadcopter.flight_state_by_type(
+            FlightStateDataType.INERTIAL
+        )
+        print("inertial_data", inertial_data)
+        rpm = self.controller.compute_rpm(desired_velocity * speed_limit, inertial_data)
+        print("rpm", rpm)
         for _ in range(self.environment_parameters.aggregate_physics_steps):
-            print(self.quadcopter)
-            self.quadcopter.update_imu()
-            inertial_data = self.quadcopter.flight_state_by_type(
-                FlightStateDataType.INERTIAL
-            )
-            print("inertial_data", inertial_data)
-            rpm = self.controller.compute_rpm(
-                desired_velocity * speed_limit, inertial_data
-            )
-            print("rpm", rpm)
             self.quadcopter.drive(rpm)
-
-            self.quadcopter.update_imu()
-
             p.stepSimulation(physicsClientId=self.environment_parameters.client_id)
 
             time.sleep(1)
 
+        self.quadcopter.update_imu()
         print(
             "end:", self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL)
         )
