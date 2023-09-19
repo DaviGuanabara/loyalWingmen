@@ -248,7 +248,7 @@ class QuadcopterController:
             return np.clip(desired_rpm, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
 
         self.dynamics.reset(flight_state)
-        simulated_final_state = self.dynamics.compute_dynamics(desired_rpm, dt)
+        simulated_final_state = self.dynamics.compute_dynamics(desired_rpm, timestep=dt)
 
         simulated_final_velocity = simulated_final_state["velocity"]
         simulated_final_attitude = simulated_final_state["attitude"]
@@ -277,31 +277,61 @@ class PID:
         kp: float,
         ki: float,
         kd: float,
-        max_output_value: float = 100.0,
-        min_output_value: float = 0.0,
         deadband=0.0,
-        anti_windup=False,
+        limit_output_on=False,
+        max_output_value: float = 100.0,
+        min_output_value: float = -100.0,
+        anti_windup_on=False,
+        max_integral_value: float = 100.0,
+        min_integral_value: float = -100.0,
         derivative_filter_on=False,
+        enhance_derivative_with_estimate_on=False,
     ):
         self.kp, self.ki, self.kd = kp, ki, kd
-
-        self.max_output_value = max_output_value
-        self.min_output_value = min_output_value
-
-        self.anti_windup = anti_windup
-        self.derivative_filter_on = derivative_filter_on
-
-        self.integral_limits = (
-            (-10, 10) if anti_windup else (float("-inf"), float("inf"))
-        )
         self.deadband = deadband
-
         self.prev_error = 0.0
         self.integral = 0.0
 
-        self.derivative_filter_alpha = 0.9
-        self.filtered_derivative = 0.0
-        self.active = True
+        self.limit_output_on = limit_output_on
+        self.anti_windup_on = anti_windup_on
+        self.derivative_filter_on = derivative_filter_on
+        self.enhance_derivative_with_estimate_on = enhance_derivative_with_estimate_on
+
+        if limit_output_on:
+            self.max_output_value = max_output_value
+            self.min_output_value = min_output_value
+
+        if anti_windup_on:
+            self.max_integral_value = max_integral_value
+            self.min_integral_value = min_integral_value
+
+        if derivative_filter_on:
+            self.filtered_derivative = 0.0
+            self.derivative_filter_alpha = 0.9
+
+    def _compute_derivative(self, error, current_value_rate: float, dt: float) -> float:
+        raw_derivative = current_value_rate
+
+        if self.enhance_derivative_with_estimate_on:
+            raw_derivative += ((error - self.prev_error) / dt) if dt > 0 else 0.0
+
+        if self.derivative_filter_on:
+            self.filtered_derivative = (
+                (1 - self.derivative_filter_alpha) * raw_derivative
+                + self.derivative_filter_alpha * self.filtered_derivative
+            )
+            raw_derivative = self.filtered_derivative
+
+        return raw_derivative
+
+    def _compute_integral(self, error, dt: float) -> float:
+        self.integral += error * dt
+        if self.anti_windup_on:
+            self.integral = np.clip(
+                self.integral, self.min_integral_value, self.max_integral_value
+            )
+
+        return self.integral
 
     def compute(
         self,
@@ -310,49 +340,25 @@ class PID:
         current_value_rate: float,
         dt: float,
     ) -> float:
-        if not self.active:
-            return 0.0
-
         error = desired_value - current_value
         if abs(error) < self.deadband:
             error = 0.0
 
         proportional = self.kp * error
-
-        self.integral += error * dt
-        if self.anti_windup:
-            self.integral = max(
-                min(self.integral, self.integral_limits[1]), self.integral_limits[0]
-            )
-        integral_value = self.ki * self.integral
-
-        raw_derivative = current_value_rate + (
-            (error - self.prev_error) / dt if dt > 0 else 0.0
-        )
-        self.filtered_derivative = (
-            1 - self.derivative_filter_alpha
-        ) * raw_derivative + self.derivative_filter_alpha * self.filtered_derivative
-        derivative_value = (
-            self.kd * self.filtered_derivative
-            if self.derivative_filter_on
-            else self.kd * raw_derivative
-        )
+        integral = self.ki * self._compute_integral(error, dt)
+        derivative = self.kd * self._compute_derivative(error, current_value_rate, dt)
 
         self.prev_error = error
+        output = proportional + integral + derivative
 
-        output = proportional + integral_value + derivative_value
+        if self.limit_output_on:
+            return np.clip(output, self.min_output_value, self.max_output_value)
 
-        return max(min(output, self.max_output_value), self.min_output_value)
-
-    def is_active(self) -> bool:
-        return self.active
+        return output
 
     @classmethod
     def from_config(cls, config: dict):
         return cls(**config)
-
-    def toggle(self):
-        self.active = not self.active
 
     def reset(self):
         self.prev_error = 0.0
