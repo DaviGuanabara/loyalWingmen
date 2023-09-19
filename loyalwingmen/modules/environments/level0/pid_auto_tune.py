@@ -92,7 +92,7 @@ class PIDAutoTuner(Env):
         p.setGravity(
             0,
             0,
-            -self.environment_parameters.G,
+            -9.8,
             physicsClientId=client_id,
         )
 
@@ -188,8 +188,9 @@ class PIDAutoTuner(Env):
 
     def apply_step_input(self, desired_velocity: np.ndarray = np.ones(3)):
         """Execute a step in the simulation based on the RL action."""
-        self._reset_simulation()
+        # self._reset_simulation()
         self.quadcopter.update_imu()
+        speed_limit = self.quadcopter.operational_constraints.speed_limit
 
         print(
             "beginig:",
@@ -202,15 +203,17 @@ class PIDAutoTuner(Env):
                 FlightStateDataType.INERTIAL
             )
             print("inertial_data", inertial_data)
-            rpm = self.controller.compute_rpm(desired_velocity, inertial_data)
-
+            rpm = self.controller.compute_rpm(
+                desired_velocity * speed_limit, inertial_data
+            )
+            print("rpm", rpm)
             self.quadcopter.drive(rpm)
 
             self.quadcopter.update_imu()
 
             p.stepSimulation(physicsClientId=self.environment_parameters.client_id)
 
-            time.sleep(self.environment_parameters.timestep)
+            time.sleep(1)
 
         print(
             "end:", self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL)

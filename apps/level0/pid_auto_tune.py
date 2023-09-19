@@ -16,7 +16,7 @@ from loyalwingmen.modules.environments.level0.pid_auto_tune import PIDAutoTuner
 
 pid_autotuner = PIDAutoTuner(10, 30, 240, True)
 pid_autotuner._reset_simulation()
-pid_autotuner.tune()
+pid_autotuner.apply_step_input()
 # p.connect(p.GUI)
 
 # import pybullet as p

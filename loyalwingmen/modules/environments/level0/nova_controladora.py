@@ -13,6 +13,8 @@ from typing import Dict, List, Tuple, Union, Optional
 from ...quadcoters.components.base.quadcopter import DroneModel
 import numpy as np
 import math
+from scipy.spatial.transform import Rotation
+import pybullet as p
 
 
 class QuadcopterController:
@@ -26,7 +28,15 @@ class QuadcopterController:
         self.operational_constraints = operational_constraints
         self.quadcopter_specs = quadcopter_specs
         self.MAX_RPM = operational_constraints.max_rpm
-        self.MIN_RPM = self.MAX_RPM / 2
+        self.MIN_RPM = 0  # self.MAX_RPM / 3
+
+        max_xy_thrust = operational_constraints.max_xy_thrust
+        max_z_thrust = operational_constraints.max_z_thrust
+
+        max_xy_torque = operational_constraints.max_xy_torque
+        max_z_torque = operational_constraints.max_z_torque
+
+        print("MAX_RPM", self.MAX_RPM, "MIN_RPM", self.MIN_RPM)
         self.HOVER_RPM = operational_constraints.hover_rpm
         self.M = quadcopter_specs.M
         self.L = quadcopter_specs.L
@@ -39,25 +49,95 @@ class QuadcopterController:
 
         self.alpha = 1.0
         self.alpha_max = 2.0  # Valor máximo para alpha, ajuste conforme necessário
-        self.alpha_min = 0.01  # Valor mínimo para alpha, ajuste conforme necessário
+        self.alpha_min = 0  # Valor mínimo para alpha, ajuste conforme necessário
         self.alpha_step = 0.01
         self.last_desired_velocity = np.zeros(3)  # Inicialização com vetor zero
 
-        self.pid_for_x = PID(0.1, 0.1, 0.1)
-        self.pid_for_y = PID(0.1, 0.1, 0.1)
-        self.pid_for_z = PID(0.1, 0.1, 0.1)
+        self.pid_for_x = PID(0.04, 0.4, 1.25, max_xy_thrust)
+        self.pid_for_y = PID(0.005, 0.05, 0.05, max_xy_thrust)
+        self.pid_for_z = PID(0.02, 0.2, 0.5, max_z_thrust)
 
-        self.pid_tor_x = PID(
-            0.1, 0.1, 0.1
-        )  # Exemplo de valores, ajuste conforme necessário
-        self.pid_tor_y = PID(0.1, 0.1, 0.1)
-        self.pid_tor_z = PID(0.1, 0.1, 0.1)
+        self.pid_tor_x = PID(-70000.0, 70000.0, 60000.0, max_xy_torque)
+        self.pid_tor_y = PID(-70000.0, 70000.0, 60000.0, max_xy_torque)
+        self.pid_tor_z = PID(-20000.0, 20000.0, 12000.0, max_z_torque)
 
         # Inicializa a QuadcopterDynamics
         self.dynamics = QuadcopterDynamics(quadcopter_specs, operational_constraints)
 
+        self.PWM2RPM_SCALE = 0.2685
+        self.PWM2RPM_CONST = 4070.3
+        self.MIN_PWM = 20000
+        self.MAX_PWM = 65535
+
+        self.MIXER_MATRIX = np.array(
+            [[-0.5, -0.5, -1], [-0.5, 0.5, 1], [0.5, 0.5, -1], [0.5, -0.5, 1]]
+        )
+
     def reset(self):
         pass
+
+    def cartesian_to_euler_angles(self, forward) -> np.ndarray:
+        """
+        ### Função `cartesian_to_quaternions`
+
+        Essa função tem como objetivo converter uma direção cartesiana no espaço, especificamente a direção de força desejada para um drone, em um quaternion que representa a orientação do drone.
+
+        #### Argumentos:
+        - `forward`: Um vetor numpy representando a direção de força desejada no espaço.
+
+        #### Retorno:
+        - Um objeto `Rotation` da biblioteca SciPy, que representa a rotação desejada em formato de quaternion.
+
+        #### Descrição do Processo:
+
+        1. **Normalização da Direção de Força**: O vetor de força desejada é tratado como uma direção "para a frente". É essencial que esse vetor esteja normalizado para garantir cálculos precisos.
+        2. **Calculando o vetor 'Up'**: Um vetor "up" arbitrário é calculado com base na direção de força. Se a força não estiver quase alinhada com o eixo Z, o eixo Z é usado como vetor "up". Se estiver quase alinhado, o eixo Y é utilizado.
+        3. **Calculando o vetor 'Right'**: Usando o produto vetorial entre a direção de força e o vetor "up", um vetor "right" é calculado. Este vetor é normalizado para garantir que tenha magnitude 1.
+        4. **Atualização do vetor 'Up'**: Para garantir ortogonalidade, o vetor "up" é recalculado como o produto vetorial entre "right" e a direção de força.
+        5. **Construção da Matriz de Rotação**: A matriz de rotação é construída usando os vetores "right", "up" e a direção de força.
+        6. **Conversão para Quaternion**: A matriz de rotação é então convertida para um quaternion usando a função `from_matrix` da classe `Rotation` da biblioteca SciPy.
+
+        """
+
+        # 1. Trate o vetor de força desejado como uma direção de "frente".
+        # (É importante que este vetor seja normalizado)
+        foward_intensity = np.linalg.norm(forward)
+
+        foward_direction = forward / (foward_intensity if foward_intensity > 0 else 1)
+
+        # 2. Calcula um vetor "up" arbitrário.
+        # Para simplificar, se o forward não é alinhado com z, podemos usar z como o "up" vector.
+        # Se for alinhado, podemos usar y.
+        if np.abs(foward_direction[2]) < 0.9999:  # Se não é quase alinhado com z
+            up = np.array([0, 0, 1])
+        else:
+            up = np.array([0, 1, 0])
+
+        # 3. Obtenha o vetor direito como o produto cruzado de "forward" e "up"
+        right = np.cross(foward_direction, up)
+        right_intensity = np.linalg.norm(right)
+        right = right / (right_intensity if right_intensity > 0 else 1)
+
+        # Atualiza o vetor "up" para garantir que seja perfeitamente perpendicular a "forward"
+        up = np.cross(right, foward_direction)
+
+        # 4. Construa a matriz de rotação usando os vetores direito, up e forward
+        rotation_matrix = np.array([right, up, foward_direction])
+
+        # 5. Converta a matriz de rotação para um quaternion
+        rotation_quaternion = Rotation.from_matrix(rotation_matrix)
+        return self.safe_as_euler(rotation_quaternion)
+
+    def safe_as_euler(self, rotation: Rotation) -> np.ndarray:
+        roll, pitch, yaw = rotation.as_euler("zyx", degrees=False)
+
+        # Ajustando o valor limite para radianos, próximo de +/- π/2 (ou +/- 90 graus)
+        if np.abs(pitch) > (
+            np.pi / 2 - 0.05
+        ):  # Estamos nos aproximando de um gimbal lock
+            roll = 0.0
+
+        return np.array([roll, pitch, yaw])
 
     def _desired_forces(
         self, desired_velocity: np.ndarray, current_velocity
@@ -71,7 +151,7 @@ class QuadcopterController:
         for_z = self.pid_for_z.compute(
             desired_velocity[2], current_velocity[2], self.dt
         )
-        return np.array([for_x, for_y, for_z + self.quadcopter_specs.WEIGHT])
+        return np.array([for_x, for_y, for_z])
 
     def _desired_torques(
         self, desired_attitude: np.ndarray, current_attitude
@@ -99,6 +179,23 @@ class QuadcopterController:
         alpha += float(0.01 * error)
         self.alpha = max(self.alpha_min, min(alpha, self.alpha_max))
 
+    def forces_torques_to_rpm(
+        self,
+        desired_thrust: np.ndarray,
+        desired_torques: np.ndarray,
+        current_quaternion: np.ndarray,
+    ):
+        # Combine forces and torques
+
+        cur_rotation = np.array(p.getMatrixFromQuaternion(current_quaternion)).reshape(
+            3, 3
+        )
+        scalar_thrust = max(0.0, np.dot(desired_thrust, cur_rotation[:, 2]))
+        thrust_each_motor = math.sqrt(scalar_thrust / (4 * self.KF))
+        rpm = thrust_each_motor + np.dot(self.MIXER_MATRIX, desired_torques)
+
+        return np.clip(rpm, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
+
     def compute_rpm(
         self,
         desired_velocity: np.ndarray,
@@ -111,30 +208,26 @@ class QuadcopterController:
         :param flight_state: Dict, Estado atual do voo
         :return: np.ndarray, Comandos dos motores (RPMs)
         """
+        self.update_alpha(flight_state)
 
         dt = self.dt
         # desired_attitude = flight_state[]#np.zeros(3)
 
         current_velocity = flight_state["velocity"]
         current_attitude = flight_state["attitude"]
-        desired_attitude = current_attitude
+        current_quaternion = flight_state["quaternions"]
 
-        print(
-            "current_velocity: ",
-            current_velocity,
-            "desired_velocity: ",
-            desired_velocity,
-        )
         desired_forces = self._desired_forces(desired_velocity, current_velocity)
+        # the desired forces shows the orientation that the quadcopter should have.
+        desired_attitude = self.cartesian_to_euler_angles(desired_forces)
         desired_torques = self._desired_torques(desired_attitude, current_attitude)
-        desired_rpm = self.dynamics.forces_torques_to_rpm(
-            desired_forces, desired_torques
+        desired_rpm = self.forces_torques_to_rpm(
+            desired_forces, desired_torques, current_quaternion
         )
-
-        print("desired_rpm: ", desired_rpm)
 
         self.dynamics.reset(flight_state)
         simulated_final_state = self.dynamics.compute_dynamics(desired_rpm, dt)
+
         simulated_final_velocity = simulated_final_state["velocity"]
         simulated_final_attitude = simulated_final_state["attitude"]
 
@@ -145,16 +238,16 @@ class QuadcopterController:
             desired_attitude, simulated_final_attitude
         )
 
-        final_forces = desired_forces + self.alpha * compensation_forces
-        final_torques = desired_torques + self.alpha * compensation_torques
+        final_forces = desired_forces + (self.alpha * compensation_forces)
+        final_torques = desired_torques + (self.alpha * compensation_torques)
 
         self.last_desired_velocity = desired_velocity.copy()
-        final_rpms = self.dynamics.forces_torques_to_rpm(final_forces, final_torques)
-        print(
-            "final_rpms",
-            final_rpms,
+        final_rpms = self.forces_torques_to_rpm(
+            final_forces, final_torques, current_quaternion
         )
-        return np.clip(final_rpms, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
+
+        # return np.clip(final_rpms, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
+        return np.clip(desired_rpm, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
 
 
 class PID:
@@ -213,6 +306,7 @@ class PID:
         self.prev_error = error
 
         output = proportional + integral_value + derivative_value
+
         return max(min(output, self.max_output_value), self.min_output_value)
 
     def is_active(self) -> bool:
@@ -245,7 +339,7 @@ class QuadcopterDynamics:
             "position": np.zeros(3),
             "attitude": np.zeros(3),
             "velocity": np.zeros(3),
-            "angular_velocity": np.zeros(3),
+            "angular_rate": np.zeros(3),
             "acceleration": np.zeros(3),
             "angular_acceleration": np.zeros(3),
         }
@@ -261,64 +355,6 @@ class QuadcopterDynamics:
 
     def _gravitational_force(self) -> np.ndarray:
         return np.array([0, 0, self._constraints.weight])
-
-    def forces_torques_to_rpm(self, forces: np.ndarray, torques: np.ndarray):
-        """
-        Converte forças e torques desejados em RPMs dos motores.
-        :param forces: Forças desejadas.
-        :param torques: Torques desejados.
-        :return: RPMs dos motores.
-        """
-
-        max_torques = np.array(
-            [
-                self._constraints.max_xy_torque,
-                self._constraints.max_xy_torque,
-                self._constraints.max_z_torque,
-            ]
-        )
-
-        forces = np.clip(forces, 0, self._constraints.max_thrust)
-        torques = np.clip(torques, 0, max_torques)
-
-        F_total, tau_x, tau_y, tau_z = forces[2], torques[0], torques[1], torques[2]
-
-        # Resolvendo o sistema de equações para RPM^2
-        KF = self._specifications.KF
-        KM = self._specifications.KM
-        L = self._specifications.L
-        RPM2_1 = (
-            1
-            / (4 * KF)
-            * (F_total - 2 * KF / L * tau_y + 2 * KF / L * tau_x - tau_z / KM)
-        )
-        RPM2_2 = (
-            1
-            / (4 * KF)
-            * (F_total - 2 * KF / L * tau_y - 2 * KF / L * tau_x + tau_z / KM)
-        )
-        RPM2_3 = (
-            1
-            / (4 * KF)
-            * (F_total + 2 * KF / L * tau_y - 2 * KF / L * tau_x - tau_z / KM)
-        )
-        RPM2_4 = (
-            1
-            / (4 * KF)
-            * (F_total + 2 * KF / L * tau_y + 2 * KF / L * tau_x + tau_z / KM)
-        )
-
-        # Calculando os RPMs
-        RPM_1 = np.sqrt(RPM2_1)
-        RPM_2 = np.sqrt(RPM2_2)
-        RPM_3 = np.sqrt(RPM2_3)
-        RPM_4 = np.sqrt(RPM2_4)
-
-        # Limitando os RPMs aos valores de MIN_RPM e MAX_RPM
-        RPMs = np.array([RPM_1, RPM_2, RPM_3, RPM_4])
-        RPMs = np.clip(RPMs, 0, self._constraints.max_rpm)
-
-        return RPMs
 
     def compute_motor_outputs(self, rpm: np.ndarray) -> tuple:
         """Compute thrust and body torque based on motor RPM."""
@@ -364,10 +400,10 @@ class QuadcopterDynamics:
 
         return np.array([roll, pitch, yaw])
 
-    def integrate_quaternion(self, q, angular_velocity, dt):
-        """Integrate angular velocity to get the updated quaternion."""
+    def integrate_quaternion(self, q, angular_rate, dt):
+        """Integrate angular rate to get the updated quaternion."""
         w, x, y, z = q
-        p, q, r = angular_velocity
+        p, q, r = angular_rate
 
         dqdt = np.array(
             [
@@ -378,8 +414,10 @@ class QuadcopterDynamics:
             ]
         )
 
-        q_new = q + dqdt * dt
-        return q_new / np.linalg.norm(q_new)
+        q_array = np.array([w, x, y, z])
+        q_new = q_array + dqdt * dt
+        norm = np.linalg.norm(q_new)
+        return q_new / norm if norm > 0 else np.array([1, 0, 0, 0])
 
     def linear_dynamics(self, state, thrust_vectors):
         """Compute linear dynamics derivatives."""
@@ -398,11 +436,11 @@ class QuadcopterDynamics:
         inertia_tensor = self._specifications.J
         inv_inertia_tensor = self._specifications.J_INV
         angular_drag = np.cross(
-            state["angular_velocity"], np.dot(inertia_tensor, state["angular_velocity"])
+            state["angular_rate"], np.dot(inertia_tensor, state["angular_rate"])
         )
         angular_acceleration = np.dot(inv_inertia_tensor, body_torque - angular_drag)
         return {
-            "angular_velocity": state["angular_velocity"],
+            "angular_rate": state["angular_rate"],
             "angular_acceleration": angular_acceleration,
         }
 
@@ -426,33 +464,45 @@ class QuadcopterDynamics:
             for key in state
         }
 
+    def euler_integration(self, f, state, u, dt):
+        """Euler integration."""
+
+        derivative = f(state, u)
+        return {key: state[key] + dt * derivative.get(key, 0) for key in state}
+
     def compute_dynamics(self, rpm: np.ndarray, timestep: float) -> dict:
         thrust_vectors, body_torque = self.compute_motor_outputs(rpm)
 
+        print("thrust_vectors", thrust_vectors, "body_torque", body_torque)
         linear_state = {
             "velocity": self._inertial_state["velocity"],
             "position": self._inertial_state["position"],
         }
-        updated_linear_state = self.rk4(
+
+        print("linear_state", linear_state)
+        updated_linear_state = self.euler_integration(
             self.linear_dynamics, linear_state, thrust_vectors, timestep
         )
+
+        print("updated_linear_state", updated_linear_state)
         self._inertial_state["velocity"] = updated_linear_state["velocity"]
         self._inertial_state["position"] = updated_linear_state["position"]
 
         angular_state = {
-            "angular_velocity": self._inertial_state["angular_velocity"],
+            "angular_rate": self._inertial_state["angular_rate"],
             "attitude": self._inertial_state["attitude"],
         }
+        print("angular_state", angular_state)
         updated_angular_state = self.rk4(
             self.angular_dynamics, angular_state, body_torque, timestep
         )
-        self._inertial_state["angular_velocity"] = updated_angular_state[
-            "angular_velocity"
-        ]
+        self._inertial_state["angular_rate"] = updated_angular_state["angular_rate"]
+
+        print("_inertial_state", self._inertial_state)
 
         current_quaternion = self.euler_to_quaternion(*self._inertial_state["attitude"])
         updated_quaternion = self.integrate_quaternion(
-            current_quaternion, self._inertial_state["angular_velocity"], timestep
+            current_quaternion, self._inertial_state["angular_rate"], timestep
         )
         self._inertial_state["attitude"] = self.quaternion_to_euler(*updated_quaternion)
 

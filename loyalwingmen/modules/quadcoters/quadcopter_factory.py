@@ -243,6 +243,10 @@ class OperationalConstraintsCalculator:
         operational_constraints.weight = WEIGHT
         operational_constraints.max_rpm = max_rpm
         operational_constraints.max_thrust = max_thrust
+
+        operational_constraints.max_xy_thrust = max_thrust
+        operational_constraints.max_z_thrust = max_thrust - WEIGHT
+
         operational_constraints.max_z_torque = max_z_torque
         operational_constraints.hover_rpm = hover_rpm
 

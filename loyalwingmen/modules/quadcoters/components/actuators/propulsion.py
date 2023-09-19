@@ -266,10 +266,8 @@ class PropulsionSystem:
         target_rpy = np.array([0, 0, yaw])
 
         aggregate_physics_steps = self.environment_parameters.aggregate_physics_steps
-        timestep_period = self.environment_parameters.timestep
-        control_timestep = aggregate_physics_steps * timestep_period
-        control_timestep = 1 / self.environment_parameters.rl_frequency
-        # print(f"control_timestep: {control_timestep}")
+        timestep = self.environment_parameters.timestep
+        control_timestep = aggregate_physics_steps * timestep
 
         quaternions = p.getQuaternionFromEuler(
             inertial_data.get("attitude", np.array([0, 0, 0, 1]))

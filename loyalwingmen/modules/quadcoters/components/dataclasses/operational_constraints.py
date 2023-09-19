@@ -11,14 +11,19 @@ class OperationalConstraints:
 
     weight: float = 0
     max_rpm: float = 0
+
+    max_xy_thrust: float = 0
+    max_z_thrust: float = 0
+
     max_thrust: float = 0
     max_z_torque: float = 0
+
     hover_rpm: float = 0
     gnd_eff_h_clip: float = 0
     max_xy_torque: float = 0
 
 
-'''
+"""
 
 OperationalConstraints:
 speed_limit: The maximum linear speed the quadcopter is allowed to have.
@@ -33,4 +38,4 @@ hover_rpm: The revolutions per minute of the motors when the quadcopter is hover
 gnd_eff_h_clip: Related to the ground effect. Perhaps the height below which the quadcopter starts experiencing a significant ground effect.
 max_xy_torque: The maximum torque the quadcopter can produce about the X or Y axes.
 
-'''
+"""

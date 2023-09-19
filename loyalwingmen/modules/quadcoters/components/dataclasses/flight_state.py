@@ -52,7 +52,7 @@ class FlightStateManager:
             "position",
             "velocity",
             "attitude",
-            # "quaternions",
+            "quaternions",
             "angular_rate",
             "acceleration",
             "angular_acceleration",
