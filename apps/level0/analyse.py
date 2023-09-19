@@ -68,14 +68,8 @@ def on_avaluation_step():
         if elapsed_time <= max_allowed_time:
             successful_evaluations += 1
 
-        if worst_case < elapsed_time:
-            worst_case = elapsed_time
-
-        if (
-            best_case > elapsed_time
-        ):  # update best case if the current elapsed time is shorter
-            best_case = elapsed_time
-
+        worst_case = max(worst_case, elapsed_time)
+        best_case = min(best_case, elapsed_time)
     average_frequency = n / total_time
 
     print(
@@ -94,10 +88,6 @@ def on_avaluation_step():
         )
 
 
-vectorized_environment = None
-n_envs = None
-
-
 def main():
     cProfile.run("on_avaluation_step()", "result_with_lidar.prof")
 
@@ -110,5 +100,5 @@ def main():
 if __name__ == "__main__":
     # https://stackoverflow.com/questions/29690091/python2-7-exception-the-freeze-support-line-can-be-omitted-if-the-program
     # freeze_support() here if program needs to be frozen
-    pass
-    # main()  # execute this only when run directly, not when imported!
+    # pass
+    main()  # execute this only when run directly, not when imported!

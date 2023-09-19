@@ -67,6 +67,10 @@ class Motors(Propulsion):
         torques = np.array(rpm_float**2) * KM
         z_torque = -torques[0] + torques[1] - torques[2] + torques[3]
 
+        print(
+            f"forces: {forces} \n torques: {torques} \n z_torque: {z_torque} \n rpm: {rpm} \n"
+        )
+
         for i in range(4):
             p.applyExternalForce(
                 self.drone_id,

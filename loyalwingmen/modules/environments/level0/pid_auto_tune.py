@@ -92,16 +92,9 @@ class PIDAutoTuner(Env):
         p.setGravity(
             0,
             0,
-            -9.8,
+            9.8,
             physicsClientId=client_id,
         )
-
-        for i in [
-            p.COV_ENABLE_RGB_BUFFER_PREVIEW,
-            p.COV_ENABLE_DEPTH_BUFFER_PREVIEW,
-            p.COV_ENABLE_SEGMENTATION_MARK_PREVIEW,
-        ]:
-            p.configureDebugVisualizer(i, 0, physicsClientId=client_id)
 
         p.setRealTimeSimulation(0, physicsClientId=client_id)  # No Realtime Sync
 
@@ -165,6 +158,7 @@ class PIDAutoTuner(Env):
             self.quadcopter.quadcopter_specs,
             self.environment_parameters,
             control_frequency=self.rl_frequency,
+            use_quadcopter_model=True,
         )
 
         print("Controller created")
@@ -193,30 +187,33 @@ class PIDAutoTuner(Env):
         self.quadcopter.update_imu()
         speed_limit = self.quadcopter.operational_constraints.speed_limit
 
-        print(
-            "beginig:",
-            self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL),
-        )
-
-        self.quadcopter.update_imu()
         inertial_data = self.quadcopter.flight_state_by_type(
             FlightStateDataType.INERTIAL
         )
-        print("inertial_data", inertial_data)
-        rpm = self.controller.compute_rpm(desired_velocity * speed_limit, inertial_data)
+        print(
+            "inertial_data",
+            inertial_data,
+            "",
+            "desired_velocity",
+            desired_velocity * speed_limit,
+        )
+        rpm = self.controller.compute_rpm(
+            desired_velocity * speed_limit, inertial_data, dt=1 / self.rl_frequency
+        )
         print("rpm", rpm)
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             self.quadcopter.drive(rpm)
             p.stepSimulation(physicsClientId=self.environment_parameters.client_id)
 
-            time.sleep(1)
+            time.sleep(0.1)
 
         self.quadcopter.update_imu()
-        print(
-            "end:", self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL)
+        inertial_data = self.quadcopter.flight_state_by_type(
+            FlightStateDataType.INERTIAL
         )
+        print("end:", inertial_data)
 
-        return self.quadcopter.flight_state_by_type(FlightStateDataType.INERTIAL)
+        return inertial_data
 
     def _preprocess_responses(self, responses):
         attitudes = np.array([response["attitude"] for response in responses])
