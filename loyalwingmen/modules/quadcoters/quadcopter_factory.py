@@ -280,8 +280,6 @@ class QuadcopterFactory:
         self.n_loyalwingmen = 0
         self.n_loiteringmunitions = 0
 
-        print("QuadcopterFactory")
-
     def load_quad_attributes(
         self,
         initial_position: np.ndarray,
@@ -335,7 +333,6 @@ class QuadcopterFactory:
             quadcopter_role,
         )
 
-        print("LoyalWingman")
         return LoyalWingman(*attributes, command_type=command_type)
 
     def create_loiteringmunition(

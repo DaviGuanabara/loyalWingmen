@@ -19,7 +19,10 @@ from loyalwingmen.modules.environments.level2_rpm.level2_environment import Leve
 env = Level2(GUI=True, rl_frequency=15)
 
 # preciso corrigir o caminho do modelo
-model = PPO.load("./trained_level2_ppo")
+# model = PPO.load("./trained_level2_ppo")
+model = PPO.load(
+    "C:\\Users\\davi_\\Documents\\GitHub\\loyalWingmen\\apps\\level2_rpm\\output\\baysian_optimizer_app\\level2_4.00M_end_to_end_NN_3\\models_dir\\h[512, 256, 1024, 1024, 128, 1024, 256, 512]-f30-lr0.001\\best_model.zip"
+)
 
 observation, info = env.reset(0)
 for steps in range(50_000):

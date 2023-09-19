@@ -59,8 +59,8 @@ class LiDAR(Sensor):
         self,
         parent_id: int = 0,
         client_id: int = 0,
-        radius: float = 5,
-        resolution: float = 1,
+        radius: float = 20,
+        resolution: float = 8,
         debug: bool = False,
     ):
         """

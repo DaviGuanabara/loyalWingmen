@@ -228,9 +228,10 @@ class CustomActorCriticPolicyMixedObservation(ActorCriticPolicy):
 # ===================================================================================================
 
 
-class LidarInertialActionExtractor(nn.Module):
+class LidarInertialActionExtractor(BaseFeaturesExtractor):
     def __init__(self, observation_space: gym.spaces.Dict, features_dim: int = 256):
-        super(LidarInertialActionExtractor, self).__init__()
+        # super(LidarInertialActionExtractor, self).__init__()
+        super().__init__(observation_space, features_dim)
 
         lidar = observation_space["lidar"]
         inertial = observation_space["inertial_data"]
@@ -272,9 +273,9 @@ class LidarInertialActionExtractor(nn.Module):
         # Feature extractor for the matrix observation (using Conv2d layers)
         lidar_feature_extractor = nn.Sequential(
             nn.Conv2d(
-                in_channels=lidar_data[0],
+                in_channels=lidar_data.shape[0],
                 out_channels=32,
-                kernel_size=8,
+                kernel_size=4,
                 stride=4,
                 padding=0,
             ),
@@ -288,9 +289,9 @@ class LidarInertialActionExtractor(nn.Module):
 
         # Compute shape by doing one forward pass for the matrix feature extractor
         with torch.no_grad():
-            n_flatten_lidar = lidar_feature_extractor(torch.rand(1, *lidar_data)).shape[
-                1
-            ]
+            n_flatten_lidar = lidar_feature_extractor(
+                torch.rand(1, *lidar_data.shape)
+            ).shape[1]
 
         return lidar_feature_extractor, n_flatten_lidar
 
@@ -313,12 +314,11 @@ class LidarInertialActionExtractor(nn.Module):
 
         return inertial_feature_extractor, n_flatten_inertial
 
-    def forward(
-        self,
-        lidar_observation: torch.Tensor,
-        inertial_data: torch.Tensor,
-        action: torch.Tensor,
-    ) -> torch.Tensor:
+    def forward(self, observations: Dict[str, th.Tensor]) -> torch.Tensor:
+        lidar_observation = observations["lidar"]
+        inertial_data = observations["inertial_data"]
+        action = observations["last_action"]
+
         lidar_features = self.lidar_feature_extractor(lidar_observation)
         inertial_features = self.inertial_feature_extractor(
             inertial_data.flatten(start_dim=1)

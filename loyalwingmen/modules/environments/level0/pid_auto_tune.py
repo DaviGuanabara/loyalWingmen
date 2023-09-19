@@ -32,12 +32,9 @@ class PIDAutoTuner(Env):
         simulation_frequency: float,
         GUI: bool = False,
     ):
-        print("PIDAutoTuner")
         self.dome_radius = dome_radius
         self.rl_frequency = rl_frequency
         self.simulation_frequency = simulation_frequency
-
-        print("Initializing simulation")
 
         self.setup_Parameteres(
             simulation_frequency,
@@ -88,11 +85,10 @@ class PIDAutoTuner(Env):
         else:
             client_id = self.setup_pybullet_DIRECT()
 
-        print(self.environment_parameters.G)
         p.setGravity(
             0,
             0,
-            9.8,
+            -self.environment_parameters.G,
             physicsClientId=client_id,
         )
 
@@ -108,12 +104,8 @@ class PIDAutoTuner(Env):
             physicsClientId=client_id,
         )
 
-        print("Simulation initialized")
         self.environment_parameters.client_id = client_id
-        print(self.environment_parameters.client_id)
-        print("Initializing factory")
         self.factory = QuadcopterFactory(self.environment_parameters)
-        print("Factory initialized")
 
     def setup_pybullet_DIRECT(self):
         return p.connect(p.DIRECT)
@@ -137,31 +129,28 @@ class PIDAutoTuner(Env):
 
         return client_id
 
-    def _reset_simulation(self):
+    def _reset_simulation(self, gains: np.ndarray):
         """Housekeeping function.
         Allocation and zero-ing of the variables and PyBullet's parameters/objects
         in the `reset()` function.
         """
 
         #### Set PyBullet's parameters #############################
-        print("Resetting simulation")
-        # p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
         if hasattr(self, "quadcopter"):
             self.quadcopter.detach_from_simulation()
         self.quadcopter: LoyalWingman = self.factory.create_loyalwingman(
             np.zeros(3), np.zeros(3), command_type=CommandType.RPM
         )
 
-        print("Quadcopter created")
         self.controller = QuadcopterController(
             self.quadcopter.operational_constraints,
             self.quadcopter.quadcopter_specs,
             self.environment_parameters,
             control_frequency=self.rl_frequency,
-            use_quadcopter_model=True,
+            use_quadcopter_model=False,
         )
 
-        print("Controller created")
+        self.controller.update_pid_gains(gains)
 
     """
     def convert_command_to_desired_velocity(self, command: np.ndarray):
@@ -190,28 +179,18 @@ class PIDAutoTuner(Env):
         inertial_data = self.quadcopter.flight_state_by_type(
             FlightStateDataType.INERTIAL
         )
-        print(
-            "inertial_data",
-            inertial_data,
-            "",
-            "desired_velocity",
-            desired_velocity * speed_limit,
-        )
         rpm = self.controller.compute_rpm(
             desired_velocity * speed_limit, inertial_data, dt=1 / self.rl_frequency
         )
-        print("rpm", rpm)
+
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             self.quadcopter.drive(rpm)
             p.stepSimulation(physicsClientId=self.environment_parameters.client_id)
-
-            time.sleep(0.1)
 
         self.quadcopter.update_imu()
         inertial_data = self.quadcopter.flight_state_by_type(
             FlightStateDataType.INERTIAL
         )
-        print("end:", inertial_data)
 
         return inertial_data
 
@@ -238,7 +217,6 @@ class PIDAutoTuner(Env):
 
         # TODO: TUNE CONTROLLER
         self.tune_controller(znfo_attitudes, znfo_velocities)
-        print("Controller tuned after 1 cycle")
 
     def tune_controller(self, znfo_attitudes, znfo_velocities):
         mean_kp_attitude = np.mean([params[0] for params in znfo_attitudes])

@@ -48,12 +48,12 @@ class DSLPIDControl(BaseControl):
                 "[ERROR] in DSLPIDControl.__init__(), DSLPIDControl requires DroneModel.CF2X or DroneModel.CF2P"
             )
             exit()
-        self.P_COEFF_FOR = np.array([0.4, 0.4, 1.25])
+        self.P_COEFF_FOR = np.array([1, 4, 25])
         self.I_COEFF_FOR = np.array([0.05, 0.05, 0.05])
         self.D_COEFF_FOR = np.array([0.2, 0.2, 0.5])
-        self.P_COEFF_TOR = np.array([70000.0, 70000.0, 60000.0])
-        self.I_COEFF_TOR = np.array([0.0, 0.0, 500.0])
-        self.D_COEFF_TOR = np.array([20000.0, 20000.0, 12000.0])
+        self.P_COEFF_TOR = np.array([100, 100.0, 100.0])
+        self.I_COEFF_TOR = np.array([0.0, 0.0, 0.0])
+        self.D_COEFF_TOR = np.array([0.0, 0.0, 0.0])
         self.PWM2RPM_SCALE = 0.2685
         self.PWM2RPM_CONST = 4070.3
         self.MIN_PWM = 20000

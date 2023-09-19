@@ -157,6 +157,7 @@ class Level2_lidar(Env):
 
         """
         observation_shape = self.simulation.observation_shape()
+        # print("inertial_data", observation_shape["inertial_data"])
         return spaces.Dict(
             {
                 "lidar": spaces.Box(
@@ -166,15 +167,15 @@ class Level2_lidar(Env):
                     dtype=np.float32,
                 ),
                 "inertial_data": spaces.Box(
-                    -1,
-                    1,
-                    shape=observation_shape["inertial_data"],
+                    -np.ones((observation_shape["inertial_data"],)),
+                    np.ones((observation_shape["inertial_data"],)),
+                    shape=(observation_shape["inertial_data"],),
                     dtype=np.float32,
                 ),
                 "last_action": spaces.Box(
                     np.array([-1, -1, -1, 0]),
                     np.array([1, 1, 1, 1]),
-                    shape=observation_shape["last_action"],
+                    shape=(observation_shape["last_action"],),
                     dtype=np.float32,
                 ),
             }

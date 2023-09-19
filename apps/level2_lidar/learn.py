@@ -82,7 +82,7 @@ def main():
     )
 
     model = PPO(
-        "MlpPolicy",
+        "MultiInputPolicy",
         vectorized_environment,
         verbose=0,
         device="cuda",
@@ -92,7 +92,7 @@ def main():
 
     print(model.policy)
     model.learn(total_timesteps=1_000_000, callback=callback_list)
-    model.save("trained_level1_ppo")
+    model.save("trained_level1_ppo_lidar")
 
 
 if __name__ == "__main__":

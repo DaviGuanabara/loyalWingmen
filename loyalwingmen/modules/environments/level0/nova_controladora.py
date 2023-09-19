@@ -39,7 +39,6 @@ class QuadcopterController:
         max_xy_torque = operational_constraints.max_xy_torque
         max_z_torque = operational_constraints.max_z_torque
 
-        print("MAX_RPM", self.MAX_RPM, "MIN_RPM", self.MIN_RPM)
         self.HOVER_RPM = operational_constraints.hover_rpm
         self.M = quadcopter_specs.M
         self.L = quadcopter_specs.L
@@ -84,6 +83,9 @@ class QuadcopterController:
             1,
             max_output_value=max_xy_torque,
             min_output_value=-max_xy_torque,
+            anti_windup_on=True,
+            max_integral_value=1500,
+            min_integral_value=-1500.0,
         )
         self.pid_tor_y = PID(
             -0.2,
@@ -91,6 +93,9 @@ class QuadcopterController:
             -1,
             max_output_value=max_xy_torque,
             min_output_value=-max_xy_torque,
+            anti_windup_on=True,
+            max_integral_value=1500,
+            min_integral_value=-1500.0,
         )
         self.pid_tor_z = PID(
             1,
@@ -98,6 +103,9 @@ class QuadcopterController:
             0.1,
             max_output_value=max_z_torque,
             min_output_value=-max_z_torque,
+            anti_windup_on=True,
+            max_integral_value=1500,
+            min_integral_value=-1500.0,
         )
 
         # Inicializa a QuadcopterDynamics
@@ -117,57 +125,20 @@ class QuadcopterController:
     def reset(self):
         pass
 
-    def get_orientation_from_vector(self, forward) -> np.ndarray:
-        """
-        ### Função `cartesian_to_quaternions`
-
-        Essa função tem como objetivo converter uma direção cartesiana no espaço, especificamente a direção de força desejada para um drone, em um quaternion que representa a orientação do drone.
-
-        #### Argumentos:
-        - `forward`: Um vetor numpy representando a direção de força desejada no espaço.
-
-        #### Retorno:
-        - Um objeto `Rotation` da biblioteca SciPy, que representa a rotação desejada em formato de quaternion.
-
-        #### Descrição do Processo:
-
-        1. **Normalização da Direção de Força**: O vetor de força desejada é tratado como uma direção "para a frente". É essencial que esse vetor esteja normalizado para garantir cálculos precisos.
-        2. **Calculando o vetor 'Up'**: Um vetor "up" arbitrário é calculado com base na direção de força. Se a força não estiver quase alinhada com o eixo Z, o eixo Z é usado como vetor "up". Se estiver quase alinhado, o eixo Y é utilizado.
-        3. **Calculando o vetor 'Right'**: Usando o produto vetorial entre a direção de força e o vetor "up", um vetor "right" é calculado. Este vetor é normalizado para garantir que tenha magnitude 1.
-        4. **Atualização do vetor 'Up'**: Para garantir ortogonalidade, o vetor "up" é recalculado como o produto vetorial entre "right" e a direção de força.
-        5. **Construção da Matriz de Rotação**: A matriz de rotação é construída usando os vetores "right", "up" e a direção de força.
-        6. **Conversão para Quaternion**: A matriz de rotação é então convertida para um quaternion usando a função `from_matrix` da classe `Rotation` da biblioteca SciPy.
-        """
-
-        foward_intensity = np.linalg.norm(forward)
-        foward_direction = forward / (foward_intensity if foward_intensity > 0 else 1)
-
-        if np.abs(foward_direction[2]) < 0.9999:
-            up = np.array([0, 0, 1])
-        else:
-            up = np.array([0, 1, 0])
-
-        right = np.cross(foward_direction, up)
-        right_intensity = np.linalg.norm(right)
-        right = right / (right_intensity if right_intensity > 0 else 1)
-
-        up = np.cross(right, foward_direction)
-        rotation_matrix = np.array([right, up, foward_direction])
-
-        rotation = Rotation.from_matrix(rotation_matrix)
-
-        # TODO: Verificar se é necessário converter para ângulos de Euler
-        # PROBLEMA DE GIMBAL LOCK
-        try:
-            roll, pitch, yaw = rotation.as_euler("zyx", degrees=False)
-        except UserWarning:
-            print("Erro ao converter quaternion para ângulos de Euler.")
-
-            roll, yaw = 0.0, 0.0  # ou quaisquer valores padrão que você achar adequado
-            pitch = 0.0
-            print(pitch, roll, yaw)
-
-        return np.array([roll, pitch, yaw])
+    def get_orientation_from_vector(self, target_thrust, attitude) -> np.ndarray:
+        force_direction = target_thrust / np.linalg.norm(target_thrust)
+        yaw_reference_vector = np.array(
+            [math.cos(attitude[2]), math.sin(attitude[2]), 0]
+        )
+        orthogonal_vector = np.cross(
+            force_direction, yaw_reference_vector
+        ) / np.linalg.norm(np.cross(force_direction, yaw_reference_vector))
+        cross_vector = np.cross(orthogonal_vector, force_direction)
+        target_rotation = (
+            np.vstack([cross_vector, orthogonal_vector, orthogonal_vector])
+        ).transpose()
+        #### Target rotation #######################################
+        return (Rotation.from_matrix(target_rotation)).as_euler("XYZ", degrees=False)
 
     def _desired_forces(
         self,
@@ -279,20 +250,25 @@ class QuadcopterController:
 
         # Get State
         # ============================================
-        current_velocity = flight_state["velocity"]
-        current_acceleration = flight_state["acceleration"]
+        current_velocity = flight_state["velocity"].copy()
+        current_acceleration = flight_state["acceleration"].copy()
 
-        current_attitude = flight_state["attitude"]
-        current_quaternion = flight_state["quaternions"]
-        current_angular_rate = flight_state["angular_rate"]
+        current_attitude = flight_state["attitude"].copy()
+        current_quaternion = flight_state["quaternions"].copy()
+        current_angular_rate = flight_state["angular_rate"].copy()
 
         # Get Desired Forces and Torques
         # ============================================
+
         desired_forces = self._desired_forces(
             desired_velocity, current_velocity, current_acceleration, dt
         )
+
         # the desired forces shows the orientation that the quadcopter should have.
-        desired_attitude = self.get_orientation_from_vector(desired_forces)
+        desired_attitude = self.get_orientation_from_vector(
+            desired_forces, current_attitude
+        )
+
         desired_torques = self._desired_torques(
             desired_attitude, current_attitude, current_angular_rate, dt
         )
@@ -308,6 +284,7 @@ class QuadcopterController:
 
         # Compute compensations from math model
         # ============================================
+
         compensation_forces, compensation_torques = self._compute_model_compensations(
             desired_velocity, desired_attitude, calculated_rpm, dt, flight_state
         )
@@ -321,6 +298,25 @@ class QuadcopterController:
         )
 
         return np.clip(final_rpms, self.MIN_RPM, self.MAX_RPM, dtype=np.float32)
+
+    def update_pid_gains(self, gains: np.ndarray):
+        """
+        Atualiza os ganhos dos controladores PID com base em um np.ndarray de 18 dimensões.
+
+        :param gains: np.ndarray, Ganhos dos controladores PID (9 para forças, 9 para torques)
+        """
+        if gains.shape[0] != 18:
+            raise ValueError("The input gains array must have 18 elements.")
+
+        # Atualizando os ganhos dos controladores de forças
+        self.pid_for_x.update_gains(gains[0], gains[1], gains[2])
+        self.pid_for_y.update_gains(gains[3], gains[4], gains[5])
+        self.pid_for_z.update_gains(gains[6], gains[7], gains[8])
+
+        # Atualizando os ganhos dos controladores de torques
+        self.pid_tor_x.update_gains(gains[9], gains[10], gains[11])
+        self.pid_tor_y.update_gains(gains[12], gains[13], gains[14])
+        self.pid_tor_z.update_gains(gains[15], gains[16], gains[17])
 
 
 class PID:
@@ -378,13 +374,15 @@ class PID:
         return raw_derivative
 
     def _compute_integral(self, error, dt: float) -> float:
-        self.integral += error * dt
+        integral = self.integral
+        integral += error * dt
+
         if self.anti_windup_on:
-            self.integral = np.clip(
-                self.integral, self.min_integral_value, self.max_integral_value
+            integral = float(
+                np.clip(integral, self.min_integral_value, self.max_integral_value)
             )
 
-        return self.integral
+        return integral
 
     def compute(
         self,
@@ -404,6 +402,7 @@ class PID:
         self.prev_error = error
         output = proportional + integral + derivative
 
+        self.integral = integral
         if self.limit_output_on:
             return np.clip(output, self.min_output_value, self.max_output_value)
 
@@ -434,7 +433,7 @@ class QuadcopterDynamics:
             "attitude": np.zeros(3),
             "velocity": np.zeros(3),
             "angular_rate": np.zeros(3),
-            "quaternion": np.zeros(4),
+            "quaternion": p.getQuaternionFromEuler(np.zeros(3)),
             "acceleration": np.zeros(3),
             "angular_acceleration": np.zeros(3),
         }

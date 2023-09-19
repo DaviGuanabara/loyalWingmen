@@ -31,6 +31,7 @@ for _ in range(50_000):
     print(f"action: {action}")
     for _ in range(int(240)):
         observation, reward, terminated, truncated, info = env.step(action)
+        print(f"observation: {observation}")
         # log(f"reward:{reward:.2f}_action:{action}")
 
     # observation, info = env.reset()
