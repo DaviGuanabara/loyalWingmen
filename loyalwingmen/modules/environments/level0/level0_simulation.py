@@ -271,6 +271,7 @@ class L0DroneChaseStaticTargetSimulation:
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
             self.loyal_wingman.update_imu()
+            self.loitering_munition.update_imu()
             self.loyal_wingman.drive(rl_action)
             self.loitering_munition.drive_via_behavior()
             p.stepSimulation()

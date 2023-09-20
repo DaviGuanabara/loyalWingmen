@@ -62,6 +62,7 @@ class Motors(Propulsion):
         KF = self.drone_specs.KF
         KM = self.drone_specs.KM
 
+        # print(f"rpm: {rpm}")
         # rpm_float = rpm.astype(np.float64)
         forces = np.array(rpm**2) * KF
         torques = np.array(rpm**2) * KM
@@ -106,6 +107,7 @@ class DirectVelocityApplier(Propulsion):
         #    physicsClientId=self.client_id,
         # )
 
+        # print(velocity)
         p.resetBaseVelocity(
             self.drone_id,
             linearVelocity=velocity,
@@ -160,12 +162,9 @@ class PropulsionSystem:
         norm = np.linalg.norm(motion_command[:3])
         if norm == 0:
             return np.array([0, 0, 0])
-        # self.operational_constraints.speed_limit
-        intensity = 0.25 * motion_command[3]
+        speed_limit = self.operational_constraints.speed_limit
+        intensity = speed_limit * motion_command[3]
 
-        # print(
-        #    f"_compute_velocity_from_command: {motion_command} \n target_velocity: {intensity * motion_command[:3] / norm}"
-        # )
         return intensity * motion_command[:3] / norm
 
     def _init_propeller(
@@ -265,9 +264,10 @@ class PropulsionSystem:
         yaw = inertial_data.get("attitude", np.zeros(3))[2]
         target_rpy = np.array([0, 0, yaw])
 
-        aggregate_physics_steps = self.environment_parameters.aggregate_physics_steps
-        timestep = self.environment_parameters.timestep
-        control_timestep = aggregate_physics_steps * timestep
+        # aggregate_physics_steps = self.environment_parameters.aggregate_physics_steps
+        # timestep = self.environment_parameters.timestep
+        # control_timestep = aggregate_physics_steps * timestep
+        control_timestep = self.environment_parameters.timestep
 
         quaternions = p.getQuaternionFromEuler(
             inertial_data.get("attitude", np.array([0, 0, 0, 1]))
@@ -277,7 +277,7 @@ class PropulsionSystem:
             inertial_data.get("position", np.zeros(3)),
             quaternions,
             inertial_data.get("velocity", np.zeros(3)),
-            inertial_data.get("attitude", np.zeros(3)),
+            inertial_data.get("angular_rate", np.zeros(3)),
             target_pos=inertial_data.get("position", np.zeros(3)),
             target_rpy=target_rpy,  # keep current yaw,
             target_vel=target_velocity,

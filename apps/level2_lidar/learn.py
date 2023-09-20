@@ -73,7 +73,7 @@ def main():
         save_freq=100_000,
     )
 
-    nn_t = [512, 512, 512]
+    nn_t = [512, 512, 512, 512]
 
     policy_kwargs = dict(
         features_extractor_class=LidarInertialActionExtractor,
@@ -88,11 +88,12 @@ def main():
         device="cuda",
         policy_kwargs=policy_kwargs,
         learning_rate=1e-5,
+        batch_size=1024,
     )
 
     print(model.policy)
-    model.learn(total_timesteps=1_000_000, callback=callback_list)
-    model.save("trained_level1_ppo_lidar")
+    model.learn(total_timesteps=2_000_000, callback=callback_list)
+    model.save("trained_level2_ppo_lidar_v2")
 
 
 if __name__ == "__main__":

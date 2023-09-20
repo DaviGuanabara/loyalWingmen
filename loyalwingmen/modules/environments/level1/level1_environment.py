@@ -1,28 +1,14 @@
-import gymnasium as gym
 import numpy as np
 import pybullet as p
-from typing import Dict
-from enum import Enum, auto
-
-
-import time
-
-# import curses
-import random
-import math
 
 from pynput.keyboard import Key, KeyCode
 from collections import defaultdict
 
 import numpy as np
 import pybullet as p
-import pybullet_data
 
-
-import gymnasium as gym
 from gymnasium import spaces, Env
 
-from typing import Dict, List, Tuple, Union, Optional
 from ..helpers.environment_parameters import EnvironmentParameters
 from .level1_simulation import (
     DroneChaseStaticTargetSimulation as Level1Simulation,

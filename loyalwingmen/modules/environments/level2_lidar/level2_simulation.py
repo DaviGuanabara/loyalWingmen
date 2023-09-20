@@ -81,6 +81,36 @@ class DroneChaseStaticTargetSimulation:
 
         self.reset()
 
+    def update_time_text(self):
+        simulation_calls = self.step_simulation_call
+        time_in_seconds = simulation_calls * self.environment_parameters.timestep
+
+        # _, _, _, _, _, _, camera_position, _, _, _, _, _ = p.getDebugVisualizerCamera(
+        #    physicsClientId=self.environment_parameters.client_id
+        # )
+
+        text = "elapsed time:{:.2f}s".format(time_in_seconds)
+        if hasattr(self, "time_text"):
+            self.time_text = p.addUserDebugText(
+                text,
+                [-0.5, 0, -0.5],
+                [1, 0, 1],
+                textSize=1,
+                lifeTime=0,
+                replaceItemUniqueId=self.time_text,
+                physicsClientId=self.environment_parameters.client_id,
+            )
+
+        else:
+            self.time_text = p.addUserDebugText(
+                text,
+                [-0.5, 0, -0.5],
+                [1, 0, 1],
+                textSize=1,
+                lifeTime=0,
+                physicsClientId=self.environment_parameters.client_id,
+            )
+
     def setup_pybullet_DIRECT(self):
         return p.connect(p.DIRECT)
 
@@ -103,16 +133,6 @@ class DroneChaseStaticTargetSimulation:
 
         return client_id
 
-    def _reset_simulation(self):
-        """Housekeeping function.
-        Allocation and zero-ing of the variables and PyBullet's parameters/objects
-        in the `reset()` function.
-        """
-
-        #### Set PyBullet's parameters #############################
-
-        p.resetSimulation(physicsClientId=self.environment_parameters.client_id)
-
     def gen_initial_position(self) -> Tuple[np.ndarray, np.ndarray]:
         """Generate a random position within the dome."""
 
@@ -123,6 +143,7 @@ class DroneChaseStaticTargetSimulation:
 
     def _housekeeping(self):
         pos, ang_pos = self.gen_initial_position()
+        self.step_simulation_call = 0
 
         target_pos, target_ang_pos = np.array([0, 0, 0]), np.array([0, 0, 0])
 
@@ -136,10 +157,14 @@ class DroneChaseStaticTargetSimulation:
             position=pos,
             ang_position=np.zeros(3),
             command_type=CommandType.VELOCITY_DIRECT,
-            quadcopter_name="agent",
+            quadcopter_name="The RL Agent",
+            quadcopter_role="interceptor",
         )
         self.loitering_munition = self.factory.create_loiteringmunition(
-            position=target_pos, ang_position=target_ang_pos, quadcopter_name="target"
+            position=target_pos,
+            ang_position=target_ang_pos,
+            quadcopter_name="The Target",
+            quadcopter_role="intruder",
         )
 
         self.loyal_wingman.update_imu()
@@ -150,8 +175,6 @@ class DroneChaseStaticTargetSimulation:
 
     def reset(self):
         """Reset the simulation to its initial state."""
-
-        # self._reset_simulation()
 
         self._housekeeping()
 
@@ -226,11 +249,12 @@ class DroneChaseStaticTargetSimulation:
     def compute_termination(self) -> bool:
         """Calculate if the simulation is done."""
 
-        end_time = time()
-        elapsed_time = end_time - self.start_time
         max_episode_time = self.environment_parameters.max_episode_time
 
-        if max_episode_time > 0 and elapsed_time > max_episode_time:
+        if (
+            self.step_simulation_call
+            > max_episode_time * self.environment_parameters.simulation_frequency
+        ):
             return True
 
         if self.is_outside_dome(self.loitering_munition):
@@ -245,11 +269,13 @@ class DroneChaseStaticTargetSimulation:
         # assert self.loitering_munition is not None
 
         self.last_action = rl_action
-        self.loyal_wingman.drive(rl_action)
-        self.loitering_munition.drive_via_behavior()
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
+            self.loyal_wingman.drive(rl_action)
+            self.loitering_munition.drive_via_behavior()
             p.stepSimulation()
+            self.step_simulation_call += 1
+            self.update_time_text()
 
         self.loyal_wingman.update_imu()
         self.loitering_munition.update_imu()
@@ -290,11 +316,15 @@ class DroneChaseStaticTargetSimulation:
         penalty = 0
         score = 0
 
-        lw_flight_state = self.loyal_wingman.flight_state
-        lm_flight_state = self.loitering_munition.flight_state
+        lw_inertial_data = self.loyal_wingman.flight_state_by_type(
+            FlightStateDataType.INERTIAL
+        )
+        lm_inertial_data = self.loitering_munition.flight_state_by_type(
+            FlightStateDataType.INERTIAL
+        )
 
         distance_vector = self._calculate_distance_vector(
-            lw_flight_state, lm_flight_state
+            lw_inertial_data, lm_inertial_data
         )
         distance = np.linalg.norm(distance_vector)
 
@@ -305,6 +335,21 @@ class DroneChaseStaticTargetSimulation:
 
         if distance > self.dome_radius:
             penalty += 1_000
+
+        # ====================================================
+        # Bonus for how fast it gets close the target
+        # - Velocity factor that lies in
+        #   the direction of the target
+        # ====================================================
+
+        direction = distance_vector / distance if distance > 0 else np.zeros(3)
+
+        velocity = lw_inertial_data.get("velocity", np.zeros(3))
+
+        velocity_component = np.dot(velocity, direction)
+        velocity_towards_target = max(velocity_component, 0)
+
+        bonus += 2 * float(np.linalg.norm(x=velocity_towards_target))
 
         # print(lw_flight_state.get("position", np.zeros(3)), lm_flight_state.get("position", np.zeros(3)), distance, score + bonus - penalty)
         return score + bonus - penalty

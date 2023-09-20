@@ -56,7 +56,7 @@ class Quadcopter:
 
         self.client_id: int = environment_parameters.client_id
         self.debug: bool = environment_parameters.debug
-
+        self.calls = 0
         self._setup()
 
     def check_quadcopter_type(self, quadcopter_type):
@@ -181,7 +181,12 @@ class Quadcopter:
         """
 
         self.propulsion_system.propel(motion_command, self.flight_state_manager)
-        self.show_name()
+
+        if self.environment_parameters.GUI:
+            self.calls += 1
+        if self.calls > self.environment_parameters.timestep:
+            self.show_name()
+            self.calls = 0
 
     # =================================================================================================================
     # Delete or Destroy

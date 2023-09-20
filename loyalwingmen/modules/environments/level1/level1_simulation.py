@@ -2,15 +2,13 @@ import pybullet as p
 import pybullet_data
 import numpy as np
 import random
-from typing import Tuple, Optional, Union, Dict
+from typing import Tuple, Dict
 
 from ...quadcoters.quadcopter_factory import (
     QuadcopterFactory,
     Quadcopter,
-    QuadcopterType,
     LoyalWingman,
     LoiteringMunition,
-    OperationalConstraints,
     FlightStateDataType,
     LoiteringMunitionBehavior,
     CommandType,
@@ -19,7 +17,6 @@ from ...quadcoters.quadcopter_factory import (
 from ..helpers.normalization import normalize_inertial_data
 
 from ..helpers.environment_parameters import EnvironmentParameters
-from time import time
 
 
 class DroneChaseStaticTargetSimulation:
@@ -131,9 +128,40 @@ class DroneChaseStaticTargetSimulation:
 
         return position, ang_position
 
-    def _housekeeping(self):
-        pos, ang_pos = self.gen_initial_position()
+    def update_time_text(self):
+        simulation_calls = self.step_simulation_call
+        time_in_seconds = simulation_calls * self.environment_parameters.timestep
 
+        # _, _, _, _, _, _, camera_position, _, _, _, _, _ = p.getDebugVisualizerCamera(
+        #    physicsClientId=self.environment_parameters.client_id
+        # )
+
+        text = "elapsed time:{:.2f}s".format(time_in_seconds)
+        if hasattr(self, "time_text"):
+            self.time_text = p.addUserDebugText(
+                text,
+                [-0.5, 0, -0.5],
+                [1, 0, 1],
+                textSize=1,
+                lifeTime=0,
+                replaceItemUniqueId=self.time_text,
+                physicsClientId=self.environment_parameters.client_id,
+            )
+
+        else:
+            self.time_text = p.addUserDebugText(
+                text,
+                [-0.5, 0, -0.5],
+                [1, 0, 1],
+                textSize=1,
+                lifeTime=0,
+                physicsClientId=self.environment_parameters.client_id,
+            )
+
+    def _housekeeping(self):
+        self.step_simulation_call = 0
+
+        pos, ang_pos = self.gen_initial_position()
         target_pos, target_ang_pos = np.array([0, 0, 0]), np.array([0, 0, 0])
 
         if self.loyal_wingman is not None:
@@ -163,7 +191,6 @@ class DroneChaseStaticTargetSimulation:
             self.loyal_wingman.show_name()
 
         self.loitering_munition.set_behavior(LoiteringMunitionBehavior.FROZEN)
-        self.start_time = time()
 
         lw_flight_state = self.loyal_wingman.flight_state
         lm_flight_state = self.loitering_munition.flight_state
@@ -267,11 +294,17 @@ class DroneChaseStaticTargetSimulation:
     def compute_termination(self) -> bool:
         """Calculate if the simulation is done."""
 
-        end_time = time()
-        elapsed_time = end_time - self.start_time
+        # end_time = time()
+        # elapsed_time = end_time - self.start_time
         max_episode_time = self.environment_parameters.max_episode_time
 
-        if max_episode_time > 0 and elapsed_time > max_episode_time:
+        # if max_episode_time > 0 and elapsed_time > max_episode_time:
+        #    return True
+
+        if (
+            self.step_simulation_call
+            > max_episode_time * self.environment_parameters.simulation_frequency
+        ):
             return True
 
         if self.is_outside_dome(self.loitering_munition):
@@ -282,21 +315,20 @@ class DroneChaseStaticTargetSimulation:
     def step(self, rl_action: np.ndarray):
         """Execute a step in the simulation based on the RL action."""
 
-        # assert self.loyal_wingman is not None, "Loyal wingman is not initialized"
-        # assert self.loitering_munition is not None
-
         self.last_action = rl_action
-        self.loyal_wingman.drive(rl_action)
-        self.loitering_munition.drive_via_behavior()
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
+            self.loyal_wingman.drive(rl_action)
+            self.loitering_munition.drive_via_behavior()
             p.stepSimulation()
+            self.step_simulation_call += 1
+            self.update_time_text()
 
         self.loyal_wingman.update_imu()
         self.loitering_munition.update_imu()
 
-        self.loyal_wingman.update_lidar()
-        self.loitering_munition.update_lidar()
+        # self.loyal_wingman.update_lidar()
+        # self.loitering_munition.update_lidar()
 
         lw_inertial_data = self.loyal_wingman.flight_state_by_type(
             FlightStateDataType.INERTIAL

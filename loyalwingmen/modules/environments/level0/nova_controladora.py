@@ -318,6 +318,31 @@ class QuadcopterController:
         self.pid_tor_y.update_gains(gains[12], gains[13], gains[14])
         self.pid_tor_z.update_gains(gains[15], gains[16], gains[17])
 
+    def load_preset(self):
+        preset = np.array(
+            [
+                0.9022211,
+                0.8926914,
+                0.20519933,
+                0.16720559,
+                -0.5594407,
+                0.1479129,
+                -0.99965954,
+                -0.76383805,
+                -0.82166857,
+                -0.40160882,
+                -0.2764147,
+                0.26486903,
+                -0.44408566,
+                -0.1498175,
+                -0.02869805,
+                0.7820518,
+                0.62712854,
+                0.09443001,
+            ]
+        )
+        self.update_pid_gains(preset)
+
 
 class PID:
     def __init__(

@@ -29,7 +29,7 @@ class TestPID:
 
         print("desired_value:", desired_value, "current_value:", current_value)
         history = []
-        for _ in range(10):
+        for _ in range(20):
             output = controller.compute(
                 desired_value, current_value, current_value_rate, dt
             )
@@ -57,7 +57,7 @@ class TestPID:
         desired_value = 1
         dt = 1
         kp, ki, kd = 2, 0, 0
-        controller = PID(kp, ki, kd)  # kp inicial = 1, ki = 0, kd = 0
+        controller = PID(kp, ki, kd)
 
         final_values = []
 

@@ -54,24 +54,49 @@ logging.basicConfig(
 
 
 def suggest_parameters(trial: Trial) -> np.ndarray:
-    pid_gains = [trial.suggest_uniform(f"pid_gain_{i}", -1, 1) for i in range(18)]
+    pid_gains = [trial.suggest_float(f"pid_gain_{i}", -1, 1) for i in range(18)]
 
     return np.array(pid_gains, dtype=np.float32)
 
 
 def execute_env(suggestions):
-    pid_autotuner = PIDAutoTuner(10, 30, 240, False)
-    pid_autotuner._reset_simulation(suggestions)
-    desired_velocity = np.ones(3) * 0.5
-    for _ in range(5):
-        pid_autotuner.apply_step_input(desired_velocity)
+    desires = [
+        np.ones(3) * 0.5,
+        np.ones(3),
+        -np.ones(3) * 0.5,
+        -np.ones(3),
+        np.zeros(3),
+        np.array([0, 0, 1]),
+        np.array([0, 1, 0]),
+        np.array([1, 0, 0]),
+        np.array([1, 0, 1]),
+        np.array([1, 1, 0]),
+        np.random.uniform(-1, 1, 3),
+        np.random.uniform(-1, 1, 3),
+        np.random.uniform(-1, 1, 3),
+        np.random.uniform(-1, 1, 3),
+        np.random.uniform(-1, 1, 3),
+    ]
 
-    flight_state = pid_autotuner.quadcopter.flight_state.copy()
-    pid_autotuner.close()
+    scores = []
 
-    return float(
-        np.linalg.norm(desired_velocity - flight_state.get("velocity", np.zeros(3)))
-    )
+    for desired_velocity in desires:
+        pid_autotuner = PIDAutoTuner(10, 30, 240, False)
+        pid_autotuner._reset_simulation(suggestions)
+        for _ in range(5):
+            pid_autotuner.apply_step_input(desired_velocity)
+
+        flight_state = pid_autotuner.quadcopter.flight_state.copy()
+        score = float(
+            np.linalg.norm(desired_velocity - flight_state.get("velocity", np.zeros(3)))
+        )
+
+        if np.isnan(score):
+            score = 1000
+
+        scores.append(score)
+        pid_autotuner.close()
+    return sum(scores) / len(scores)
 
 
 def objective(
@@ -83,6 +108,10 @@ def objective(
 
     score = execute_env(suggestions)
     results = update_results(results, trial.number, score, suggestions)
+
+    data = np.concatenate((suggestions, np.array([score])))
+    df = pd.DataFrame(data)
+    df.to_excel("pid_bo_output.xlsx", index=False)
     return score
 
 

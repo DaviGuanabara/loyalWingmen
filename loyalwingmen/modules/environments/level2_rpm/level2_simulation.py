@@ -286,17 +286,17 @@ class L2RPMDroneChaseSimulation:
 
         self.last_action = self.current_action
         self.current_action = rl_action
-        self.loyal_wingman.drive(rl_action)
-        self.loitering_munition.drive_via_behavior()
 
         for _ in range(self.environment_parameters.aggregate_physics_steps):
+            self.loyal_wingman.drive(rl_action)
+            self.loitering_munition.drive_via_behavior()
             p.stepSimulation()
 
         self.loyal_wingman.update_imu()
         self.loitering_munition.update_imu()
 
-        self.loyal_wingman.update_lidar()
-        self.loitering_munition.update_lidar()
+        # self.loyal_wingman.update_lidar()
+        # self.loitering_munition.update_lidar()
 
         lw_inertial_data = self.loyal_wingman.flight_state_by_type(
             FlightStateDataType.INERTIAL
@@ -491,7 +491,7 @@ class L2RPMDroneChaseSimulation:
 
         position, ang_position = self.gen_initial_position()
 
-        assert self.loitering_munition is not None
+        # assert self.loitering_munition is not None
         self.loitering_munition.detach_from_simulation()
         self.loitering_munition = self.factory.create_loiteringmunition(
             position=position, ang_position=ang_position
