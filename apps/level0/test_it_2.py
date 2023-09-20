@@ -29,7 +29,7 @@ data = {}
 for _ in range(50_000):
     # action = keyboard_listener.get_action()
 
-    action = np.array([0, 0, 0.1, 0.99])
+    action = np.array([0.1, 0, 0, 0.03])
     # print(f"action: {action}")
     for _ in range(int(240)):
         observation, reward, terminated, truncated, info = env.step(action)
